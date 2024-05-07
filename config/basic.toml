@@ -1,0 +1,11 @@
+creature_spawn_x = 2
+creature_spawn_y = 1
+
+plant_spawn_y = 3
+plant_spawn_x = 3
+
+map_radius = 5
+hex_size = 50.0
+
+biome_overlay_update_cooldown = 60.0
+thermal_overlay_update_cooldown = 1.0
