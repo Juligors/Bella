@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_pancam::{PanCam, PanCamPlugin};
 
 pub struct CameraPlugin;
@@ -19,7 +19,7 @@ fn spawn_camera(mut cmd: Commands) {
         Camera2dBundle {
             transform: Transform::from_xyz(0., 0., 1000.),
             projection: OrthographicProjection {
-                scaling_mode: bevy::render::camera::ScalingMode::WindowSize(2.5),
+                scaling_mode: ScalingMode::WindowSize(2.5),
                 ..Default::default()
             },
             ..default()
