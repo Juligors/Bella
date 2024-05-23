@@ -175,25 +175,6 @@ fn update_tile_color_for_thermal(
             .unwrap_or_else(|| panic!("There should be materials prepared for all int temperatures between min and max temperature. This temp: {}", temp))
             .clone()
         }
-
-        // *handle = map
-        //     .medium_materials
-        //     .get(&(temp as &i32))
-        //     .unwrap_or(&map.default_material_low)
-        //     .clone();
-
-        // let color_handles = map
-        //     .medium_materials
-        //     .iter()
-        //     .filter(|(t, _)| *t == temp)
-        //     .map(|(_, h)| h)
-        //     .collect::<Vec<_>>();
-
-        // *handle = if color_handles.len() > 0 {
-        //     color_handles[0].clone()
-        // } else {
-        //     map.default_material.clone()
-        // }
     }
 }
 
