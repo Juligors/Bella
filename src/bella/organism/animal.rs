@@ -1,3 +1,5 @@
+pub mod mobile;
+
 use crate::bella::{
     config::SimConfig,
     organism::{plant::PlantMarker, LifeState},
@@ -11,6 +13,8 @@ use bevy::{
 };
 use rand::{self, Rng};
 use std::time::Duration;
+
+use self::mobile::{move_mobile, Mobile};
 
 pub struct AnimalPlugin;
 
@@ -26,7 +30,7 @@ impl Plugin for AnimalPlugin {
         .add_systems(
             Update,
             (
-                move_animals,
+                move_mobile,
                 update_animal_color,
                 connect_animal_with_medium_its_on,
                 decrease_satiation,
@@ -36,7 +40,7 @@ impl Plugin for AnimalPlugin {
             Update,
             (update_animal_destination).run_if(on_timer(Duration::from_secs(3))),
         )
-        .register_type::<Moving>()
+        .register_type::<Mobile>()
         .register_type::<HungerLevel>()
         .register_type::<SightRange>();
     }
@@ -44,12 +48,6 @@ impl Plugin for AnimalPlugin {
 
 #[derive(Component)]
 struct AnimalMarker;
-
-#[derive(Component, Reflect)]
-struct Moving {
-    dest: Option<Vec2>,
-    speed: f32,
-}
 
 #[derive(Component, Reflect)]
 enum HungerLevel {
@@ -99,7 +97,7 @@ fn spawn_animals(
                     ..default()
                 },
                 LifeState::Alive { hp },
-                Moving {
+                Mobile {
                     dest: None,
                     speed: rng.gen_range(0.2..0.3),
                 },
@@ -145,7 +143,7 @@ fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState
 fn update_animal_destination(
     mut creatures: Query<
         (
-            &mut Moving,
+            &mut Mobile,
             &LifeState,
             &Transform,
             &HungerLevel,
@@ -184,28 +182,6 @@ fn update_animal_destination(
                         transform.translation.y + rng.gen_range(-1000.0..1000.0),
                     )),
                 }
-            }
-        }
-    }
-}
-
-// TODO: move this to movingThing, it's not just for creatures
-fn move_animals(mut creatures: Query<(&mut Moving, &mut Transform)>, map: Res<TileMap>) {
-    for (moving, mut transform) in creatures.iter_mut() {
-        if let Some(destination) = moving.dest {
-            let old_position = Vec2::new(transform.translation.x, transform.translation.y);
-            let position_diff = destination - old_position;
-
-            let move_by = if position_diff.length() <= moving.speed {
-                position_diff
-            } else {
-                position_diff.normalize() * moving.speed
-            };
-
-            let new_position = old_position + move_by;
-            if map.world_pos_in_entities(new_position) {
-                transform.translation.x = new_position.x;
-                transform.translation.y = new_position.y;
             }
         }
     }
