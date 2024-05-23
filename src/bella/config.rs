@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use config::Config;
 
-use crate::system_set::InitializationSet;
+use crate::bella::system_set::InitializationSet;
 
 pub struct ConfigPlugin;
 

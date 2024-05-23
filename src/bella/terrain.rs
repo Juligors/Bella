@@ -1,12 +1,11 @@
 pub mod biome;
-pub mod thermal;
-pub mod visualization;
+pub mod thermal_conductor;
 
 use self::{
-    biome::TerrainType,
-    thermal::{update_temperatures, ThermalConductor},
+    biome::{BiomePlugin, BiomeType},
+    thermal_conductor::{init_thermal_overlay_update_timer, update_temperatures, ThermalConductor, ThermalConductorPlugin},
 };
-use crate::{config::SimConfig, layer::SpriteLayer, system_set::InitializationSet};
+use crate::bella::{config::SimConfig, system_set::InitializationSet, ui::layer::SpriteLayer};
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
@@ -19,7 +18,9 @@ pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        app //.add_systems(schedule, systems)
+        app
+        .add_plugins(ThermalConductorPlugin)
+        .add_plugins(BiomePlugin)
             .add_systems(
                 Startup,
                 (
@@ -31,18 +32,14 @@ impl Plugin for TerrainPlugin {
                 Update,
                 update_temperatures,
                 // .run_if(on_timer(Duration::from_secs(1))), // TODO: this should be timer
-            );
+            )
+            .register_type::<BiomeType>();
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct ThermalOverlayUpdateTimer(Timer);
-
-fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimConfig>) {
-    cmd.insert_resource(ThermalOverlayUpdateTimer(Timer::from_seconds(
-        config.thermal_overlay_update_cooldown,
-        TimerMode::Repeating,
-    )));
+#[derive(Component, Deref, DerefMut)]
+pub struct TerrainPosition{
+    pub hex_pos: Hex,
 }
 
 #[derive(Resource)]
@@ -84,18 +81,17 @@ fn setup_grid(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<S
             let heat = rng.gen_range(min_heat..max_heat);
             let k = ThermalConductor::default_thermal_conductivity();
 
+            let terrain_position = TerrainPosition{hex_pos: hex};
             let medium = ThermalConductor {
-                hex_pos: hex,
                 heat,
                 heat_capacity,
                 thermal_conductivity: k,
             };
-
-            let medium_type = match rng.gen_range(1..=4) {
-                1 => TerrainType::Stone,
-                2 => TerrainType::Dirt,
-                3 => TerrainType::Grass,
-                _ => TerrainType::Water,
+            let biome = match rng.gen_range(1..=4) {
+                1 => BiomeType::Stone,
+                2 => BiomeType::Dirt,
+                3 => BiomeType::Grass,
+                _ => BiomeType::Water,
             };
 
             let entity = cmd
@@ -105,8 +101,9 @@ fn setup_grid(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<S
                         mesh: mesh_handle.clone().into(),
                         ..default()
                     },
+                    terrain_position,
                     medium,
-                    medium_type,
+                    biome,
                     SpriteLayer::Terrain,
                 ))
                 .id();

@@ -1,8 +1,8 @@
-use crate::layer::SpriteLayer;
-use crate::terrain::{thermal::ThermalConductor, TileMap};
-use crate::{
+use crate::bella::{
     config::SimConfig,
     organism::{plant::PlantMarker, LifeState},
+    terrain::{thermal_conductor::ThermalConductor, TileMap},
+    ui::layer::SpriteLayer,
 };
 use bevy::{
     prelude::*,
@@ -12,73 +12,76 @@ use bevy::{
 use rand::{self, Rng};
 use std::time::Duration;
 
-pub struct CreaturePlugin;
+pub struct AnimalPlugin;
 
-impl Plugin for CreaturePlugin {
+impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
             (
-                prepare_creature_assets,
-                spawn_creatures.after(prepare_creature_assets),
+                prepare_animal_assets,
+                spawn_animals.after(prepare_animal_assets),
             ),
         )
         .add_systems(
             Update,
             (
-                move_creatures,
-                update_creature_color,
-                connect_creature_with_medium_its_on,
+                move_animals,
+                update_animal_color,
+                connect_animal_with_medium_its_on,
                 decrease_satiation,
             ),
         )
         .add_systems(
             Update,
-            (update_creature_destination).run_if(on_timer(Duration::from_secs(3))),
-        );
+            (update_animal_destination).run_if(on_timer(Duration::from_secs(3))),
+        )
+        .register_type::<Moving>()
+        .register_type::<HungerLevel>()
+        .register_type::<SightRange>();
     }
 }
 
 #[derive(Component)]
-struct CreatureMarker;
+struct AnimalMarker;
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Moving {
     dest: Option<Vec2>,
     speed: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 enum HungerLevel {
     Satiated(u32),
     Hungry(u32),
     Starving,
 }
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Reflect, Deref, DerefMut)]
 struct SightRange(f32);
 
 #[derive(Resource)]
-struct CreatureAssets {
+struct AnimalAssets {
     alive: Vec<Handle<ColorMaterial>>,
     dead: Handle<ColorMaterial>,
 }
 
-fn prepare_creature_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let creature_assets = CreatureAssets {
+fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    let animal_assets = AnimalAssets {
         alive: (0..=100)
             .map(|i| materials.add(Color::rgb(i as f32 / 100., 0.3, i as f32 / 100.)))
             .collect(),
         dead: materials.add(Color::rgb(0., 0., 0.)),
     };
 
-    cmd.insert_resource(creature_assets);
+    cmd.insert_resource(animal_assets);
 }
 
-fn spawn_creatures(
+fn spawn_animals(
     mut cmd: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    creature_assets: Res<CreatureAssets>,
+    animal_assets: Res<AnimalAssets>,
     config: Res<SimConfig>,
 ) {
     let mesh_handle = Mesh2dHandle(meshes.add(Circle::new(3.)));
@@ -88,10 +91,10 @@ fn spawn_creatures(
         for y in 0..config.creature_spawn_y {
             let hp = 100.;
             cmd.spawn((
-                CreatureMarker,
+                AnimalMarker,
                 MaterialMesh2dBundle {
                     mesh: mesh_handle.clone(),
-                    material: creature_assets.alive[hp as usize].clone(),
+                    material: animal_assets.alive[hp as usize].clone(),
                     transform: Transform::from_xyz(x as f32 * -10. - 50., y as f32 * -5. - 50., 0.),
                     ..default()
                 },
@@ -139,7 +142,7 @@ fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState
     }
 }
 
-fn update_creature_destination(
+fn update_animal_destination(
     mut creatures: Query<
         (
             &mut Moving,
@@ -148,7 +151,7 @@ fn update_creature_destination(
             &HungerLevel,
             &SightRange,
         ),
-        With<CreatureMarker>,
+        With<AnimalMarker>,
     >,
     plants: Query<&Transform, With<PlantMarker>>,
 ) {
@@ -187,7 +190,7 @@ fn update_creature_destination(
 }
 
 // TODO: move this to movingThing, it's not just for creatures
-fn move_creatures(mut creatures: Query<(&mut Moving, &mut Transform)>, map: Res<TileMap>) {
+fn move_animals(mut creatures: Query<(&mut Moving, &mut Transform)>, map: Res<TileMap>) {
     for (moving, mut transform) in creatures.iter_mut() {
         if let Some(destination) = moving.dest {
             let old_position = Vec2::new(transform.translation.x, transform.translation.y);
@@ -208,12 +211,11 @@ fn move_creatures(mut creatures: Query<(&mut Moving, &mut Transform)>, map: Res<
     }
 }
 
-
-fn update_creature_color(
-    mut creatures: Query<(&mut Handle<ColorMaterial>, &mut LifeState), With<CreatureMarker>>,
-    assets: Res<CreatureAssets>,
+fn update_animal_color(
+    mut query: Query<(&mut Handle<ColorMaterial>, &mut LifeState), With<AnimalMarker>>,
+    assets: Res<AnimalAssets>,
 ) {
-    for (mut handle, mut life_state) in creatures.iter_mut() {
+    for (mut handle, mut life_state) in query.iter_mut() {
         // TODO: remove this
         if let LifeState::Alive { hp } = life_state.as_mut() {
             *hp -= 0.01;
@@ -229,8 +231,9 @@ fn update_creature_color(
     }
 }
 
-fn connect_creature_with_medium_its_on(
-    creature_transforms: Query<&Transform, With<CreatureMarker>>,
+// TODO: this doesn't do much, but this logic should be used later on
+fn connect_animal_with_medium_its_on(
+    creature_transforms: Query<&Transform, With<AnimalMarker>>,
     tiles: Query<(Entity, &ThermalConductor)>,
     map: Res<TileMap>,
 ) {

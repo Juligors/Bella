@@ -2,38 +2,114 @@ use std::time::Duration;
 
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 
-use crate::{
+use crate::bella::{
+    config::SimConfig,
     state::TerrainOverlayState,
     system_set::InitializationSet,
-    terrain::{TerrainType, ThermalConductor, TileMap},
+    terrain::{TerrainPosition, TileMap},
 };
 
-use super::ThermalOverlayUpdateTimer;
+pub struct ThermalConductorPlugin;
 
-pub struct TileVisualisationPlugin;
-
-// NOTE: for now we leave it like this and just invoke from main
-// TODO: this plugin used to be invoked in main. Now this should probably be split to temperature.rs and biome.rs?
-// Or just put those functions in terrain.rs plugin? Może popatrz na gry napisane w Bevy
-impl Plugin for TileVisualisationPlugin {
+impl Plugin for ThermalConductorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
-            (
-                initialize_assets_map_temperature,
-                initialize_assets_map_biomes,
-            )
-                .in_set(InitializationSet::TerrainVisualization),
-        )
-        .add_systems(
-            Update,
-            update_tile_color_for_biome.run_if(in_state(TerrainOverlayState::Bioms)),
+            (initialize_assets_map_temperature,).in_set(InitializationSet::TerrainVisualization),
         )
         .add_systems(
             Update,
             update_tile_color_for_thermal.run_if(in_state(TerrainOverlayState::Thermal)),
         )
         .add_systems(Update, handle_select_input);
+    }
+}
+
+#[derive(Component)]
+pub struct ThermalConductor {
+    /// https://pl.wikipedia.org/wiki/Ciep%C5%82o
+    pub heat: f32,
+    /// With `heat_capacity` we can calculate heat-to-temperature conversion:
+    /// `Q = C * delta_T`, where Q is heat, C is heat_capacity and delta_T is temperature difference.
+    /// More: https://pl.wikipedia.org/wiki/Pojemno%C5%9B%C4%87_cieplna
+    pub heat_capacity: f32,
+    /// `Thermal_conductivity` controls how much Heat is transfered between 2 or more `Medium` instances with different temperatures.
+    /// More: https://pl.wikipedia.org/wiki/Przewodno%C5%9B%C4%87_cieplna
+    pub thermal_conductivity: f32,
+}
+
+impl ThermalConductor {
+    pub fn temperature(&self) -> f32 {
+        self.heat / self.heat_capacity
+    }
+
+    pub const fn min_temperature() -> f32 {
+        0.
+    }
+
+    pub const fn max_temperature() -> f32 {
+        100.
+    }
+
+    pub const fn default_heat_capacity() -> f32 {
+        1000.
+    }
+
+    pub const fn default_thermal_conductivity() -> f32 {
+        20.
+    }
+
+    pub const fn default_heat_lose() -> f32 {
+        50.
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct ThermalOverlayUpdateTimer(Timer);
+
+pub fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimConfig>) {
+    cmd.insert_resource(ThermalOverlayUpdateTimer(Timer::from_seconds(
+        config.thermal_overlay_update_cooldown,
+        TimerMode::Repeating,
+    )));
+}
+
+pub fn update_temperatures(mut query: Query<(&TerrainPosition, &mut ThermalConductor)>) {
+    let (hexes, mut media_org): (Vec<_>, Vec<_>) = query.iter_mut().unzip();
+
+    // we will set all heat at once to make sure order of iteration doesn't matter and energy is conserved
+    let mut heat_diffs: Vec<f32> = Vec::with_capacity(media_org.capacity());
+
+    for i in 0..media_org.len() {
+        let all_neighbour_hexes = hexes[i].all_neighbors();
+
+        let all_existing_neighbours = hexes
+            .iter()
+            .enumerate()
+            .filter(|(_, hex)| all_neighbour_hexes.contains(hex))
+            .map(|(e, _)| e)
+            .collect::<Vec<_>>();
+
+        let heat_diff = all_existing_neighbours
+            .iter()
+            .map(|&neighbour_i| {
+                let temp_diff = media_org[i].temperature() - media_org[neighbour_i].temperature();
+                media_org[i].thermal_conductivity * temp_diff
+            })
+            .sum();
+
+        heat_diffs.push(heat_diff);
+    }
+
+    // set all heat at once
+    // also lower temperature by constant, like it's getting colder with time
+    for i in 0..media_org.len() {
+        media_org[i].heat -= heat_diffs[i] + ThermalConductor::default_heat_lose();
+
+        // if temperature is below minimal set it to minimal
+        if media_org[i].temperature() < ThermalConductor::min_temperature() {
+            media_org[i].heat = ThermalConductor::min_temperature() * media_org[i].heat_capacity;
+        }
     }
 }
 
@@ -44,43 +120,6 @@ pub struct AssetsMapTemperature {
     pub default_material_high: Handle<ColorMaterial>,
     pub selected_material: Handle<ColorMaterial>,
 }
-
-#[derive(Resource)]
-pub struct AssetsMapBiomes {
-    pub medium_type_materials: HashMap<TerrainType, Handle<ColorMaterial>>,
-}
-
-// TODO: this is an old attempt. Maybe something somewhat similar, but with better visualisation/logic separation?
-// trait TempHashMap {
-//     fn get_value_for(
-//         &self,
-//         temp: f32,
-//         min_temp: f32,
-//         max_temp: f32,
-//         rate: f32,
-//     ) -> Handle<ColorMaterial>;
-// }
-//
-// impl TempHashMap for Map {
-//     fn get_value_for(
-//         &self,
-//         temp: f32,
-//         min_temp: f32,
-//         max_temp: f32,
-//         rate: f32,
-//     ) -> Handle<ColorMaterial> {
-//         if temp < min_temp {
-//             self.default_material_low.clone()
-//         } else if temp > max_temp {
-//             self.default_material_high.clone()
-//         } else {
-//             let perc = (temp - min_temp) / (max_temp - min_temp);
-//             let one_part = (max_temp - min_temp) / rate;
-//             self.default_material_low.clone()
-//         }
-//     }
-// }
-
 fn initialize_assets_map_temperature(
     mut cmd: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -113,19 +152,6 @@ fn initialize_assets_map_temperature(
         default_material_high,
     });
 }
-fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let medium_type_materials = HashMap::from([
-        (TerrainType::Stone, materials.add(Color::rgb(0.5, 0.5, 0.5))),
-        (TerrainType::Dirt, materials.add(Color::rgb(0.6, 0.3, 0.0))),
-        (TerrainType::Grass, materials.add(Color::rgb(0.2, 0.7, 0.2))),
-        (TerrainType::Water, materials.add(Color::rgb(0.2, 0.4, 0.9))),
-    ]);
-
-    cmd.insert_resource(AssetsMapBiomes {
-        medium_type_materials,
-    });
-}
-
 fn update_tile_color_for_thermal(
     mut tiles: Query<(&mut Handle<ColorMaterial>, &ThermalConductor)>,
     assets_map: Res<AssetsMapTemperature>,
@@ -171,26 +197,11 @@ fn update_tile_color_for_thermal(
     }
 }
 
-fn update_tile_color_for_biome(
-    mut tiles: Query<(&mut Handle<ColorMaterial>, &TerrainType)>,
-    assets_map: Res<AssetsMapBiomes>,
-) {
-    for (mut handle, medium_type) in tiles.iter_mut() {
-        *handle = assets_map
-            .medium_type_materials
-            .get(medium_type)
-            .unwrap()
-            .clone();
-    }
-}
-
-// TODO: take a look at that and where it should go. If we don't separate logic anc visualisation then probably just thermal.rs?
 fn handle_select_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     mut tiles: Query<(&mut Handle<ColorMaterial>, &mut ThermalConductor, Entity)>,
     map: Res<TileMap>,
-    assets_map: Res<AssetsMapTemperature>,
 ) {
     let (camera, camera_transform) = cameras.single();
     let Some(cursor_position) = windows.single().cursor_position() else {
@@ -202,9 +213,8 @@ fn handle_select_input(
     };
 
     if let Some(selected_entity) = map.world_pos_to_entity(pos) {
-        for (mut handle, mut medium, entity) in tiles.iter_mut() {
+        for (_handle, mut medium, entity) in tiles.iter_mut() {
             if entity == selected_entity {
-                *handle = assets_map.selected_material.clone();
                 medium.heat = medium.heat_capacity * ThermalConductor::max_temperature();
             }
         }

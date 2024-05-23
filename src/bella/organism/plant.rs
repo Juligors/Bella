@@ -3,9 +3,7 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
-use crate::{config::SimConfig, layer::SpriteLayer};
-
-use super::LifeState;
+use crate::bella::{config::SimConfig, organism::LifeState, ui::layer::SpriteLayer};
 
 pub struct PlantPlugin;
 

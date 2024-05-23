@@ -1,9 +1,9 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_pancam::{PanCam, PanCamPlugin};
 
-pub struct CameraPlugin;
+pub struct MyCameraPlugin;
 
-impl Plugin for CameraPlugin {
+impl Plugin for MyCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PanCamPlugin)
             .add_systems(Startup, spawn_camera);

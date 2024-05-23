@@ -3,9 +3,9 @@ use bevy::{
     window::{close_on_esc, CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
-pub struct BasicWindowPlugin;
+pub struct MyWindowPlugin;
 
-impl Plugin for BasicWindowPlugin {
+impl Plugin for MyWindowPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             DefaultPlugins.set(WindowPlugin {
