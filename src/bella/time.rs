@@ -1,28 +1,32 @@
-// TODO: do we need it? every thing that needs timer/stopwatch should probably have its own one
+use std::time::Duration;
 
-// use std::time::Duration;
+use bevy::prelude::*;
 
-// use bevy::{prelude::*, time::Stopwatch};
+pub struct TimePlugin;
 
-// pub struct SimTimePlugin;
+impl Plugin for TimePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<HourPassedEvent>()
+            .add_systems(Startup, init_hourly_timer)
+            .add_systems(PreUpdate, send_time_events);
+    }
+}
 
-// impl Plugin for SimTimePlugin {
-//     fn build(&self, app: &mut App) {
-//         app.init_resource::<SimStopwatch>()
-//             .add_systems(PreUpdate, tick_sim_stopwatch);
-//     }
-// }
+#[derive(Event)]
+pub struct HourPassedEvent;
 
-// #[derive(Resource, Deref, DerefMut)]
-// pub struct SimStopwatch(Stopwatch);
+#[derive(Resource, Deref, DerefMut)]
+struct HourlyTimer(Timer);
 
-// impl Default for SimStopwatch {
-//     fn default() -> Self {
-//         SimStopwatch(Stopwatch::new())
-//     }
-// }
+fn init_hourly_timer(mut cmd: Commands) {
+    cmd.insert_resource(HourlyTimer(Timer::from_seconds(60.0, TimerMode::Repeating)));
+}
 
-// /// System that increases simulation stopwatch by 1 unit (frame). We don't actually use seconds, we just treat seconds as frames.
-// fn tick_sim_stopwatch(mut stopwatch: ResMut<SimStopwatch>) {
-//     stopwatch.tick(Duration::from_secs(1));
-// }
+fn send_time_events(
+    mut ev_hour_passed: EventWriter<HourPassedEvent>,
+    mut timer: ResMut<HourlyTimer>,
+) {
+    if timer.tick(Duration::from_secs(1)).just_finished() {
+        ev_hour_passed.send(HourPassedEvent);
+    }
+}

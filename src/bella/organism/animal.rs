@@ -1,9 +1,11 @@
 pub mod mobile;
+pub mod visual;
 
 use crate::bella::{
     config::SimConfig,
-    organism::{plant::PlantMarker, LifeState},
+    organism::LifeState,
     terrain::{thermal_conductor::ThermalConductor, TileMap},
+    time::HourPassedEvent,
     ui::layer::SpriteLayer,
 };
 use bevy::{
@@ -14,7 +16,10 @@ use bevy::{
 use rand::{self, Rng};
 use std::time::Duration;
 
-use self::mobile::{move_mobile, Mobile};
+use self::{
+    mobile::{choose_new_animal_destination, move_mobile, Mobile},
+    visual::{prepare_animal_assets, update_animal_color, AnimalAssets},
+};
 
 pub struct AnimalPlugin;
 
@@ -34,11 +39,8 @@ impl Plugin for AnimalPlugin {
                 update_animal_color,
                 connect_animal_with_medium_its_on,
                 decrease_satiation,
+                (choose_new_animal_destination).run_if(on_timer(Duration::from_secs(3))),
             ),
-        )
-        .add_systems(
-            Update,
-            (update_animal_destination).run_if(on_timer(Duration::from_secs(3))),
         )
         .register_type::<Mobile>()
         .register_type::<HungerLevel>()
@@ -47,34 +49,17 @@ impl Plugin for AnimalPlugin {
 }
 
 #[derive(Component)]
-struct AnimalMarker;
+pub struct AnimalMarker;
 
 #[derive(Component, Reflect)]
-enum HungerLevel {
+pub enum HungerLevel {
     Satiated(u32),
     Hungry(u32),
     Starving,
 }
 
 #[derive(Component, Reflect, Deref, DerefMut)]
-struct SightRange(f32);
-
-#[derive(Resource)]
-struct AnimalAssets {
-    alive: Vec<Handle<ColorMaterial>>,
-    dead: Handle<ColorMaterial>,
-}
-
-fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let animal_assets = AnimalAssets {
-        alive: (0..=100)
-            .map(|i| materials.add(Color::rgb(i as f32 / 100., 0.3, i as f32 / 100.)))
-            .collect(),
-        dead: materials.add(Color::rgb(0., 0., 0.)),
-    };
-
-    cmd.insert_resource(animal_assets);
-}
+pub struct SightRange(f32);
 
 fn spawn_animals(
     mut cmd: Commands,
@@ -109,100 +94,38 @@ fn spawn_animals(
     }
 }
 
-// TODO: add this to the sceduler. How often should it run? probably every time event like "HourPassed" or "TimeTickPassed" is emited.
-fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState)>) {
+fn decrease_satiation(
+    mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState)>,
+    mut er_hour_passed: EventReader<HourPassedEvent>,
+) {
+    if er_hour_passed.is_empty() {
+        return;
+    }
+
+    er_hour_passed.clear();
+
     for (mut hunger_level, mut life_state) in hunger_levels.iter_mut() {
         if let LifeState::Alive { hp } = life_state.as_mut() {
             *hunger_level = match *hunger_level {
                 HungerLevel::Satiated(level) => {
                     if level > 1 {
-                        HungerLevel::Satiated(level - 1)
+                        HungerLevel::Satiated(level - 10)
                     } else {
                         HungerLevel::Hungry(100)
                     }
                 }
                 HungerLevel::Hungry(level) => {
                     if level > 1 {
-                        HungerLevel::Hungry(level - 1)
+                        HungerLevel::Hungry(level - 20)
                     } else {
                         HungerLevel::Starving
                     }
                 }
                 HungerLevel::Starving => {
-                    *hp -= 1.;
-                    if *hp <= 0. {
-                        *life_state = LifeState::Dead;
-                    }
-                    HungerLevel::Starving // TODO: can something be starving and dead at the same time? should probably change this enum
+                    *hp -= 10.;
+                    HungerLevel::Starving
                 }
             }
-        }
-    }
-}
-
-fn update_animal_destination(
-    mut creatures: Query<
-        (
-            &mut Mobile,
-            &LifeState,
-            &Transform,
-            &HungerLevel,
-            &SightRange,
-        ),
-        With<AnimalMarker>,
-    >,
-    plants: Query<&Transform, With<PlantMarker>>,
-) {
-    let mut rng = rand::thread_rng();
-
-    for (mut moving, life_state, transform, hunger_level, sight_range) in creatures.iter_mut() {
-        if let LifeState::Dead = life_state {
-            moving.speed = 0.;
-            continue;
-        }
-
-        match hunger_level {
-            HungerLevel::Satiated(_) => continue,
-            HungerLevel::Hungry(_) | HungerLevel::Starving => {
-                let nearest_plant = plants
-                    .iter()
-                    .map(|&p_trans| {
-                        let plant = Vec2::new(p_trans.translation.x, p_trans.translation.y);
-                        let creature = Vec2::new(transform.translation.x, transform.translation.y);
-                        (plant, creature.distance(plant))
-                    })
-                    .filter(|(_, distance)| distance < sight_range)
-                    .min_by(|a, b| a.1.total_cmp(&b.1));
-
-                moving.dest = match nearest_plant {
-                    Some((plant_pos, _)) => Some(plant_pos),
-                    None => Some(Vec2::new(
-                        // TODO: hardcoded values
-                        transform.translation.x + rng.gen_range(-1000.0..1000.0),
-                        transform.translation.y + rng.gen_range(-1000.0..1000.0),
-                    )),
-                }
-            }
-        }
-    }
-}
-
-fn update_animal_color(
-    mut query: Query<(&mut Handle<ColorMaterial>, &mut LifeState), With<AnimalMarker>>,
-    assets: Res<AnimalAssets>,
-) {
-    for (mut handle, mut life_state) in query.iter_mut() {
-        // TODO: remove this
-        if let LifeState::Alive { hp } = life_state.as_mut() {
-            *hp -= 0.01;
-            if *hp <= 0. {
-                *life_state = LifeState::Dead;
-            }
-        }
-
-        match life_state.as_mut() {
-            LifeState::Alive { hp } => *handle = assets.alive[*hp as usize].clone(),
-            LifeState::Dead => *handle = assets.dead.clone(),
         }
     }
 }
