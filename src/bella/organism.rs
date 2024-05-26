@@ -14,7 +14,7 @@ impl Plugin for OrganismPlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 pub enum LifeState {
     Alive { hp: f32 },
     Dead,
