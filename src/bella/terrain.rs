@@ -3,7 +3,10 @@ pub mod thermal_conductor;
 
 use self::{
     biome::{BiomePlugin, BiomeType},
-    thermal_conductor::{init_thermal_overlay_update_timer, update_temperatures, ThermalConductor, ThermalConductorPlugin},
+    thermal_conductor::{
+        init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
+        ThermalConductorPlugin,
+    },
 };
 use crate::bella::{config::SimConfig, system_set::InitializationSet, ui::layer::SpriteLayer};
 use bevy::{
@@ -12,20 +15,25 @@ use bevy::{
     utils::hashbrown::HashMap,
 };
 use hexx::{shapes, *};
+use noise::{
+    core::open_simplex::open_simplex_2d,
+    permutationtable::PermutationTable,
+    utils::{NoiseMapBuilder, PlaneMapBuilder},
+    HybridMulti, Perlin,
+};
 use rand::Rng;
 
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .add_plugins(ThermalConductorPlugin)
-        .add_plugins(BiomePlugin)
+        app.add_plugins(ThermalConductorPlugin)
+            .add_plugins(BiomePlugin)
             .add_systems(
                 Startup,
                 (
                     init_thermal_overlay_update_timer.in_set(InitializationSet::ConfigLoad),
-                    setup_grid.in_set(InitializationSet::TerrainGeneration),
+                    generate_terrain.in_set(InitializationSet::TerrainGeneration),
                 ),
             )
             .add_systems(
@@ -38,7 +46,7 @@ impl Plugin for TerrainPlugin {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct TerrainPosition{
+pub struct TerrainPosition {
     pub hex_pos: Hex,
 }
 
@@ -58,6 +66,79 @@ impl TileMap {
         let hex = self.layout.world_pos_to_hex(position);
         self.entities.contains_key(&hex)
     }
+}
+fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
+    let mut rng = rand::thread_rng();
+
+    let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::default())
+        .set_size(
+            (config.map_radius * 2 + 1) as usize,
+            (config.map_radius * 2 + 1) as usize,
+        )
+        .build();
+
+    noise_map.write_to_file(std::path::Path::new("test.png"));
+
+    let layout = HexLayout {
+        hex_size: Vec2::splat(config.hex_size),
+        ..default()
+    };
+
+    let mesh = hexagonal_plane(&layout);
+    let mesh_handle = meshes.add(mesh);
+
+    // let entities = shapes::hexagon(Hex::ZERO, config.map_radius)
+    let entities = shapes::flat_rectangle([
+        -(config.map_radius as i32),
+        (config.map_radius as i32),
+        -(config.map_radius as i32),
+        (config.map_radius as i32),
+    ])
+    .map(|hex| {
+        let pos = layout.hex_to_world_pos(hex);
+        let terrain_position = TerrainPosition { hex_pos: hex };
+
+        let noise_value = noise_map.get_value(
+            (hex.x + config.map_radius as i32) as usize,
+            (hex.y + config.map_radius as i32) as usize,
+        );
+        let biome = match noise_value {
+            x if x < 0.3 => BiomeType::Grass,
+            x if x < 0.6 => BiomeType::Dirt,
+            x if x < 1.0 => BiomeType::Water,
+            _ => BiomeType::Water,
+        };
+
+        let heat_capacity = ThermalConductor::default_heat_capacity();
+        let min_heat = heat_capacity * ThermalConductor::min_temperature();
+        let max_heat = heat_capacity * ThermalConductor::max_temperature();
+        let heat = rng.gen_range(min_heat..max_heat);
+        let k = ThermalConductor::default_thermal_conductivity();
+        let thermal_conductor = ThermalConductor {
+            heat,
+            heat_capacity,
+            thermal_conductivity: k,
+        };
+
+        let terrain_tile = cmd
+            .spawn((
+                ColorMesh2dBundle {
+                    transform: Transform::from_xyz(pos.x, pos.y, 0.),
+                    mesh: mesh_handle.clone().into(),
+                    ..default()
+                },
+                terrain_position,
+                biome,
+                thermal_conductor,
+                SpriteLayer::Terrain,
+            ))
+            .id();
+
+        (hex, terrain_tile)
+    })
+    .collect();
+
+    cmd.insert_resource(TileMap { layout, entities });
 }
 
 fn setup_grid(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
@@ -81,7 +162,7 @@ fn setup_grid(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<S
             let heat = rng.gen_range(min_heat..max_heat);
             let k = ThermalConductor::default_thermal_conductivity();
 
-            let terrain_position = TerrainPosition{hex_pos: hex};
+            let terrain_position = TerrainPosition { hex_pos: hex };
             let medium = ThermalConductor {
                 heat,
                 heat_capacity,

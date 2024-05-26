@@ -32,8 +32,8 @@ pub struct AssetsMapBiomes {
 fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let medium_type_materials = HashMap::from([
         (BiomeType::Stone, materials.add(Color::rgb(0.5, 0.5, 0.5))),
-        (BiomeType::Dirt, materials.add(Color::rgb(0.6, 0.3, 0.0))),
-        (BiomeType::Grass, materials.add(Color::rgb(0.2, 0.7, 0.2))),
+        (BiomeType::Dirt, materials.add(Color::rgb(0.7, 0.4, 0.1))),
+        (BiomeType::Grass, materials.add(Color::rgb(0.4, 0.9, 0.4))),
         (BiomeType::Water, materials.add(Color::rgb(0.2, 0.4, 0.9))),
     ]);
 
