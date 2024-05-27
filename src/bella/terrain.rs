@@ -77,7 +77,7 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
         )
         .build();
 
-    noise_map.write_to_file(std::path::Path::new("test.png"));
+    // noise_map.write_to_file(std::path::Path::new("test.png"));
 
     let layout = HexLayout {
         hex_size: Vec2::splat(config.hex_size),
@@ -137,61 +137,6 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
         (hex, terrain_tile)
     })
     .collect();
-
-    cmd.insert_resource(TileMap { layout, entities });
-}
-
-fn setup_grid(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
-    let mut rng = rand::thread_rng();
-
-    let layout = HexLayout {
-        hex_size: Vec2::splat(config.hex_size),
-        ..default()
-    };
-
-    let mesh = hexagonal_plane(&layout);
-    let mesh_handle = meshes.add(mesh);
-
-    let entities = shapes::hexagon(Hex::ZERO, config.map_radius)
-        // let entities = shapes::flat_rectangle([-5, 5, -5, 4])
-        .map(|hex| {
-            let pos = layout.hex_to_world_pos(hex);
-            let heat_capacity = ThermalConductor::default_heat_capacity();
-            let min_heat = heat_capacity * ThermalConductor::min_temperature();
-            let max_heat = heat_capacity * ThermalConductor::max_temperature();
-            let heat = rng.gen_range(min_heat..max_heat);
-            let k = ThermalConductor::default_thermal_conductivity();
-
-            let terrain_position = TerrainPosition { hex_pos: hex };
-            let medium = ThermalConductor {
-                heat,
-                heat_capacity,
-                thermal_conductivity: k,
-            };
-            let biome = match rng.gen_range(1..=4) {
-                1 => BiomeType::Stone,
-                2 => BiomeType::Dirt,
-                3 => BiomeType::Grass,
-                _ => BiomeType::Water,
-            };
-
-            let entity = cmd
-                .spawn((
-                    ColorMesh2dBundle {
-                        transform: Transform::from_xyz(pos.x, pos.y, 0.),
-                        mesh: mesh_handle.clone().into(),
-                        ..default()
-                    },
-                    terrain_position,
-                    medium,
-                    biome,
-                    SpriteLayer::Terrain,
-                ))
-                .id();
-
-            (hex, entity)
-        })
-        .collect();
 
     cmd.insert_resource(TileMap { layout, entities });
 }
