@@ -27,8 +27,9 @@ pub struct SimConfig {
     pub creature_spawn_x: i32,
     pub creature_spawn_y: i32,
 
-    pub plant_spawn_y: i32,
-    pub plant_spawn_x: i32,
+    pub plant_group_spawn_chance_grass: f32,
+    pub plant_group_size_min: u32,
+    pub plant_group_size_max: u32,
 
     pub map_radius: u32,
     pub hex_size: f32,

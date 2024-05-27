@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 
-use crate::bella::{state::TerrainOverlayState, system_set::InitializationSet};
+use crate::bella::state::TerrainOverlayState;
 
 pub struct BiomePlugin;
 
@@ -8,7 +8,7 @@ impl Plugin for BiomePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Startup,
-            (initialize_assets_map_biomes,).in_set(InitializationSet::TerrainVisualization),
+            initialize_assets_map_biomes,
         )
         .add_systems(
             Update,

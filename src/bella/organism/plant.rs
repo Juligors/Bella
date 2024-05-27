@@ -1,16 +1,31 @@
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
+use rand::Rng;
 
-use crate::bella::{config::SimConfig, organism::LifeState, ui::layer::SpriteLayer};
+use crate::bella::{
+    config::SimConfig,
+    organism::LifeState,
+    system_set::InitializationSet,
+    terrain::{biome::BiomeType, TerrainPosition, TileMap},
+    ui::layer::SpriteLayer,
+};
 
 pub struct PlantPlugin;
 
 impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (prepare_plant_assets, spawn_plants).chain())
-            .add_systems(Update, update_plant_color);
+        app.add_systems(
+            Startup,
+            (
+                prepare_plant_assets,
+                spawn_plants.in_set(InitializationSet::PlantSpawning),
+            ),
+        )
+        .add_systems(Update, update_plant_color);
     }
 }
 
@@ -39,18 +54,48 @@ fn spawn_plants(
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
     config: Res<SimConfig>,
+    tiles: Query<(&BiomeType, &TerrainPosition)>,
+    tile_map: Res<TileMap>,
 ) {
+    let mut rng = rand::thread_rng();
     let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(3., 3.)));
 
-    for x in 0..config.plant_spawn_x {
-        for y in 0..config.plant_spawn_y {
+    for (biome_type, terrain_position) in tiles.iter() {
+        if !rng.gen_bool(config.plant_group_spawn_chance_grass as f64) {
+            continue;
+        }
+
+        if *biome_type != BiomeType::Grass {
+            continue;
+        }
+
+        let group_middle_pos = tile_map.layout.hex_to_world_pos(terrain_position.hex_pos);
+        let plant_count = rng.gen_range(config.plant_group_size_min..config.plant_group_size_max);
+
+        for _ in 0..plant_count {
             let hp = 100.;
+
+            // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
+            let sqrt3 = 3.0f32.sqrt();
+            let vectors = [(-1., 0.), (0.5, sqrt3 / 2.), (0.5, -sqrt3 / 2.)];
+
+            let index = rng.gen_range(0..=2);
+            let vector_x = vectors[index];
+            let vector_y = vectors[(index + 1) % 3];
+
+            let (base_x, base_y) = rng.gen::<(f32, f32)>();
+            let x_offset = base_x * vector_x.0 + base_y * vector_y.0;
+            let y_offset = base_x * vector_x.1 + base_y * vector_y.1;
+
+            let x = group_middle_pos.x + x_offset * config.hex_size;
+            let y = group_middle_pos.y + y_offset * config.hex_size;
+
             cmd.spawn((
                 PlantMarker,
                 MaterialMesh2dBundle {
                     mesh: mesh_handle.clone(),
                     material: plant_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x as f32 * 25., y as f32 * 20., 1.),
+                    transform: Transform::from_xyz(x, y, 1.),
                     ..default()
                 },
                 LifeState::Alive { hp },

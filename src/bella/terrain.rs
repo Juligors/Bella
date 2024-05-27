@@ -50,8 +50,8 @@ pub struct TerrainPosition {
 
 #[derive(Resource)]
 pub struct TileMap {
-    layout: HexLayout,
-    entities: HashMap<Hex, Entity>,
+    pub layout: HexLayout,
+    pub entities: HashMap<Hex, Entity>,
 }
 
 impl TileMap {
@@ -66,9 +66,13 @@ impl TileMap {
     }
 }
 fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
-    let mut rng = rand::thread_rng();
+    let current_time = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .expect("Can't read system time.")
+    .as_secs();
 
-    let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::default())
+    let mut rng = rand::thread_rng();
+    let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::new(current_time as u32))
         .set_size(
             (config.map_radius * 2 + 1) as usize,
             (config.map_radius * 2 + 1) as usize,
@@ -77,12 +81,12 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
 
     // noise_map.write_to_file(std::path::Path::new("test.png"));
 
-    let layout = HexLayout {
+    let hex_layout = HexLayout {
         hex_size: Vec2::splat(config.hex_size),
         ..default()
     };
 
-    let mesh = hexagonal_plane(&layout);
+    let mesh = hexagonal_plane(&hex_layout);
     let mesh_handle = meshes.add(mesh);
 
     // let entities = shapes::hexagon(Hex::ZERO, config.map_radius)
@@ -93,7 +97,7 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
         (config.map_radius as i32),
     ])
     .map(|hex| {
-        let pos = layout.hex_to_world_pos(hex);
+        let pos = hex_layout.hex_to_world_pos(hex);
         let terrain_position = TerrainPosition { hex_pos: hex };
 
         let noise_value = noise_map.get_value(
@@ -136,12 +140,12 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
     })
     .collect();
 
-    cmd.insert_resource(TileMap { layout, entities });
+    cmd.insert_resource(TileMap { layout: hex_layout, entities });
 }
 
 // --------------------------------------- helpers ---------------------------------------
 
-/// idk what it does, it's probably needed tho
+/// idk what it does, it's probably needed tho.
 fn hexagonal_plane(hex_layout: &HexLayout) -> Mesh {
     let mesh_info = PlaneMeshBuilder::new(hex_layout)
         .facing(Vec3::Z)

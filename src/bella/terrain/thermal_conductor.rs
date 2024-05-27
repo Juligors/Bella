@@ -5,7 +5,6 @@ use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use crate::bella::{
     config::SimConfig,
     state::TerrainOverlayState,
-    system_set::InitializationSet,
     terrain::{TerrainPosition, TileMap},
 };
 
@@ -13,15 +12,12 @@ pub struct ThermalConductorPlugin;
 
 impl Plugin for ThermalConductorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            (initialize_assets_map_temperature,).in_set(InitializationSet::TerrainVisualization),
-        )
-        .add_systems(
-            Update,
-            update_tile_color_for_thermal.run_if(in_state(TerrainOverlayState::Thermal)),
-        )
-        .add_systems(Update, handle_select_input);
+        app.add_systems(Startup, initialize_assets_map_temperature)
+            .add_systems(
+                Update,
+                update_tile_color_for_thermal.run_if(in_state(TerrainOverlayState::Thermal)),
+            )
+            .add_systems(Update, handle_select_input);
     }
 }
 
