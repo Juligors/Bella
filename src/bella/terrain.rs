@@ -16,8 +16,6 @@ use bevy::{
 };
 use hexx::{shapes, *};
 use noise::{
-    core::open_simplex::open_simplex_2d,
-    permutationtable::PermutationTable,
     utils::{NoiseMapBuilder, PlaneMapBuilder},
     HybridMulti, Perlin,
 };

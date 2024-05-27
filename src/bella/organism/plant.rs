@@ -9,14 +9,8 @@ pub struct PlantPlugin;
 
 impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            (
-                prepare_plant_assets,
-                spawn_plants.after(prepare_plant_assets),
-            ),
-        )
-        .add_systems(Update, update_plant_color);
+        app.add_systems(Startup, (prepare_plant_assets, spawn_plants).chain())
+            .add_systems(Update, update_plant_color);
     }
 }
 
