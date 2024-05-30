@@ -8,11 +8,12 @@ use bella::state::StatePlugin;
 use bella::system_set::SystemSetPlugin;
 use bella::terrain::TerrainPlugin;
 use bella::time::TimePlugin;
+use bella::environment::EnvironmentPlugin;
 use bella::ui::UiPlugin;
 
 fn main() {
     App::new()
-        .add_plugins((ConfigPlugin, SystemSetPlugin, StatePlugin, TimePlugin))
+        .add_plugins((ConfigPlugin, SystemSetPlugin, StatePlugin, TimePlugin, EnvironmentPlugin))
         .add_plugins(UiPlugin)
         .add_plugins((TerrainPlugin, OrganismPlugin))
         .run();

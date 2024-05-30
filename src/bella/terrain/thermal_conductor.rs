@@ -65,7 +65,7 @@ pub struct ThermalOverlayUpdateTimer(Timer);
 
 pub fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimConfig>) {
     cmd.insert_resource(ThermalOverlayUpdateTimer(Timer::from_seconds(
-        config.thermal_overlay_update_cooldown,
+        config.terrain.thermal_overlay_update_cooldown,
         TimerMode::Repeating,
     )));
 }

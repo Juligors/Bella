@@ -1,0 +1,6 @@
+group_spawn_chance_grass = 0.2
+group_size_min = 3
+group_size_max = 10
+
+development_time = 10
+waiting_for_reproduction_time = 3

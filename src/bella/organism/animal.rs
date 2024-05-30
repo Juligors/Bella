@@ -38,7 +38,7 @@ impl Plugin for AnimalPlugin {
                 move_mobile,
                 update_animal_color,
                 connect_animal_with_medium_its_on,
-                decrease_satiation,
+                decrease_satiation.run_if(on_event::<HourPassedEvent>()),
                 (choose_new_animal_destination).run_if(on_timer(Duration::from_secs(3))),
             ),
         )
@@ -70,8 +70,8 @@ fn spawn_animals(
     let mesh_handle = Mesh2dHandle(meshes.add(Circle::new(3.)));
     let mut rng = rand::thread_rng();
 
-    for x in 0..config.creature_spawn_x {
-        for y in 0..config.creature_spawn_y {
+    for x in 0..config.animal.creature_spawn_x {
+        for y in 0..config.animal.creature_spawn_y {
             let hp = 100.;
             cmd.spawn((
                 AnimalMarker,
@@ -94,16 +94,7 @@ fn spawn_animals(
     }
 }
 
-fn decrease_satiation(
-    mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState)>,
-    mut er_hour_passed: EventReader<HourPassedEvent>,
-) {
-    if er_hour_passed.is_empty() {
-        return;
-    }
-
-    er_hour_passed.clear();
-
+fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut LifeState)>) {
     for (mut hunger_level, mut life_state) in hunger_levels.iter_mut() {
         if let LifeState::Alive { hp } = life_state.as_mut() {
             *hunger_level = match *hunger_level {
@@ -148,14 +139,9 @@ fn connect_animal_with_medium_its_on(
                     if tile_entity != e {
                         continue;
                     }
-
-                    // println!(
-                    //     "Right now I'm over tile with temperature {}",
-                    //     medium.get_temp()
-                    // );
                 }
             }
-            None => println!("No tile under this creature :("),
+            None => error!("No tile under this creature :("),
         }
     }
 }

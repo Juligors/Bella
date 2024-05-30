@@ -67,22 +67,22 @@ impl TileMap {
 }
 fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
     let current_time = std::time::SystemTime::now()
-    .duration_since(std::time::UNIX_EPOCH)
-    .expect("Can't read system time.")
-    .as_secs();
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("Can't read system time.")
+        .as_secs();
 
     let mut rng = rand::thread_rng();
     let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::new(current_time as u32))
         .set_size(
-            (config.map_radius * 2 + 1) as usize,
-            (config.map_radius * 2 + 1) as usize,
+            (config.terrain.map_radius * 2 + 1) as usize,
+            (config.terrain.map_radius * 2 + 1) as usize,
         )
         .build();
 
     // noise_map.write_to_file(std::path::Path::new("test.png"));
 
     let hex_layout = HexLayout {
-        hex_size: Vec2::splat(config.hex_size),
+        hex_size: Vec2::splat(config.terrain.hex_size),
         ..default()
     };
 
@@ -91,22 +91,22 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
 
     // let entities = shapes::hexagon(Hex::ZERO, config.map_radius)
     let entities = shapes::flat_rectangle([
-        -(config.map_radius as i32),
-        (config.map_radius as i32),
-        -(config.map_radius as i32),
-        (config.map_radius as i32),
+        -(config.terrain.map_radius as i32),
+        (config.terrain.map_radius as i32),
+        -(config.terrain.map_radius as i32),
+        (config.terrain.map_radius as i32),
     ])
     .map(|hex| {
         let pos = hex_layout.hex_to_world_pos(hex);
         let terrain_position = TerrainPosition { hex_pos: hex };
 
         let noise_value = noise_map.get_value(
-            (hex.x + config.map_radius as i32) as usize,
-            (hex.y + config.map_radius as i32) as usize,
+            (hex.x + config.terrain.map_radius as i32) as usize,
+            (hex.y + config.terrain.map_radius as i32) as usize,
         );
         let biome = match noise_value {
-            x if x < 0.3 => BiomeType::Grass,
-            x if x < 0.6 => BiomeType::Dirt,
+            x if x < 0.3 => BiomeType::Dirt,
+            x if x < 0.6 => BiomeType::Sand,
             x if x < 1.0 => BiomeType::Water,
             _ => BiomeType::Water,
         };
@@ -140,7 +140,10 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
     })
     .collect();
 
-    cmd.insert_resource(TileMap { layout: hex_layout, entities });
+    cmd.insert_resource(TileMap {
+        layout: hex_layout,
+        entities,
+    });
 }
 
 // --------------------------------------- helpers ---------------------------------------

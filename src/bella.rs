@@ -5,3 +5,4 @@ pub mod system_set;
 pub mod terrain;
 pub mod time;
 pub mod ui;
+pub mod environment;

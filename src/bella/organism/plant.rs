@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -8,11 +6,15 @@ use rand::Rng;
 
 use crate::bella::{
     config::SimConfig,
-    organism::LifeState,
+    environment::Sun,
+    organism::{EnergyData, LifeState},
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
+    time::{DayPassedEvent, HourPassedEvent},
     ui::layer::SpriteLayer,
 };
+
+use super::{ReproductionState, Size};
 
 pub struct PlantPlugin;
 
@@ -25,7 +27,17 @@ impl Plugin for PlantPlugin {
                 spawn_plants.in_set(InitializationSet::PlantSpawning),
             ),
         )
-        .add_systems(Update, update_plant_color);
+        .add_systems(
+            Update,
+            (
+                produce_energy_from_solar.run_if(on_event::<HourPassedEvent>()),
+                consume_energy_to_survive.run_if(on_event::<HourPassedEvent>()),
+                consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
+                consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
+                update_plant_color,
+            )
+                .chain(),
+        );
     }
 }
 
@@ -58,22 +70,35 @@ fn spawn_plants(
     tile_map: Res<TileMap>,
 ) {
     let mut rng = rand::thread_rng();
-    let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(3., 3.)));
+
+    let base_size = 3.;
+    let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(base_size, base_size)));
 
     for (biome_type, terrain_position) in tiles.iter() {
-        if !rng.gen_bool(config.plant_group_spawn_chance_grass as f64) {
+        if !rng.gen_bool(config.plant.group_spawn_chance_grass as f64) {
             continue;
         }
 
-        if *biome_type != BiomeType::Grass {
+        if *biome_type != BiomeType::Dirt {
             continue;
         }
 
         let group_middle_pos = tile_map.layout.hex_to_world_pos(terrain_position.hex_pos);
-        let plant_count = rng.gen_range(config.plant_group_size_min..config.plant_group_size_max);
+        let plant_count = rng.gen_range(config.plant.group_size_min..=config.plant.group_size_max);
 
         for _ in 0..plant_count {
             let hp = 100.;
+            let size = Size {
+                base_size,
+                ratio: rng.gen_range(0.5..2.0),
+            };
+            let energy_data = EnergyData {
+                energy: 1000.,
+                production_efficiency: 0.01,
+                energy_needed_for_survival_per_mass_unit: 5.,
+                energy_needed_for_growth_per_mass_unit: 50.,
+                grow_by: 0.2,
+            };
 
             // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
             let sqrt3 = 3.0f32.sqrt();
@@ -87,20 +112,153 @@ fn spawn_plants(
             let x_offset = base_x * vector_x.0 + base_y * vector_y.0;
             let y_offset = base_x * vector_x.1 + base_y * vector_y.1;
 
-            let x = group_middle_pos.x + x_offset * config.hex_size;
-            let y = group_middle_pos.y + y_offset * config.hex_size;
+            let x = group_middle_pos.x + x_offset * config.terrain.hex_size;
+            let y = group_middle_pos.y + y_offset * config.terrain.hex_size;
 
             cmd.spawn((
                 PlantMarker,
                 MaterialMesh2dBundle {
                     mesh: mesh_handle.clone(),
                     material: plant_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x, y, 1.),
+                    transform: Transform::from_xyz(x, y, 1.).with_scale(Vec3::splat(size.ratio)),
                     ..default()
                 },
                 LifeState::Alive { hp },
                 SpriteLayer::Plant,
+                size,
+                energy_data,
+                ReproductionState::Developing(config.plant.development_time),
             ));
+        }
+    }
+}
+
+fn produce_energy_from_solar(
+    mut query: Query<(&mut EnergyData, &Size), With<PlantMarker>>,
+    sun: Res<Sun>,
+    config: Res<SimConfig>,
+) {
+    for (mut energy_data, size) in query.iter_mut() {
+        let surface_percentage = size.real_surface() / config.terrain.hex_surface();
+        let energy_from_sun = sun.get_energy_part(surface_percentage);
+        let produced_energy = energy_from_sun * energy_data.production_efficiency;
+
+        energy_data.energy += produced_energy;
+    }
+}
+
+fn consume_energy_to_survive(mut query: Query<(&mut EnergyData, &Size), With<PlantMarker>>) {
+    for (mut energy_data, size) in query.iter_mut() {
+        let energy_consumed_to_survive =
+            energy_data.energy_needed_for_survival_per_mass_unit * size.real_mass();
+
+        energy_data.energy -= energy_consumed_to_survive;
+    }
+}
+
+fn consume_energy_to_grow(
+    mut query: Query<
+        (
+            &mut EnergyData,
+            &mut Size,
+            &mut Transform,
+            &mut ReproductionState,
+        ),
+        With<PlantMarker>,
+    >,
+) {
+    for (mut energy_data, mut size, mut transform, mut reproduction_state) in query.iter_mut() {
+        match *reproduction_state {
+            ReproductionState::ReadyToReproduce => continue,
+            ReproductionState::WaitingToReproduce(_) => continue,
+            ReproductionState::Developing(time) => {
+                let energy_consumed_to_grow =
+                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_mass();
+
+                if energy_data.energy < energy_consumed_to_grow {
+                    continue;
+                }
+
+                *reproduction_state = ReproductionState::Developing(time - 1);
+                energy_data.energy -= energy_consumed_to_grow;
+                size.ratio += energy_data.grow_by;
+
+                *transform = transform.with_scale(Vec3::splat(size.ratio));
+            }
+        }
+    }
+}
+
+fn consume_energy_to_reproduce(
+    mut cmd: Commands,
+    mut query: Query<(&mut ReproductionState, &Transform), With<PlantMarker>>,
+    _tile_map: Res<TileMap>,
+    config: Res<SimConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    plant_assets: Res<PlantAssets>,
+) {
+    let mut rng = rand::thread_rng();
+
+    let base_size = 3.;
+    let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(base_size, base_size)));
+
+    for (mut life_cycle_state, transform) in query.iter_mut() {
+        match *life_cycle_state {
+            ReproductionState::Developing(_) => continue,
+            ReproductionState::WaitingToReproduce(cooldown) => {
+                *life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
+            }
+            ReproductionState::ReadyToReproduce => {
+                *life_cycle_state = ReproductionState::WaitingToReproduce(
+                    config.plant.waiting_for_reproduction_time,
+                );
+
+                // TODO: this function should work like this:
+                // iterate over neighbouring tiles and check if they are suitable for plant
+                // get list of them (including current tile)
+                // pick 1 of the tiles at random
+                // pawn new plant there
+
+                let old_plant_x = transform.translation.x;
+                let old_plant_y = transform.translation.y;
+
+                let range = -10.0..10.0;
+                let offset_x = rng.gen_range(range.clone());
+                let offset_y = rng.gen_range(range);
+
+                let new_plant_x = old_plant_x + offset_x;
+                let new_plant_y = old_plant_y + offset_y;
+
+                // TODO: this is copied from base spawn function, should create separate function for creating default plant (and organism as well)
+                let hp = 100.;
+                let size = Size {
+                    base_size,
+                    ratio: rng.gen_range(0.5..2.0),
+                };
+                let energy_data = EnergyData {
+                    energy: 1000.,
+                    production_efficiency: 0.01,
+                    energy_needed_for_survival_per_mass_unit: 5.,
+                    energy_needed_for_growth_per_mass_unit: 1.,
+                    grow_by: 0.2,
+                };
+
+                cmd.spawn((
+                    PlantMarker,
+                    MaterialMesh2dBundle {
+                        mesh: mesh_handle.clone(),
+                        material: plant_assets.alive[hp as usize].clone(),
+                        transform: Transform::from_xyz(new_plant_x, new_plant_y, 1.)
+                            .with_scale(Vec3::splat(size.ratio)),
+                        ..default()
+                    },
+                    LifeState::Alive { hp },
+                    SpriteLayer::Plant,
+                    size,
+                    energy_data,
+                    ReproductionState::Developing(config.plant.development_time),
+                ));
+            }
         }
     }
 }
@@ -110,17 +268,9 @@ fn update_plant_color(
     assets: Res<PlantAssets>,
 ) {
     for (mut handle, mut life_state) in plants.iter_mut() {
-        // TODO: remove this
-        if let LifeState::Alive { hp } = life_state.as_mut() {
-            *hp -= 0.3;
-            if *hp <= 0. {
-                *life_state = LifeState::Dead;
-            }
-        }
-
-        match life_state.as_mut() {
-            LifeState::Alive { hp } => *handle = assets.alive[*hp as usize].clone(),
-            LifeState::Dead => *handle = assets.dead.clone(),
-        }
+        *handle = match life_state.as_mut() {
+            LifeState::Alive { hp } => assets.alive[*hp as usize].clone(),
+            LifeState::Dead => assets.dead.clone(),
+        };
     }
 }
