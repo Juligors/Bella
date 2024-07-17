@@ -38,8 +38,7 @@ impl Plugin for TerrainPlugin {
                 Update,
                 update_temperatures,
                 // .run_if(on_timer(Duration::from_secs(1))), // TODO: this should be timer
-            )
-            .register_type::<BiomeType>();
+            );
     }
 }
 

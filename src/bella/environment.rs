@@ -13,7 +13,7 @@ impl Plugin for EnvironmentPlugin {
     }
 }
 
-#[derive(Resource, Reflect)]
+#[derive(Resource)]
 pub struct Sun {
     day_time: u8,
     energy_output: f32,

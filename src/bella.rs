@@ -6,3 +6,4 @@ pub mod terrain;
 pub mod time;
 pub mod ui;
 pub mod environment;
+pub mod plots;

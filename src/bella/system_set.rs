@@ -9,7 +9,7 @@ impl Plugin for SystemSetPlugin {
             (
                 InitializationSet::ConfigLoad,
                 InitializationSet::TerrainGeneration,
-                InitializationSet::PlantSpawning,
+                InitializationSet::OrganismSpawning,
             )
                 .chain(),
         );
@@ -20,5 +20,5 @@ impl Plugin for SystemSetPlugin {
 pub enum InitializationSet {
     ConfigLoad,
     TerrainGeneration,
-    PlantSpawning,
+    OrganismSpawning,
 }

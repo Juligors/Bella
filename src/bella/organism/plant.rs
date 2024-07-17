@@ -7,7 +7,8 @@ use rand::Rng;
 use crate::bella::{
     config::SimConfig,
     environment::Sun,
-    organism::{EnergyData, LifeState},
+    organism::{EnergyData, Health},
+    plots::MyPlot,
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
@@ -24,8 +25,9 @@ impl Plugin for PlantPlugin {
             Startup,
             (
                 prepare_plant_assets,
-                spawn_plants.in_set(InitializationSet::PlantSpawning),
-            ),
+                spawn_plants.in_set(InitializationSet::OrganismSpawning),
+            )
+                .chain(),
         )
         .add_systems(
             Update,
@@ -35,6 +37,7 @@ impl Plugin for PlantPlugin {
                 consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
                 consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
                 update_plant_color,
+                update_plant_plot_data,
             )
                 .chain(),
         );
@@ -123,7 +126,7 @@ fn spawn_plants(
                     transform: Transform::from_xyz(x, y, 1.).with_scale(Vec3::splat(size.ratio)),
                     ..default()
                 },
-                LifeState::Alive { hp },
+                Health { hp },
                 SpriteLayer::Plant,
                 size,
                 energy_data,
@@ -252,7 +255,7 @@ fn consume_energy_to_reproduce(
                             .with_scale(Vec3::splat(size.ratio)),
                         ..default()
                     },
-                    LifeState::Alive { hp },
+                    Health { hp },
                     SpriteLayer::Plant,
                     size,
                     energy_data,
@@ -264,13 +267,34 @@ fn consume_energy_to_reproduce(
 }
 
 fn update_plant_color(
-    mut plants: Query<(&mut Handle<ColorMaterial>, &mut LifeState), With<PlantMarker>>,
+    mut plants: Query<(&mut Handle<ColorMaterial>, &mut Health), With<PlantMarker>>,
     assets: Res<PlantAssets>,
 ) {
-    for (mut handle, mut life_state) in plants.iter_mut() {
-        *handle = match life_state.as_mut() {
-            LifeState::Alive { hp } => assets.alive[*hp as usize].clone(),
-            LifeState::Dead => assets.dead.clone(),
+    for (mut handle, mut health) in plants.iter_mut() {
+        *handle = if health.hp > 0. {
+            assets.alive[health.hp as usize].clone()
+        } else {
+            assets.dead.clone()
         };
     }
+}
+
+fn update_plant_plot_data(
+    mut plot: ResMut<MyPlot>,
+    plants: Query<&ReproductionState, With<PlantMarker>>,
+) {
+    let mut developing = 0;
+    let mut ready_to_reproduce = 0;
+    let mut waiting_to_reproduce = 0;
+
+    plants
+        .iter()
+        .for_each(|reproduction_state| match reproduction_state {
+            ReproductionState::Developing(_) => developing += 1,
+            ReproductionState::ReadyToReproduce => ready_to_reproduce += 1,
+            ReproductionState::WaitingToReproduce(_) => waiting_to_reproduce += 1,
+        });
+
+    plot.y_data
+        .push((developing, ready_to_reproduce, waiting_to_reproduce));
 }

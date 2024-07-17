@@ -82,8 +82,14 @@ pub struct OrganismConfig {}
 
 #[derive(serde::Deserialize)]
 pub struct AnimalConfig {
-    pub creature_spawn_x: i32,
-    pub creature_spawn_y: i32,
+    pub group_spawn_chance_sand: f32,
+    pub group_size_min: u32,
+    pub group_size_max: u32,
+
+    pub development_time: i8,
+    pub waiting_for_reproduction_time : i8,
+
+    pub carnivores_to_herbivores_ratio : f32,
 }
 
 #[derive(serde::Deserialize)]

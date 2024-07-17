@@ -22,7 +22,6 @@ impl Plugin for MyWindowPlugin {
             }),
             // bevy::diagnostic::LogDiagnosticsPlugin::default(),
             // bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
-            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
         ))
         .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
         .add_systems(Startup, setup_window_cursor_lock)
