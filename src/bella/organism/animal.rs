@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
-use mobile::MobilePlugin;
+use mobile::{Destination, MobilePlugin};
 use rand::{self, Rng};
 
 use self::{
@@ -135,8 +135,9 @@ fn spawn_animals(
                 },
                 Health { hp },
                 Mobile {
-                    dest: None,
                     speed: rng.gen_range(0.2..0.3),
+                    destination: None,
+                    next_step_destination: None,
                 },
                 HungerLevel::Hungry(100),
                 SightRange(500.),
@@ -208,13 +209,21 @@ fn connect_animal_with_medium_its_on(
 
 pub fn choose_new_destination(
     mut animals: Query<
-        (&mut Mobile, &Transform, &HungerLevel, &SightRange, &Diet),
+        (
+            Entity,
+            &mut Mobile,
+            &Transform,
+            &HungerLevel,
+            &SightRange,
+            &Diet,
+        ),
         With<AnimalMarker>,
     >,
-    plants: Query<&Transform, With<PlantMarker>>,
+    plants: Query<(Entity, &Transform), With<PlantMarker>>,
 ) {
-    let plants: Vec<&Transform> = plants.iter().collect();
-    let (mut mobiles, transforms, hunger_levels, sight_ranges, diets): (
+    let plants: Vec<_> = plants.iter().collect();
+    let (entities, mut mobiles, transforms, hunger_levels, sight_ranges, diets): (
+        Vec<Entity>,
         Vec<Mut<Mobile>>,
         Vec<&Transform>,
         Vec<&HungerLevel>,
@@ -222,44 +231,42 @@ pub fn choose_new_destination(
         Vec<&Diet>,
     ) = multiunzip(animals.iter_mut());
 
-    // TODO: This has to be changed into IDestination, can't just use positions (or update super often)
-
     for i in 0..mobiles.len() {
         match hunger_levels[i] {
             HungerLevel::Satiated(_) => continue,
             HungerLevel::Hungry(_) | HungerLevel::Starving => {
-                let new_destination = match diets[i] {
+                mobiles[i].destination = match diets[i] {
                     Diet::Carnivorous(_) => {
-                        helpers::find_closest_animal(&transforms, sight_ranges[i], i)
+                        utils::find_closest_animal(&entities, &transforms, sight_ranges[i], i)
                     }
                     Diet::Herbivorous(_) => {
-                        helpers::find_closest_plant(transforms[i], sight_ranges[i], &plants)
+                        utils::find_closest_plant(transforms[i], sight_ranges[i], &plants)
                     }
                 };
-
-                mobiles[i].dest = new_destination.map(|(position, _)| position)
             }
         }
     }
 }
 
-mod helpers {
+mod utils {
     use super::*;
 
     pub fn find_closest_animal(
+        animal_entities: &[Entity],
         animal_transforms: &[&Transform],
         sight_range: &SightRange,
         i: usize,
-    ) -> Option<(Vec2, f32)> {
-        let distances_to_other_animals = animal_transforms
+    ) -> Option<Destination> {
+        let distances_to_other_animals = animal_entities
             .iter()
+            .zip(animal_transforms)
             .enumerate()
             .filter(|(j, _)| i != *j)
-            .map(|(_, &other_animal_transform)| {
+            .map(|(_, (&other_animal_entity, &other_animal_transform))| {
                 let other_aminal_pos = other_animal_transform.translation.truncate();
                 let animal_pos = animal_transforms[i].translation.truncate();
 
-                (other_aminal_pos, animal_pos.distance(other_aminal_pos))
+                (other_animal_entity, animal_pos.distance(other_aminal_pos))
             });
 
         get_closest_visible(distances_to_other_animals, sight_range)
@@ -268,13 +275,13 @@ mod helpers {
     pub fn find_closest_plant(
         animal_transform: &Transform,
         sight_range: &SightRange,
-        plants: &[&Transform],
-    ) -> Option<(Vec2, f32)> {
-        let distances_to_plants = plants.iter().map(|&plant_transform| {
+        plants: &[(Entity, &Transform)],
+    ) -> Option<Destination> {
+        let distances_to_plants = plants.iter().map(|(plant_entity, &plant_transform)| {
             let plant_pos = plant_transform.translation.truncate();
             let animal_pos = animal_transform.translation.truncate();
 
-            (plant_pos, animal_pos.distance(plant_pos))
+            (*plant_entity, animal_pos.distance(plant_pos))
         });
 
         get_closest_visible(distances_to_plants, sight_range)
@@ -283,12 +290,13 @@ mod helpers {
     fn get_closest_visible<I>(
         positions_and_distances: I,
         sight_range: &SightRange,
-    ) -> Option<(Vec2, f32)>
+    ) -> Option<Destination>
     where
-        I: Iterator<Item = (Vec2, f32)>,
+        I: Iterator<Item = (Entity, f32)>,
     {
         positions_and_distances
             .filter(|(_, distance)| *distance < **sight_range)
             .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(entity, _)| Destination::Organism { entity })
     }
 }
