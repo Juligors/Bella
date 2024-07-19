@@ -10,7 +10,12 @@ impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HourPassedEvent>()
             .add_event::<DayPassedEvent>()
-            .add_systems(Startup, (init_hourly_timer, init_daily_timer))
+            .insert_resource(TimePassed { days: 0, hours: 0 })
+            .add_systems(
+                Startup,
+                (init_hourly_timer, init_daily_timer, setup_timer_ui),
+            )
+            .add_systems(Update, (update_time_passed, update_timer_ui).chain())
             .add_systems(PreUpdate, (send_hour_passed_event, send_day_passed_event));
     }
 }
@@ -55,10 +60,69 @@ fn init_daily_timer(mut cmd: Commands, config: Res<SimConfig>) {
 }
 
 fn send_day_passed_event(
-    mut ev_day_passed: EventWriter<DayPassedEvent>,
+    mut ew_day_passed: EventWriter<DayPassedEvent>,
     mut timer: ResMut<DailyTimer>,
 ) {
     if timer.tick(Duration::from_secs(1)).just_finished() {
-        ev_day_passed.send(DayPassedEvent);
+        ew_day_passed.send(DayPassedEvent);
+    }
+}
+
+///////////////////// time passed /////////////////////
+
+#[derive(Resource)]
+pub struct TimePassed {
+    pub days: u32,
+    pub hours: u32,
+}
+
+fn update_time_passed(
+    mut time_passed: ResMut<TimePassed>,
+    mut er_hour_passed: EventReader<HourPassedEvent>,
+) {
+    for _ in er_hour_passed.read() {
+        time_passed.hours += 1;
+
+        if time_passed.hours == 24 {
+            time_passed.hours = 0;
+            time_passed.days += 1;
+        }
+    }
+}
+
+///////////////////// timer ui /////////////////////
+
+#[derive(Component)]
+pub struct TimerUiTextMarker;
+
+fn setup_timer_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+    let initial_hour = 0;
+    let initial_day = 0;
+
+    cmd.spawn((
+        TextBundle::from_section(
+            format!("Day: {}\nHour: {}", initial_day, initial_hour),
+            TextStyle {
+                font: asset_server.load("fonts/Consolas.ttf"),
+                font_size: 20.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.),
+            right: Val::Px(5.),
+            ..default()
+        }),
+        TimerUiTextMarker,
+    ));
+}
+
+fn update_timer_ui(
+    mut query: Query<&mut Text, With<TimerUiTextMarker>>,
+    time_passed: Res<TimePassed>,
+) {
+    for mut text in query.iter_mut() {
+        text.sections[0].value = format!("Day:  {: >2}\nHour: {: >2}", time_passed.days, time_passed.hours);
     }
 }
