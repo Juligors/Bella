@@ -1,5 +1,7 @@
 use bevy::{
+    core::TaskPoolThreadAssignmentPolicy,
     prelude::*,
+    tasks::available_parallelism,
     window::{close_on_esc, CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
@@ -8,18 +10,32 @@ pub struct MyWindowPlugin;
 impl Plugin for MyWindowPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bella".into(),
-                    resolution: (1000., 700.).into(),
-                    present_mode: PresentMode::AutoVsync,
-                    window_theme: Some(WindowTheme::Dark),
-                    window_level: WindowLevel::AlwaysOnTop,
-                    position: WindowPosition::At((400, 100).into()),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bella".into(),
+                        resolution: (1000., 700.).into(),
+                        present_mode: PresentMode::AutoVsync,
+                        window_theme: Some(WindowTheme::Dark),
+                        window_level: WindowLevel::AlwaysOnTop,
+                        position: WindowPosition::At((400, 100).into()),
+                        ..default()
+                    }),
                     ..default()
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            // set the minimum # of compute threads
+                            // to the total number of available threads
+                            min_threads: available_parallelism(),
+                            max_threads: std::usize::MAX, // unlimited max threads
+                            percent: 1.0,                 // this value is irrelevant in this case
+                        },
+                        // keep the defaults for everything else
+                        ..default()
+                    },
                 }),
-                ..default()
-            }),
             // bevy::diagnostic::LogDiagnosticsPlugin::default(),
             // bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
         ))
