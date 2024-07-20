@@ -68,6 +68,12 @@ pub enum Diet {
 #[derive(Component, Deref, DerefMut)]
 pub struct SightRange(f32);
 
+#[derive(Component)]
+pub struct Attack{
+    pub range: f32,
+    pub damage: f32,
+}
+
 fn spawn_animals(
     mut cmd: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -78,7 +84,7 @@ fn spawn_animals(
 ) {
     let mut rng = rand::thread_rng();
 
-    let base_size = 3.;
+    let base_size = 3.; // FIXME: magic number
     let mesh_handle = Mesh2dHandle(meshes.add(Circle::new(3.)));
 
     for (biome_type, terrain_position) in tiles.iter() {
@@ -96,17 +102,17 @@ fn spawn_animals(
             rng.gen_range(config.animal.group_size_min..=config.animal.group_size_max);
 
         for _ in 0..plant_count {
-            let hp = 100.;
+            let hp = 100.; // FIXME: magic number
             let size = Size {
                 base_size,
-                ratio: rng.gen_range(0.5..2.0),
+                ratio: rng.gen_range(0.5..2.0), // FIXME: magic number
             };
             let energy_data = EnergyData {
-                energy: 1000.,
-                production_efficiency: 0.01,
-                energy_needed_for_survival_per_mass_unit: 5.,
-                energy_needed_for_growth_per_mass_unit: 50.,
-                grow_by: 0.2,
+                energy: 1000.,                                // FIXME: magic number
+                production_efficiency: 0.01,                  // FIXME: magic number
+                energy_needed_for_survival_per_mass_unit: 5., // FIXME: magic number
+                energy_needed_for_growth_per_mass_unit: 50.,  // FIXME: magic number
+                grow_by: 0.2,                                 // FIXME: magic number
             };
 
             // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
@@ -135,12 +141,16 @@ fn spawn_animals(
                 },
                 Health { hp },
                 Mobile {
-                    speed: rng.gen_range(0.2..0.3),
+                    speed: rng.gen_range(0.2..0.3), // FIXME: magic number
                     destination: None,
                     next_step_destination: None,
                 },
-                HungerLevel::Hungry(100),
-                SightRange(500.),
+                HungerLevel::Hungry(100), // FIXME: magic number
+                SightRange(500.),         // FIXME: magic number
+                Attack{
+                    range: 2., // FIXME: magic number
+                    damage: 3., // FIXME: magic number
+                },
                 size,
                 energy_data,
                 ReproductionState::Developing(config.animal.development_time),

@@ -1,12 +1,15 @@
 use bevy::prelude::*;
 
-use crate::bella::terrain::TileMap;
+use crate::bella::{organism::Health, terrain::TileMap};
+
+use super::Attack;
 
 pub struct MobilePlugin;
 
 impl Plugin for MobilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (find_next_step_destination, make_step).chain());
+        app.add_systems(Update, (find_next_step_destination, make_step).chain())
+            .add_systems(Update, attack);
     }
 }
 
@@ -23,7 +26,7 @@ pub enum Destination {
 }
 
 pub fn find_next_step_destination(
-    query1_entities: Query<&Transform>,
+    query_organisms: Query<&Transform>,
     mut query_mobiles: Query<&mut Mobile>,
 ) {
     for mut mobile in query_mobiles.iter_mut() {
@@ -31,7 +34,7 @@ pub fn find_next_step_destination(
             Some(destination) => {
                 mobile.next_step_destination = match &destination {
                     Destination::Place { position } => Some(*position),
-                    Destination::Organism { entity } => match query1_entities.get(*entity) {
+                    Destination::Organism { entity } => match query_organisms.get(*entity) {
                         Ok(other) => Some(other.translation.truncate()),
                         Err(_) => None,
                     },
@@ -73,7 +76,29 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileM
     }
 }
 
-// #[derive(Event)]
-// pub struct ResetDestinationEvent{
+fn attack(
+    mut query: Query<(&Attack, &mut Mobile, &Transform)>,
+    mut query_organisms: Query<(&mut Health, &Transform)>,
+) {
+    for (attack, mut mobile, transform) in query.iter_mut() {
+        if mobile.destination.is_none() {
+            continue;
+        }
 
-// }
+        match mobile.destination.as_ref().unwrap() {
+            Destination::Place { position: _ } => continue,
+            Destination::Organism { entity: target } => match query_organisms.get_mut(*target) {
+                Ok((mut health, other_transform)) => {
+                    let distance = other_transform.translation.distance(transform.translation);
+                    if distance > attack.range {
+                        continue;
+                    }
+
+                    // TODO: this should also give energy/hunger to the animal, probably with event
+                    health.hp -= attack.damage;
+                }
+                Err(_) => mobile.destination = None,
+            },
+        }
+    }
+}
