@@ -28,9 +28,9 @@ pub enum BiomeType {
 
 #[derive(Resource)]
 pub struct AssetsMapBiomes {
-    pub medium_type_materials: HashMap<BiomeType, Handle<ColorMaterial>>,
+    pub medium_type_materials: HashMap<BiomeType, Handle<StandardMaterial>>,
 }
-fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let medium_type_materials = HashMap::from([
         (BiomeType::Stone, materials.add(Color::rgb(0.5, 0.5, 0.5))),
         (BiomeType::Sand, materials.add(Color::rgb(0.9, 0.9, 0.2))),
@@ -44,7 +44,7 @@ fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<
     });
 }
 fn update_tile_color_for_biome(
-    mut tiles: Query<(&mut Handle<ColorMaterial>, &BiomeType)>,
+    mut tiles: Query<(&mut Handle<StandardMaterial>, &BiomeType)>,
     assets_map: Res<AssetsMapBiomes>,
 ) {
     for (mut handle, medium_type) in tiles.iter_mut() {

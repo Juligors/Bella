@@ -4,13 +4,13 @@ use super::{AnimalMarker, Diet};
 
 #[derive(Resource)]
 pub struct AnimalAssets {
-    pub alive: Vec<Handle<ColorMaterial>>,
-    pub dead: Handle<ColorMaterial>,
-    pub carnivorous: Handle<ColorMaterial>,
-    pub herbivorous: Handle<ColorMaterial>,
+    pub alive: Vec<Handle<StandardMaterial>>,
+    pub dead: Handle<StandardMaterial>,
+    pub carnivorous: Handle<StandardMaterial>,
+    pub herbivorous: Handle<StandardMaterial>,
 }
 
-pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let animal_assets = AnimalAssets {
         alive: (0..=100)
             .map(|i| materials.add(Color::rgb(i as f32 / 100., 0.3, i as f32 / 100.)))
@@ -24,7 +24,7 @@ pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<Col
 }
 
 pub fn update_animal_color(
-    mut query: Query<(&mut Handle<ColorMaterial>, &Diet), With<AnimalMarker>>,
+    mut query: Query<(&mut Handle<StandardMaterial>, &Diet), With<AnimalMarker>>,
     assets: Res<AnimalAssets>,
 ) {
     for (mut handle, diet) in query.iter_mut() {

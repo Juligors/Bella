@@ -111,18 +111,18 @@ pub fn update_temperatures(mut query: Query<(&TerrainPosition, &mut ThermalCondu
 
 #[derive(Resource)]
 pub struct AssetsMapTemperature {
-    pub medium_materials: HashMap<i32, Handle<ColorMaterial>>,
-    pub default_material_low: Handle<ColorMaterial>,
-    pub default_material_high: Handle<ColorMaterial>,
-    pub selected_material: Handle<ColorMaterial>,
+    pub medium_materials: HashMap<i32, Handle<StandardMaterial>>,
+    pub default_material_low: Handle<StandardMaterial>,
+    pub default_material_high: Handle<StandardMaterial>,
+    pub selected_material: Handle<StandardMaterial>,
 }
 fn initialize_assets_map_temperature(
     mut cmd: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let default_material_low = materials.add(Color::BLACK);
     let default_material_high = materials.add(Color::WHITE);
-    let selected_material = materials.add(Color::AQUAMARINE);
+    let selected_material = materials.add(Color::linear_rgb(0.2, 0.8, 0.8));
 
     let mut medium_materials = HashMap::new();
 
@@ -149,7 +149,7 @@ fn initialize_assets_map_temperature(
     });
 }
 fn update_tile_color_for_thermal(
-    mut tiles: Query<(&mut Handle<ColorMaterial>, &ThermalConductor)>,
+    mut tiles: Query<(&mut Handle<StandardMaterial>, &ThermalConductor)>,
     assets_map: Res<AssetsMapTemperature>,
     mut timer: ResMut<ThermalOverlayUpdateTimer>,
 ) {
@@ -177,7 +177,7 @@ fn update_tile_color_for_thermal(
 fn handle_select_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
-    mut tiles: Query<(&mut Handle<ColorMaterial>, &mut ThermalConductor, Entity)>,
+    mut tiles: Query<(&mut Handle<StandardMaterial>, &mut ThermalConductor, Entity)>,
     map: Res<TileMap>,
 ) {
     let (camera, camera_transform) = cameras.single();

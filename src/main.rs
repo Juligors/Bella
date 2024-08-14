@@ -2,6 +2,7 @@ pub mod bella;
 
 use bevy::prelude::*;
 
+use bella::window::MyWindowPlugin;
 use bella::config::ConfigPlugin;
 use bella::organism::OrganismPlugin;
 use bella::state::StatePlugin;
@@ -14,7 +15,7 @@ use bella::plots::PlotsPlugin;
 
 fn main() {
     App::new()
-        .add_plugins((ConfigPlugin, SystemSetPlugin, StatePlugin, TimePlugin, EnvironmentPlugin))
+        .add_plugins((MyWindowPlugin, ConfigPlugin, SystemSetPlugin, StatePlugin, TimePlugin, EnvironmentPlugin))
         .add_plugins((UiPlugin, PlotsPlugin))
         .add_plugins((TerrainPlugin, OrganismPlugin))
         .run();

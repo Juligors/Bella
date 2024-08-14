@@ -8,13 +8,13 @@ use self::{
         ThermalConductorPlugin,
     },
 };
-use crate::bella::{config::SimConfig, system_set::InitializationSet, ui::layer::SpriteLayer};
+use crate::bella::{config::SimConfig, system_set::InitializationSet};
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
     utils::hashbrown::HashMap,
 };
-use hexx::{shapes, *};
+use hexx::{shapes, Hex, HexLayout};
 use noise::{
     utils::{NoiseMapBuilder, PlaneMapBuilder},
     HybridMulti, Perlin,
@@ -55,16 +55,27 @@ pub struct TileMap {
 
 impl TileMap {
     pub fn world_pos_to_entity(&self, position: Vec2) -> Option<Entity> {
-        let hex = self.layout.world_pos_to_hex(position);
+        let hex = self
+            .layout
+            .world_pos_to_hex(hexx::Vec2::new(position.x, position.y));
+
         self.entities.get(&hex).copied()
     }
 
     pub fn world_pos_in_entities(&self, position: Vec2) -> bool {
-        let hex = self.layout.world_pos_to_hex(position);
+        let hex = self
+            .layout
+            .world_pos_to_hex(hexx::Vec2::new(position.x, position.y));
+
         self.entities.contains_key(&hex)
     }
 }
-fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config: Res<SimConfig>) {
+fn generate_terrain(
+    mut cmd: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    config: Res<SimConfig>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let current_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("Can't read system time.")
@@ -81,63 +92,69 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
     // noise_map.write_to_file(std::path::Path::new("test.png"));
 
     let hex_layout = HexLayout {
-        hex_size: Vec2::splat(config.terrain.hex_size),
+        hex_size: hexx::Vec2::splat(config.terrain.hex_size),
+        orientation: hexx::HexOrientation::Pointy,
         ..default()
     };
 
-    let mesh = hexagonal_plane(&hex_layout);
+    // let mesh = hexagonal_plane(&hex_layout);
+    let mesh = helpers::generate_hex_mesh();
     let mesh_handle = meshes.add(mesh);
 
-    // let entities = shapes::hexagon(Hex::ZERO, config.map_radius)
-    let entities = shapes::flat_rectangle([
-        -(config.terrain.map_radius as i32),
-        (config.terrain.map_radius as i32),
-        -(config.terrain.map_radius as i32),
-        (config.terrain.map_radius as i32),
-    ])
-    .map(|hex| {
-        let pos = hex_layout.hex_to_world_pos(hex);
-        let terrain_position = TerrainPosition { hex_pos: hex };
+    let entities = shapes::hexagon(Hex::ZERO, config.terrain.map_radius)
+        // let entities = shapes::flat_rectangle([
+        //     -(config.terrain.map_radius as i32),
+        //     (config.terrain.map_radius as i32),
+        //     -(config.terrain.map_radius as i32),
+        //     (config.terrain.map_radius as i32),
+        // ])
+        .map(|hex| {
+            let pos = hex_layout.hex_to_world_pos(hex);
+            let terrain_position = TerrainPosition { hex_pos: hex };
 
-        let noise_value = noise_map.get_value(
-            (hex.x + config.terrain.map_radius as i32) as usize,
-            (hex.y + config.terrain.map_radius as i32) as usize,
-        );
-        let biome = match noise_value {
-            x if x < 0.3 => BiomeType::Dirt,
-            x if x < 0.6 => BiomeType::Sand,
-            x if x < 1.0 => BiomeType::Water,
-            _ => BiomeType::Water,
-        };
+            let noise_value = noise_map.get_value(
+                (hex.x + config.terrain.map_radius as i32) as usize,
+                (hex.y + config.terrain.map_radius as i32) as usize,
+            );
+            let biome = match noise_value {
+                x if x < 0.3 => BiomeType::Dirt,
+                x if x < 0.6 => BiomeType::Sand,
+                x if x < 1.0 => BiomeType::Water,
+                _ => BiomeType::Water,
+            };
 
-        let heat_capacity = ThermalConductor::default_heat_capacity();
-        let min_heat = heat_capacity * ThermalConductor::min_temperature();
-        let max_heat = heat_capacity * ThermalConductor::max_temperature();
-        let heat = rng.gen_range(min_heat..max_heat);
-        let k = ThermalConductor::default_thermal_conductivity();
-        let thermal_conductor = ThermalConductor {
-            heat,
-            heat_capacity,
-            thermal_conductivity: k,
-        };
+            let heat_capacity = ThermalConductor::default_heat_capacity();
+            let min_heat = heat_capacity * ThermalConductor::min_temperature();
+            let max_heat = heat_capacity * ThermalConductor::max_temperature();
+            let heat = rng.gen_range(min_heat..max_heat);
+            let k = ThermalConductor::default_thermal_conductivity();
+            let thermal_conductor = ThermalConductor {
+                heat,
+                heat_capacity,
+                thermal_conductivity: k,
+            };
 
-        let terrain_tile = cmd
-            .spawn((
-                ColorMesh2dBundle {
-                    transform: Transform::from_xyz(pos.x, pos.y, 0.),
-                    mesh: mesh_handle.clone().into(),
-                    ..default()
-                },
-                terrain_position,
-                biome,
-                thermal_conductor,
-                SpriteLayer::Terrain,
-            ))
-            .id();
+            let mut transform = Transform::from_xyz(pos.x, pos.y, 0.)
+                .with_scale(Vec3::splat(config.terrain.hex_size));
+            transform.rotate_x(90.0_f32.to_radians());
 
-        (hex, terrain_tile)
-    })
-    .collect();
+            let terrain_tile = cmd
+                .spawn((
+                    PbrBundle {
+                        transform,
+                        material: materials.add(Color::linear_rgb(0.9, 0.3, 0.3)),
+                        mesh: mesh_handle.clone(),
+                        ..default()
+                    },
+                    terrain_position,
+                    biome,
+                    thermal_conductor,
+                ))
+                .id();
+
+            (hex, terrain_tile)
+        })
+        .collect();
 
     cmd.insert_resource(TileMap {
         layout: hex_layout,
@@ -145,22 +162,38 @@ fn generate_terrain(mut cmd: Commands, mut meshes: ResMut<Assets<Mesh>>, config:
     });
 }
 
-// --------------------------------------- helpers ---------------------------------------
+mod helpers {
+    use crate::bella::hex::{bevel_hexagon_indices, bevel_hexagon_normals, bevel_hexagon_points, HexCoord};
 
-/// idk what it does, it's probably needed tho.
-fn hexagonal_plane(hex_layout: &HexLayout) -> Mesh {
-    let mesh_info = PlaneMeshBuilder::new(hex_layout)
-        .facing(Vec3::Z)
-        .with_scale(Vec3::splat(1.))
-        .center_aligned()
-        .build();
+    use super::*;
 
-    Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
-    )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh_info.vertices)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_info.normals)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh_info.uvs)
-    .with_inserted_indices(Indices::U16(mesh_info.indices))
+    pub fn generate_hex_mesh() -> Mesh {
+        // return Cylinder::new(1., 0.1).into();
+
+        let mut pts: Vec<[f32; 3]> = vec![];
+        let c = HexCoord::new(0, 0);
+        bevel_hexagon_points(&mut pts, 1.0, 0.9, &c);
+
+        let mut normals: Vec<[f32; 3]> = vec![];
+        bevel_hexagon_normals(&mut normals);
+
+        let mut uvs: Vec<[f32; 2]> = vec![];
+        for _ in 0..pts.len() {
+            uvs.push([0., 0.]);
+        }
+
+        let mut indices = vec![];
+        bevel_hexagon_indices(&mut indices);
+
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        mesh.insert_indices(Indices::U32(indices));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, pts);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+
+        mesh
+    }
 }

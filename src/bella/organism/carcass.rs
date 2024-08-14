@@ -3,7 +3,6 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
-use crate::bella::ui::layer::SpriteLayer;
 
 use super::Health;
 
@@ -67,7 +66,6 @@ fn despawn_dead_organisms(mut cmd: Commands, query: Query<(Entity, &Health)>) {
 
 //         cmd.spawn((
 //             CarcassMarker,
-//             SpriteLayer::Creature,
 //             MaterialMesh2dBundle {
 //                 mesh: mesh_handle.clone(),
 //                 material: assets.carcass.clone(),

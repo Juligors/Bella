@@ -7,12 +7,8 @@ use crate::bella::{
     system_set::InitializationSet,
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::HourPassedEvent,
-    ui::layer::SpriteLayer,
 };
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
+use bevy::prelude::*;
 use mobile::{Destination, MobilePlugin};
 use rand::{self, Rng};
 
@@ -69,7 +65,7 @@ pub enum Diet {
 pub struct SightRange(f32);
 
 #[derive(Component)]
-pub struct Attack{
+pub struct Attack {
     pub range: f32,
     pub damage: f32,
 }
@@ -84,8 +80,8 @@ fn spawn_animals(
 ) {
     let mut rng = rand::thread_rng();
 
-    let base_size = 3.; // FIXME: magic number
-    let mesh_handle = Mesh2dHandle(meshes.add(Circle::new(3.)));
+    let base_size = 2.; // FIXME: magic number
+    let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
 
     for (biome_type, terrain_position) in tiles.iter() {
         if !rng.gen_bool(config.animal.group_spawn_chance_sand as f64) {
@@ -124,19 +120,20 @@ fn spawn_animals(
             let vector_y = vectors[(index + 1) % 3];
 
             let (base_x, base_y) = rng.gen::<(f32, f32)>();
-            let x_offset = base_x * vector_x.0 + base_y * vector_y.0;
-            let y_offset = base_x * vector_x.1 + base_y * vector_y.1;
+            let offset_x = base_x * vector_x.0 + base_y * vector_y.0;
+            let offset_y = base_x * vector_x.1 + base_y * vector_y.1;
 
-            let x = group_middle_pos.x + x_offset * config.terrain.hex_size;
-            let y = group_middle_pos.y + y_offset * config.terrain.hex_size;
+            // TODO: this is halved so animals spawn inside hex for sure
+            let x = group_middle_pos.x + offset_x * config.terrain.hex_size / 2.;
+            let y = group_middle_pos.y + offset_y * config.terrain.hex_size / 2.;
 
             let mut new_animal = cmd.spawn((
                 AnimalMarker,
-                SpriteLayer::Creature,
-                MaterialMesh2dBundle {
+                PbrBundle {
                     mesh: mesh_handle.clone(),
                     material: animal_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x, y, 1.).with_scale(Vec3::splat(size.ratio)),
+                    transform: Transform::from_xyz(x, y, base_size)
+                        .with_scale(Vec3::splat(size.ratio)),
                     ..default()
                 },
                 Health { hp },
@@ -147,8 +144,8 @@ fn spawn_animals(
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
                 SightRange(500.),         // FIXME: magic number
-                Attack{
-                    range: 2., // FIXME: magic number
+                Attack {
+                    range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number
                 },
                 size,
@@ -201,7 +198,7 @@ fn connect_animal_with_medium_its_on(
     for creature_transform in creature_transforms.iter() {
         let entity = map.world_pos_to_entity(Vec2 {
             x: creature_transform.translation.x,
-            y: creature_transform.translation.y,
+            y: creature_transform.translation.z,
         });
 
         match entity {

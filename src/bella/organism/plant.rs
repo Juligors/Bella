@@ -1,6 +1,9 @@
 use bevy::{
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
 };
 use rand::Rng;
 
@@ -12,7 +15,6 @@ use crate::bella::{
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
-    ui::layer::SpriteLayer,
 };
 
 use super::{ReproductionState, Size};
@@ -49,11 +51,11 @@ pub struct PlantMarker;
 
 #[derive(Resource)]
 struct PlantAssets {
-    alive: Vec<Handle<ColorMaterial>>,
-    dead: Handle<ColorMaterial>,
+    alive: Vec<Handle<StandardMaterial>>,
+    dead: Handle<StandardMaterial>,
 }
 
-fn prepare_plant_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn prepare_plant_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let plant_assets = PlantAssets {
         alive: (0..=100)
             .map(|i| materials.add(Color::rgb(0.3, i as f32 / 100., 0.3)))
@@ -71,11 +73,12 @@ fn spawn_plants(
     config: Res<SimConfig>,
     tiles: Query<(&BiomeType, &TerrainPosition)>,
     tile_map: Res<TileMap>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut rng = rand::thread_rng();
 
     let base_size = 3.;
-    let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(base_size, base_size)));
+    let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
 
     for (biome_type, terrain_position) in tiles.iter() {
         if !rng.gen_bool(config.plant.group_spawn_chance_grass as f64) {
@@ -112,22 +115,23 @@ fn spawn_plants(
             let vector_y = vectors[(index + 1) % 3];
 
             let (base_x, base_y) = rng.gen::<(f32, f32)>();
-            let x_offset = base_x * vector_x.0 + base_y * vector_y.0;
-            let y_offset = base_x * vector_x.1 + base_y * vector_y.1;
+            let offset_x = base_x * vector_x.0 + base_y * vector_y.0;
+            let offset_y = base_x * vector_x.1 + base_y * vector_y.1;
 
-            let x = group_middle_pos.x + x_offset * config.terrain.hex_size;
-            let y = group_middle_pos.y + y_offset * config.terrain.hex_size;
+            let x = group_middle_pos.x + offset_x * config.terrain.hex_size;
+            let y = group_middle_pos.y + offset_y * config.terrain.hex_size;
 
             cmd.spawn((
                 PlantMarker,
-                MaterialMesh2dBundle {
+                PbrBundle {
                     mesh: mesh_handle.clone(),
                     material: plant_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x, y, 1.).with_scale(Vec3::splat(size.ratio)),
+                    transform: Transform::from_xyz(x, y, base_size)
+                        .with_scale(Vec3::splat(size.ratio)),
                     ..default()
                 },
                 Health { hp },
-                SpriteLayer::Plant,
+                // SpriteLayer::Plant,
                 size,
                 energy_data,
                 ReproductionState::Developing(config.plant.development_time),
@@ -203,7 +207,7 @@ fn consume_energy_to_reproduce(
     let mut rng = rand::thread_rng();
 
     let base_size = 3.;
-    let mesh_handle = Mesh2dHandle(meshes.add(Rectangle::new(base_size, base_size)));
+    let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
 
     for (mut life_cycle_state, transform) in query.iter_mut() {
         match *life_cycle_state {
@@ -248,7 +252,7 @@ fn consume_energy_to_reproduce(
 
                 cmd.spawn((
                     PlantMarker,
-                    MaterialMesh2dBundle {
+                    PbrBundle {
                         mesh: mesh_handle.clone(),
                         material: plant_assets.alive[hp as usize].clone(),
                         transform: Transform::from_xyz(new_plant_x, new_plant_y, 1.)
@@ -256,7 +260,6 @@ fn consume_energy_to_reproduce(
                         ..default()
                     },
                     Health { hp },
-                    SpriteLayer::Plant,
                     size,
                     energy_data,
                     ReproductionState::Developing(config.plant.development_time),
@@ -267,10 +270,10 @@ fn consume_energy_to_reproduce(
 }
 
 fn update_plant_color(
-    mut plants: Query<(&mut Handle<ColorMaterial>, &mut Health), With<PlantMarker>>,
+    mut plants: Query<(&mut Handle<StandardMaterial>, &Health), With<PlantMarker>>,
     assets: Res<PlantAssets>,
 ) {
-    for (mut handle, mut health) in plants.iter_mut() {
+    for (mut handle, health) in plants.iter_mut() {
         *handle = if health.hp > 0. {
             assets.alive[health.hp as usize].clone()
         } else {

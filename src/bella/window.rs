@@ -2,7 +2,7 @@ use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
     prelude::*,
     tasks::available_parallelism,
-    window::{close_on_esc, CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
 pub struct MyWindowPlugin;
@@ -49,4 +49,20 @@ fn setup_window_cursor_lock(mut window_q: Query<&mut Window>) {
     let mut window = window_q.single_mut();
 
     window.cursor.grab_mode = CursorGrabMode::Confined;
+}
+
+pub fn close_on_esc(
+    mut commands: Commands,
+    focused_windows: Query<(Entity, &Window)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    for (window, focus) in focused_windows.iter() {
+        if !focus.focused {
+            continue;
+        }
+
+        if input.just_pressed(KeyCode::Escape) {
+            commands.entity(window).despawn();
+        }
+    }
 }

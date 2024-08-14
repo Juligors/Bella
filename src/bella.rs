@@ -7,3 +7,6 @@ pub mod time;
 pub mod ui;
 pub mod environment;
 pub mod plots;
+pub mod window;
+
+pub mod hex;

@@ -165,7 +165,7 @@ fn plot_data(
     drop(chart);
     drop(root);
 
-    let image = images.get_mut(plot_preview.0.clone()).unwrap();
+    let image = images.get_mut(plot_preview.0.clone().id()).unwrap();
 
     // Fix that stupid library's output and put data into image
     (0..(my_plot.buffer.len() / 3))
