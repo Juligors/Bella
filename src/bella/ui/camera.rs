@@ -10,7 +10,7 @@ pub struct MyCameraPlugin;
 
 impl Plugin for MyCameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_camera)
+        app.add_systems(Startup, spawn_camera_and_light)
             .add_systems(Update, (camera_movement, camera_zoom, rotate_camera));
     }
 }
@@ -18,12 +18,12 @@ impl Plugin for MyCameraPlugin {
 #[derive(Component)]
 struct MyGameCameraMarker;
 
-fn spawn_camera(mut cmd: Commands) {
+fn spawn_camera_and_light(mut cmd: Commands) {
     cmd.spawn((
         MyGameCameraMarker,
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, -30.0, 100.0)
-                .looking_to(Vec3::new(0.0, 0.3, -1.0), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, 200.0)
+                .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
             projection: OrthographicProjection {
                 scale: 0.5,
                 ..default()
@@ -33,13 +33,12 @@ fn spawn_camera(mut cmd: Commands) {
         },
     ));
 
-    // TODO: move to separate function
     cmd.spawn(PointLightBundle {
-        transform: Transform::from_xyz(-50.0, -20.0, 200.0),
+        transform: Transform::from_xyz(0.0, 0.0, 2_000.0),
         point_light: PointLight {
             color: Color::WHITE,
-            intensity: 1_000_000_000.0,
-            range: 20_000.0,
+            intensity: 100_000_000_000.0,
+            range: 200_000.0,
             radius: 10.0,
             shadows_enabled: true,
             ..default()
@@ -66,38 +65,29 @@ fn camera_movement(
         Projection::Orthographic(ortographic_projection) => ortographic_projection.scale,
     };
     let move_by_value = 10.0 * scale;
-    let mut move_x_by = 0.0;
-    let mut move_y_by = 0.0;
 
-    let border_low = CAMERA_BORDER_COEFF * window.width();
-    let border_high = (1.0 - CAMERA_BORDER_COEFF) * window.width();
+    let border_width = CAMERA_BORDER_COEFF * window.width();
+    let right_border = window.width() - border_width;
+    let left_border = border_width;
 
-    // left
-    if cursor_pos.x < border_low {
-        let diff = border_low - cursor_pos.x;
-        move_x_by -= (diff / border_low) * move_by_value;
-    }
-    // right
-    if cursor_pos.x > border_high {
-        let diff = cursor_pos.x - border_high;
-        move_x_by += (diff / border_low) * move_by_value;
-    }
+    let move_x_by = match cursor_pos.x {
+        x if x > right_border => (x - right_border) / border_width,
+        x if x < left_border => (x - left_border) / border_width,
+        _ => 0.,
+    } * move_by_value;
 
-    let border_low = CAMERA_BORDER_COEFF * window.height();
-    let border_high = (1.0 - CAMERA_BORDER_COEFF) * window.height();
+    let border_height = CAMERA_BORDER_COEFF * window.height();
+    let top_border = window.height() - border_height;
+    let bottom_border = border_height;
 
-    // down
-    if cursor_pos.y < border_low {
-        let diff = border_low - cursor_pos.y;
-        move_y_by -= (diff / border_low) * move_by_value;
-    }
-    // up
-    if cursor_pos.y > border_high {
-        let diff = cursor_pos.y - border_high;
-        move_y_by += (diff / border_low) * move_by_value;
-    }
+    // NOTE: cursor position (0, 0) in in top left corner, not bottom left, so we have to subtract
+    let move_y_by = match window.height() - cursor_pos.y {
+        y if y > top_border => (y - top_border) / border_height,
+        y if y < bottom_border => (y - bottom_border) / border_height,
+        _ => 0.,
+    } * move_by_value;
 
-    camera_transform.translation += Vec3::new(move_x_by, -move_y_by, 0.0);
+    camera_transform.translation += Vec3::new(move_x_by, move_y_by, 0.0);
 }
 
 fn camera_zoom(
