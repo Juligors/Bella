@@ -26,20 +26,20 @@ impl Plugin for MyWindowPlugin {
                 .set(TaskPoolPlugin {
                     task_pool_options: TaskPoolOptions {
                         compute: TaskPoolThreadAssignmentPolicy {
-                            // set the minimum # of compute threads
-                            // to the total number of available threads
+                            // set the minimum # of compute threads to the total number of available threads
                             min_threads: available_parallelism(),
-                            max_threads: std::usize::MAX, // unlimited max threads
-                            percent: 1.0,                 // this value is irrelevant in this case
+                            // unlimited max threads
+                            max_threads: usize::MAX,
+                            // this value is irrelevant in this case
+                            percent: 1.0,
                         },
-                        // keep the defaults for everything else
                         ..default()
                     },
                 }),
             // bevy::diagnostic::LogDiagnosticsPlugin::default(),
             // bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
         ))
-        .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+        .insert_resource(ClearColor(Color::srgb(1.0, 1.0, 1.0)))
         .add_systems(Startup, setup_window_cursor_lock)
         .add_systems(Update, close_on_esc);
     }

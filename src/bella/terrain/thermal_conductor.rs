@@ -131,7 +131,7 @@ fn initialize_assets_map_temperature(
     while temp <= ThermalConductor::max_temperature() {
         medium_materials.insert(
             temp as i32,
-            materials.add(Color::rgb(
+            materials.add(Color::srgb(
                 (temp - ThermalConductor::min_temperature())
                     / (ThermalConductor::max_temperature() - ThermalConductor::min_temperature()),
                 0.1,

@@ -1,10 +1,4 @@
-use bevy::{
-    prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-};
+use bevy::prelude::*;
 use rand::Rng;
 
 use crate::bella::{
@@ -58,9 +52,9 @@ struct PlantAssets {
 fn prepare_plant_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let plant_assets = PlantAssets {
         alive: (0..=100)
-            .map(|i| materials.add(Color::rgb(0.3, i as f32 / 100., 0.3)))
+            .map(|i| materials.add(Color::srgb(0.3, i as f32 / 100., 0.3)))
             .collect(),
-        dead: materials.add(Color::rgb(0., 0., 0.)),
+        dead: materials.add(Color::srgb(0., 0., 0.)),
     };
 
     cmd.insert_resource(plant_assets);
@@ -73,7 +67,6 @@ fn spawn_plants(
     config: Res<SimConfig>,
     tiles: Query<(&BiomeType, &TerrainPosition)>,
     tile_map: Res<TileMap>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -131,7 +124,6 @@ fn spawn_plants(
                     ..default()
                 },
                 Health { hp },
-                // SpriteLayer::Plant,
                 size,
                 energy_data,
                 ReproductionState::Developing(config.plant.development_time),
