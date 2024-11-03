@@ -1,3 +1,7 @@
+use super::{
+    organism::{plant::PlantMarker, ReproductionState},
+    time::HourPassedEvent,
+};
 use bevy::{
     prelude::*,
     render::render_resource::{
@@ -12,7 +16,14 @@ impl Plugin for PlotsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_systems(Startup, setup)
-            .add_systems(Update, (simple_plot, plot_data));
+            .add_systems(
+                Update,
+                (
+                    simple_plot,
+                    plot_data,
+                    update_plant_plot_data.run_if(on_event::<HourPassedEvent>()),
+                ),
+            );
     }
 }
 
@@ -103,8 +114,8 @@ fn plot_data(
         .max()
         .expect("Can't get max all value");
 
-    let x_spec = -1f32..(y_data_developing.len() as f32 * 1.1);
-    let y_spec = -1f32..(max_all as f32 * 1.1);
+    let x_spec = 0f32..(y_data_developing.len() as f32 * 1.1);
+    let y_spec = 0f32..(max_all as f32 * 1.1);
 
     let root = BitMapBackend::with_buffer(buffer, (*width, *height)).into_drawing_area();
     root.fill(&WHITE).unwrap();
@@ -194,4 +205,25 @@ fn simple_plot(mut ctxs: EguiContexts, plot_preview: Res<PlotPreviewImage>) {
                 egui::vec2(600., 500.),
             ))
         });
+}
+
+fn update_plant_plot_data(
+    mut plot: ResMut<PlantPlot>,
+    plants: Query<&ReproductionState, With<PlantMarker>>,
+) {
+    let mut developing = 0;
+    let mut ready_to_reproduce = 0;
+    let mut waiting_to_reproduce = 0;
+
+    plants
+        .iter()
+        .for_each(|reproduction_state| match reproduction_state {
+            ReproductionState::Developing(_) => developing += 1,
+            ReproductionState::ReadyToReproduce => ready_to_reproduce += 1,
+            ReproductionState::WaitingToReproduce(_) => waiting_to_reproduce += 1,
+        });
+
+    plot.y_data_developing.push(developing);
+    plot.y_data_ready_to_reproduce.push(ready_to_reproduce);
+    plot.y_data_waiting_to_reproduce.push(waiting_to_reproduce);
 }

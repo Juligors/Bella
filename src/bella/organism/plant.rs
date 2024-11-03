@@ -5,7 +5,6 @@ use crate::bella::{
     config::SimConfig,
     environment::Sun,
     organism::{EnergyData, Health},
-    plots::PlantPlot,
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
@@ -33,7 +32,6 @@ impl Plugin for PlantPlugin {
                 consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
                 consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
                 update_plant_color,
-                update_plant_plot_data,
             )
                 .chain(),
         );
@@ -272,25 +270,4 @@ fn update_plant_color(
             assets.dead.clone()
         };
     }
-}
-
-fn update_plant_plot_data(
-    mut plot: ResMut<PlantPlot>,
-    plants: Query<&ReproductionState, With<PlantMarker>>,
-) {
-    let mut developing = 0;
-    let mut ready_to_reproduce = 0;
-    let mut waiting_to_reproduce = 0;
-
-    plants
-        .iter()
-        .for_each(|reproduction_state| match reproduction_state {
-            ReproductionState::Developing(_) => developing += 1,
-            ReproductionState::ReadyToReproduce => ready_to_reproduce += 1,
-            ReproductionState::WaitingToReproduce(_) => waiting_to_reproduce += 1,
-        });
-    
-    plot.y_data_developing.push(developing);
-    plot.y_data_ready_to_reproduce.push(ready_to_reproduce);
-    plot.y_data_waiting_to_reproduce.push(waiting_to_reproduce);
 }
