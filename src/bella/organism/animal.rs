@@ -8,7 +8,7 @@ use crate::bella::{
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::HourPassedEvent,
 };
-use bevy::prelude::*;
+use bevy::{animation::AnimationTargetId, prelude::*};
 use mobile::{Destination, MobilePlugin};
 use rand::{self, Rng};
 

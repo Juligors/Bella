@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod bella;
 
 use bevy::prelude::*;
