@@ -5,7 +5,7 @@ use crate::bella::{
     config::SimConfig,
     environment::Sun,
     organism::{EnergyData, Health},
-    plots::MyPlot,
+    plots::PlantPlot,
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
@@ -275,7 +275,7 @@ fn update_plant_color(
 }
 
 fn update_plant_plot_data(
-    mut plot: ResMut<MyPlot>,
+    mut plot: ResMut<PlantPlot>,
     plants: Query<&ReproductionState, With<PlantMarker>>,
 ) {
     let mut developing = 0;
@@ -289,7 +289,8 @@ fn update_plant_plot_data(
             ReproductionState::ReadyToReproduce => ready_to_reproduce += 1,
             ReproductionState::WaitingToReproduce(_) => waiting_to_reproduce += 1,
         });
-
-    plot.y_data
-        .push((developing, ready_to_reproduce, waiting_to_reproduce));
+    
+    plot.y_data_developing.push(developing);
+    plot.y_data_ready_to_reproduce.push(ready_to_reproduce);
+    plot.y_data_waiting_to_reproduce.push(waiting_to_reproduce);
 }

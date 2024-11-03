@@ -20,11 +20,13 @@ impl Plugin for PlotsPlugin {
 struct PlotPreviewImage(Handle<Image>);
 
 #[derive(Resource)]
-pub struct MyPlot {
+pub struct PlantPlot {
     width: u32,
     height: u32,
     buffer: Vec<u8>,
-    pub y_data: Vec<(usize, usize, usize)>,
+    pub y_data_developing: Vec<usize>,
+    pub y_data_ready_to_reproduce: Vec<usize>,
+    pub y_data_waiting_to_reproduce: Vec<usize>,
 }
 
 fn setup(
@@ -33,11 +35,13 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     let (width, height) = (1000u32, 1000u32);
-    let my_plot = MyPlot {
+    let my_plot = PlantPlot {
         width,
         height,
         buffer: vec![255u8; width as usize * height as usize * 3],
-        y_data: vec![],
+        y_data_developing: vec![],
+        y_data_ready_to_reproduce: vec![],
+        y_data_waiting_to_reproduce: vec![],
     };
 
     let size = Extent3d {
@@ -71,35 +75,38 @@ fn setup(
 fn plot_data(
     plot_preview: Res<PlotPreviewImage>,
     mut images: ResMut<Assets<Image>>,
-    mut my_plot: ResMut<MyPlot>,
+    mut plant_plot: ResMut<PlantPlot>,
 ) {
-    let (width, height) = (my_plot.width, my_plot.height);
-    let y_data = my_plot.y_data.clone(); // FIXME probably just 2 separate resources?
+    let PlantPlot {
+        width,
+        height,
+        buffer,
+        y_data_developing,
+        y_data_ready_to_reproduce,
+        y_data_waiting_to_reproduce,
+    } = plant_plot.as_mut();
 
-    let max_0 = y_data
+    let max_0 = y_data_developing
         .iter()
-        .max_by(|x, y| x.0.cmp(&y.0))
-        .unwrap_or(&(1, 1, 1))
-        .0;
-    let max_1 = y_data
+        .max_by(|x, y| x.cmp(y))
+        .unwrap_or(&1);
+    let max_1 = y_data_ready_to_reproduce
         .iter()
-        .max_by(|x, y| x.1.cmp(&y.1))
-        .unwrap_or(&(1, 1, 1))
-        .1;
-    let max_2 = y_data
+        .max_by(|x, y| x.cmp(y))
+        .unwrap_or(&1);
+    let max_2 = y_data_waiting_to_reproduce
         .iter()
-        .max_by(|x, y| x.2.cmp(&y.2))
-        .unwrap_or(&(1, 1, 1))
-        .2;
-    let max_all = *[max_0, max_1, max_2]
+        .max_by(|x, y| x.cmp(y))
+        .unwrap_or(&1);
+    let max_all = **[max_0, max_1, max_2]
         .iter()
         .max()
         .expect("Can't get max all value");
 
-    let x_spec = -1f32..(y_data.len() as f32 * 1.1);
+    let x_spec = -1f32..(y_data_developing.len() as f32 * 1.1);
     let y_spec = -1f32..(max_all as f32 * 1.1);
 
-    let root = BitMapBackend::with_buffer(&mut my_plot.buffer, (width, height)).into_drawing_area();
+    let root = BitMapBackend::with_buffer(buffer, (*width, *height)).into_drawing_area();
     root.fill(&WHITE).unwrap();
 
     let mut chart = ChartBuilder::on(&root)
@@ -120,10 +127,10 @@ fn plot_data(
 
     chart
         .draw_series(LineSeries::new(
-            y_data
+            y_data_developing
                 .iter()
                 .enumerate()
-                .map(|(i, data)| (i as f32, data.0 as f32)),
+                .map(|(i, data)| (i as f32, *data as f32)),
             &RED,
         ))
         .expect("Can't draw red")
@@ -131,10 +138,10 @@ fn plot_data(
 
     chart
         .draw_series(LineSeries::new(
-            y_data
+            y_data_ready_to_reproduce
                 .iter()
                 .enumerate()
-                .map(|(i, data)| (i as f32, data.1 as f32)),
+                .map(|(i, data)| (i as f32, *data as f32)),
             &GREEN,
         ))
         .expect("Can't draw green")
@@ -142,10 +149,10 @@ fn plot_data(
 
     chart
         .draw_series(LineSeries::new(
-            y_data
+            y_data_waiting_to_reproduce
                 .iter()
                 .enumerate()
-                .map(|(i, data)| (i as f32, data.2 as f32)),
+                .map(|(i, data)| (i as f32, *data as f32)),
             &BLUE,
         ))
         .expect("Can't draw blue")
@@ -168,15 +175,8 @@ fn plot_data(
     let image = images.get_mut(plot_preview.0.clone().id()).unwrap();
 
     // Fix that stupid library's output and put data into image
-    (0..(my_plot.buffer.len() / 3))
-        .flat_map(|i| {
-            [
-                my_plot.buffer[3 * i],
-                my_plot.buffer[3 * i + 1],
-                my_plot.buffer[3 * i + 2],
-                255,
-            ]
-        })
+    (0..(buffer.len() / 3))
+        .flat_map(|i| [buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2], 255])
         .enumerate()
         .for_each(|(i, x)| image.data[i] = x);
 }
