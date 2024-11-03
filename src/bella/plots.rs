@@ -145,7 +145,7 @@ fn plot_data(
             &RED,
         ))
         .expect("Can't draw red")
-        .label("Developing");
+        .label("Red: Developing");
 
     chart
         .draw_series(LineSeries::new(
@@ -156,7 +156,7 @@ fn plot_data(
             &GREEN,
         ))
         .expect("Can't draw green")
-        .label("Ready to reproduce");
+        .label("Green: Ready to reproduce");
 
     chart
         .draw_series(LineSeries::new(
@@ -167,13 +167,13 @@ fn plot_data(
             &BLUE,
         ))
         .expect("Can't draw blue")
-        .label("Waiting to reproduce");
+        .label("Blue: Waiting to reproduce");
 
     chart
         .configure_series_labels()
         .background_style(WHITE)
         .border_style(BLACK)
-        .position(SeriesLabelPosition::MiddleRight)
+        .position(SeriesLabelPosition::MiddleLeft)
         .label_font(("Arial", 30))
         .draw()
         .expect("Can't draw plot.");
