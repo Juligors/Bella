@@ -10,12 +10,19 @@ impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HourPassedEvent>()
             .add_event::<DayPassedEvent>()
-            .insert_resource(TimePassed { days: 0, hours: 0 })
+            .insert_resource(SimTime { days: 0, hours: 0 })
             .add_systems(
                 Startup,
                 (init_hourly_timer, init_daily_timer, setup_timer_ui),
             )
-            .add_systems(Update, (update_time_passed, update_timer_ui).chain())
+            .add_systems(
+                Update,
+                (
+                    update_simulation_time.run_if(on_event::<HourPassedEvent>()),
+                    update_timer_ui,
+                )
+                    .chain(),
+            )
             .add_systems(PreUpdate, (send_hour_passed_event, send_day_passed_event));
     }
 }
@@ -71,22 +78,17 @@ fn send_day_passed_event(
 ///////////////////// time passed /////////////////////
 
 #[derive(Resource)]
-pub struct TimePassed {
+pub struct SimTime {
     pub days: u32,
     pub hours: u32,
 }
 
-fn update_time_passed(
-    mut time_passed: ResMut<TimePassed>,
-    mut er_hour_passed: EventReader<HourPassedEvent>,
-) {
-    for _ in er_hour_passed.read() {
-        time_passed.hours += 1;
+fn update_simulation_time(mut time_passed: ResMut<SimTime>) {
+    time_passed.hours += 1;
 
-        if time_passed.hours == 24 {
-            time_passed.hours = 0;
-            time_passed.days += 1;
-        }
+    if time_passed.hours == 24 {
+        time_passed.hours = 0;
+        time_passed.days += 1;
     }
 }
 
@@ -120,9 +122,12 @@ fn setup_timer_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
 
 fn update_timer_ui(
     mut query: Query<&mut Text, With<TimerUiTextMarker>>,
-    time_passed: Res<TimePassed>,
+    time_passed: Res<SimTime>,
 ) {
     for mut text in query.iter_mut() {
-        text.sections[0].value = format!("Day:  {: >2}\nHour: {: >2}", time_passed.days, time_passed.hours);
+        text.sections[0].value = format!(
+            "Day:  {: >2}\nHour: {: >2}",
+            time_passed.days, time_passed.hours
+        );
     }
 }
