@@ -1,3 +1,5 @@
+use std::default;
+
 use bevy::prelude::*;
 
 use crate::bella::organism::plant::PlantMarker;
@@ -11,13 +13,36 @@ pub struct AnimalGizmosPlugin;
 
 impl Plugin for AnimalGizmosPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.init_state::<AnimalGizmosOverlayState>().add_systems(
             Update,
             (
-                draw_gizmo_to_animal_destination,
-                draw_gizmo_of_animal_sight_range,
+                change_overlay_state_based_on_keyboard_input,
+                draw_gizmo_to_animal_destination
+                    .run_if(in_state(AnimalGizmosOverlayState::Visible)),
+                draw_gizmo_of_animal_sight_range
+                    .run_if(in_state(AnimalGizmosOverlayState::Visible)),
             ),
         );
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum AnimalGizmosOverlayState {
+    #[default]
+    Visible,
+    Hidden,
+}
+
+fn change_overlay_state_based_on_keyboard_input(
+    current_state: Res<State<AnimalGizmosOverlayState>>,
+    mut next_state: ResMut<NextState<AnimalGizmosOverlayState>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyG) {
+        next_state.set(match **current_state {
+            AnimalGizmosOverlayState::Visible => AnimalGizmosOverlayState::Hidden,
+            AnimalGizmosOverlayState::Hidden => AnimalGizmosOverlayState::Visible,
+        });
     }
 }
 
@@ -52,7 +77,7 @@ fn draw_gizmo_of_animal_sight_range(
     mut gizmos: Gizmos,
     animals: Query<(&Transform, &SightRange, &Diet), With<AnimalMarker>>,
 ) {
-    for (transform, sight_range, diet) in animals.iter(){
+    for (transform, sight_range, diet) in animals.iter() {
         let position = transform.translation;
         let normal = Dir3::Z;
         let radius = **sight_range;
