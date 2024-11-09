@@ -1,3 +1,4 @@
+pub mod gizmos;
 pub mod mobile;
 pub mod visual;
 
@@ -8,7 +9,8 @@ use crate::bella::{
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::HourPassedEvent,
 };
-use bevy::{animation::AnimationTargetId, prelude::*};
+use bevy::prelude::*;
+use gizmos::AnimalGizmosPlugin;
 use mobile::{Destination, MobilePlugin};
 use rand::{self, Rng};
 
@@ -24,7 +26,7 @@ pub struct AnimalPlugin;
 
 impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(MobilePlugin)
+        app.add_plugins((MobilePlugin, AnimalGizmosPlugin))
             .add_systems(
                 Startup,
                 (
@@ -143,7 +145,7 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(500.),         // FIXME: magic number
+                SightRange(50.),         // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number

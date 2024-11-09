@@ -1,15 +1,14 @@
 use bevy::prelude::*;
 
+use super::Attack;
 use crate::bella::{organism::Health, terrain::TileMap};
-
-use super::{Attack, Diet};
 
 pub struct MobilePlugin;
 
 impl Plugin for MobilePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (find_next_step_destination, make_step).chain())
-            .add_systems(Update, (attack, draw_gizmo_to_destination));
+            .add_systems(Update, attack);
     }
 }
 
@@ -100,32 +99,5 @@ fn attack(
                 Err(_) => mobile.destination = None,
             },
         }
-    }
-}
-
-fn draw_gizmo_to_destination(
-    mut gizmos: Gizmos,
-    mobile: Query<(&Transform, &Mobile, &Diet)>,
-    organisms: Query<&Transform>,
-) {
-    for (transform, mobile, diet) in mobile.iter() {
-        if mobile.destination.is_none() {
-            continue;
-        }
-
-        let start = transform.translation;
-        let end = match mobile.destination.as_ref().unwrap() {
-            Destination::Place { position } => position.extend(start.z),
-            Destination::Organism { entity } => match organisms.get(*entity) {
-                Ok(transform) => transform.translation,
-                Err(_) => continue,
-            },
-        };
-        let color = match diet {
-            Diet::Carnivorous(_) => bevy::color::palettes::css::RED,
-            Diet::Herbivorous(_) => bevy::color::palettes::css::GREEN,
-        };
-
-        gizmos.line(start, end, color);
     }
 }
