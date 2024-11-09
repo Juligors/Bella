@@ -1,12 +1,7 @@
-use std::time::Duration;
-
+use super::{terrain_overlay_state::TerrainOverlayState, TerrainPosition, TileMap};
+use crate::bella::config::SimConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
-
-use crate::bella::{
-    config::SimConfig,
-    state::TerrainOverlayState,
-    terrain::{TerrainPosition, TileMap},
-};
+use std::time::Duration;
 
 pub struct ThermalConductorPlugin;
 

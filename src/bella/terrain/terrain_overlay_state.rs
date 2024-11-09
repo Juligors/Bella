@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub struct StatePlugin;
+pub struct TerrainOverlayStatePlugin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum TerrainOverlayState {
@@ -17,7 +17,7 @@ pub enum TerrainOverlayState {
 //     Simulation,
 // }
 
-impl Plugin for StatePlugin {
+impl Plugin for TerrainOverlayStatePlugin {
     fn build(&self, app: &mut App) {
         app
             // .init_state::<SimState>()

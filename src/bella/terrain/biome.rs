@@ -1,19 +1,15 @@
+use super::terrain_overlay_state::TerrainOverlayState;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
-
-use crate::bella::state::TerrainOverlayState;
 
 pub struct BiomePlugin;
 
 impl Plugin for BiomePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            initialize_assets_map_biomes,
-        )
-        .add_systems(
-            Update,
-            update_tile_color_for_biome.run_if(in_state(TerrainOverlayState::Bioms)),
-        );
+        app.add_systems(Startup, initialize_assets_map_biomes)
+            .add_systems(
+                Update,
+                update_tile_color_for_biome.run_if(in_state(TerrainOverlayState::Bioms)),
+            );
     }
 }
 
@@ -30,7 +26,10 @@ pub enum BiomeType {
 pub struct AssetsMapBiomes {
     pub medium_type_materials: HashMap<BiomeType, Handle<StandardMaterial>>,
 }
-fn initialize_assets_map_biomes(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn initialize_assets_map_biomes(
+    mut cmd: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let medium_type_materials = HashMap::from([
         (BiomeType::Stone, materials.add(Color::srgb(0.5, 0.5, 0.5))),
         (BiomeType::Sand, materials.add(Color::srgb(0.9, 0.9, 0.2))),

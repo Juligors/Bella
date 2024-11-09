@@ -1,4 +1,5 @@
 pub mod biome;
+pub mod terrain_overlay_state;
 pub mod thermal_conductor;
 
 use self::{
@@ -20,12 +21,14 @@ use noise::{
     HybridMulti, Perlin,
 };
 use rand::Rng;
+use terrain_overlay_state::TerrainOverlayStatePlugin;
 
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ThermalConductorPlugin)
+            .add_plugins(TerrainOverlayStatePlugin)
             .add_plugins(BiomePlugin)
             .add_systems(
                 Startup,
@@ -163,7 +166,9 @@ fn generate_terrain(
 }
 
 mod helpers {
-    use crate::bella::hex::{bevel_hexagon_indices, bevel_hexagon_normals, bevel_hexagon_points, HexCoord};
+    use crate::bella::hex::{
+        bevel_hexagon_indices, bevel_hexagon_normals, bevel_hexagon_points, HexCoord,
+    };
 
     use super::*;
 
