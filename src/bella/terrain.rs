@@ -23,25 +23,29 @@ use noise::{
 use rand::Rng;
 use terrain_overlay_state::TerrainOverlayStatePlugin;
 
+use super::pause::PauseState;
+
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ThermalConductorPlugin)
-            .add_plugins(TerrainOverlayStatePlugin)
-            .add_plugins(BiomePlugin)
-            .add_systems(
-                Startup,
-                (
-                    init_thermal_overlay_update_timer.in_set(InitializationSet::ConfigLoad),
-                    generate_terrain.in_set(InitializationSet::TerrainGeneration),
-                ),
-            )
-            .add_systems(
-                Update,
-                update_temperatures,
-                // .run_if(on_timer(Duration::from_secs(1))), // TODO: this should be timer
-            );
+        app.add_plugins((
+            ThermalConductorPlugin,
+            BiomePlugin,
+            TerrainOverlayStatePlugin,
+        ))
+        .add_systems(
+            Startup,
+            (
+                init_thermal_overlay_update_timer.in_set(InitializationSet::ConfigLoad),
+                generate_terrain.in_set(InitializationSet::TerrainGeneration),
+            ),
+        )
+        .add_systems(
+            Update,
+            update_temperatures.run_if(in_state(PauseState::Running)),
+            // .run_if(on_timer(Duration::from_secs(1))), // TODO: this should be timer
+        );
     }
 }
 

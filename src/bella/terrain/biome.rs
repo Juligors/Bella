@@ -1,3 +1,5 @@
+use crate::bella::pause::PauseState;
+
 use super::terrain_overlay_state::TerrainOverlayState;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 
@@ -8,7 +10,9 @@ impl Plugin for BiomePlugin {
         app.add_systems(Startup, initialize_assets_map_biomes)
             .add_systems(
                 Update,
-                update_tile_color_for_biome.run_if(in_state(TerrainOverlayState::Bioms)),
+                update_tile_color_for_biome
+                    .run_if(in_state(TerrainOverlayState::Bioms))
+                    .run_if(in_state(PauseState::Running)),
             );
     }
 }

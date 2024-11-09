@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use super::config::SimConfig;
+use super::{config::SimConfig, pause::PauseState};
 
 pub struct TimePlugin;
 
@@ -21,9 +21,14 @@ impl Plugin for TimePlugin {
                     update_simulation_time.run_if(on_event::<HourPassedEvent>()),
                     update_timer_ui,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(PauseState::Running)),
             )
-            .add_systems(PreUpdate, (send_hour_passed_event, send_day_passed_event));
+            .add_systems(
+                PreUpdate,
+                (send_hour_passed_event, send_day_passed_event)
+                    .run_if(in_state(PauseState::Running)),
+            );
     }
 }
 

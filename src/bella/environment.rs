@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{config::SimConfig, time::HourPassedEvent};
+use super::{config::SimConfig, pause::PauseState, time::HourPassedEvent};
 
 pub struct EnvironmentPlugin;
 
@@ -8,7 +8,9 @@ impl Plugin for EnvironmentPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, create_sun).add_systems(
             Update,
-            update_sun_with_time_passing.run_if(on_event::<HourPassedEvent>()),
+            update_sun_with_time_passing
+                .run_if(in_state(PauseState::Running))
+                .run_if(on_event::<HourPassedEvent>()),
         );
     }
 }
@@ -51,8 +53,6 @@ fn create_sun(mut cmd: Commands, config: Res<SimConfig>) {
     });
 }
 
-fn update_sun_with_time_passing(
-    mut sun: ResMut<Sun>,
-) {
+fn update_sun_with_time_passing(mut sun: ResMut<Sun>) {
     sun.day_time = (sun.day_time + 1) % 24;
 }

@@ -7,6 +7,8 @@ use carcass::CarcassPlugin;
 
 use self::{animal::AnimalPlugin, plant::PlantPlugin};
 
+use super::pause::PauseState;
+
 pub struct OrganismPlugin;
 
 impl Plugin for OrganismPlugin {
@@ -18,7 +20,8 @@ impl Plugin for OrganismPlugin {
                     kill_organisms_with_health_below_zero,
                     kill_organisms_with_energy_below_zero,
                     make_ready_to_reproduce_if_possible,
-                ),
+                )
+                    .run_if(in_state(PauseState::Running)),
             );
     }
 }

@@ -3,6 +3,7 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
+use crate::bella::pause::PauseState;
 
 use super::Health;
 
@@ -13,7 +14,10 @@ impl Plugin for CarcassPlugin {
         app.add_event::<OrganismDiedEvent>()
             .add_systems(Startup, prepare_assets)
             // .add_systems(PostUpdate, transform_dead_organisms_into_carcasses);
-            .add_systems(PostUpdate, despawn_dead_organisms);
+            .add_systems(
+                PostUpdate,
+                despawn_dead_organisms.run_if(in_state(PauseState::Running)),
+            );
     }
 }
 

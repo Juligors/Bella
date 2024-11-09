@@ -1,5 +1,5 @@
 use super::{terrain_overlay_state::TerrainOverlayState, TerrainPosition, TileMap};
-use crate::bella::config::SimConfig;
+use crate::bella::{config::SimConfig, pause::PauseState};
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use std::time::Duration;
 
@@ -10,7 +10,9 @@ impl Plugin for ThermalConductorPlugin {
         app.add_systems(Startup, initialize_assets_map_temperature)
             .add_systems(
                 Update,
-                update_tile_color_for_thermal.run_if(in_state(TerrainOverlayState::Thermal)),
+                update_tile_color_for_thermal
+                    .run_if(in_state(TerrainOverlayState::Thermal))
+                    .run_if(in_state(PauseState::Running)),
             )
             .add_systems(Update, handle_select_input);
     }

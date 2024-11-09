@@ -5,6 +5,7 @@ pub mod visual;
 use crate::bella::{
     config::SimConfig,
     organism::Health,
+    pause::PauseState,
     system_set::InitializationSet,
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::HourPassedEvent,
@@ -42,7 +43,8 @@ impl Plugin for AnimalPlugin {
                     connect_animal_with_medium_its_on,
                     decrease_satiation.run_if(on_event::<HourPassedEvent>()),
                     choose_new_destination,
-                ),
+                )
+                    .run_if(in_state(PauseState::Running)),
             );
     }
 }
@@ -145,7 +147,7 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(50.),         // FIXME: magic number
+                SightRange(50.),          // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number

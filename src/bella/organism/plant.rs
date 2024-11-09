@@ -5,6 +5,7 @@ use crate::bella::{
     config::SimConfig,
     environment::Sun,
     organism::{EnergyData, Health},
+    pause::PauseState,
     system_set::InitializationSet,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
@@ -33,7 +34,8 @@ impl Plugin for PlantPlugin {
                 consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
                 update_plant_color,
             )
-                .chain(),
+                .chain()
+                .run_if(in_state(PauseState::Running)),
         );
     }
 }

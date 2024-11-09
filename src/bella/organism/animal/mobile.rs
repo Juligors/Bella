@@ -1,14 +1,17 @@
 use bevy::prelude::*;
 
 use super::Attack;
-use crate::bella::{organism::Health, terrain::TileMap};
+use crate::bella::{organism::Health, pause::PauseState, terrain::TileMap};
 
 pub struct MobilePlugin;
 
 impl Plugin for MobilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (find_next_step_destination, make_step).chain())
-            .add_systems(Update, attack);
+        app.add_systems(
+            Update,
+            ((find_next_step_destination, make_step).chain(), attack)
+                .run_if(in_state(PauseState::Running)),
+        );
     }
 }
 

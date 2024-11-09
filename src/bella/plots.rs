@@ -1,5 +1,6 @@
 use super::{
     organism::{plant::PlantMarker, ReproductionState},
+    pause::PauseState,
     time::HourPassedEvent,
 };
 use bevy::{
@@ -16,13 +17,14 @@ impl Plugin for PlotsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_systems(Startup, setup)
+            .add_systems(Update, simple_plot)
             .add_systems(
                 Update,
                 (
-                    simple_plot,
                     plot_data,
                     update_plant_plot_data.run_if(on_event::<HourPassedEvent>()),
-                ),
+                )
+                    .run_if(in_state(PauseState::Running)),
             );
     }
 }
