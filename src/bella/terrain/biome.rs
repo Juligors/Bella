@@ -1,4 +1,4 @@
-use crate::bella::{pause::PauseState, restart::SimState};
+use crate::bella::restart::SimState;
 
 use super::terrain_overlay_state::TerrainOverlayState;
 use bevy::{prelude::*, utils::hashbrown::HashMap};

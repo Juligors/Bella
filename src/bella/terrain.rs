@@ -23,7 +23,7 @@ use noise::{
 use rand::Rng;
 use terrain_overlay_state::TerrainOverlayStatePlugin;
 
-use super::{pause::PauseState, restart::SimState, time::HourPassedEvent};
+use super::{pause::PauseState, restart::SimState};
 
 pub struct TerrainPlugin;
 
@@ -44,8 +44,7 @@ impl Plugin for TerrainPlugin {
             Update,
             update_temperatures
                 .run_if(in_state(PauseState::Running))
-                .run_if(in_state(SimState::Simulation))
-                // .run_if(on_event::<HourPassedEvent>()),
+                .run_if(in_state(SimState::Simulation)), // .run_if(on_event::<HourPassedEvent>()),
         );
     }
 }

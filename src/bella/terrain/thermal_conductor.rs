@@ -1,5 +1,5 @@
 use super::{terrain_overlay_state::TerrainOverlayState, TerrainPosition, TileMap};
-use crate::bella::{config::SimConfig, pause::PauseState, restart::SimState};
+use crate::bella::{config::SimConfig, restart::SimState};
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use std::time::Duration;
 

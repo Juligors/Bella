@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use config::Config;
 
-use super::restart::SimState;
-
 pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {

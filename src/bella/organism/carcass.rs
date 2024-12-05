@@ -1,11 +1,6 @@
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
-
-use crate::bella::pause::PauseState;
-
 use super::Health;
+use crate::bella::pause::PauseState;
+use bevy::prelude::*;
 
 pub struct CarcassPlugin;
 
