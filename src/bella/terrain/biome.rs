@@ -1,4 +1,4 @@
-use crate::bella::pause::PauseState;
+use crate::bella::{pause::PauseState, restart::SimState};
 
 use super::terrain_overlay_state::TerrainOverlayState;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
@@ -7,12 +7,12 @@ pub struct BiomePlugin;
 
 impl Plugin for BiomePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, initialize_assets_map_biomes)
+        app.add_systems(OnEnter(SimState::LoadAssets), initialize_assets_map_biomes)
             .add_systems(
                 Update,
                 update_tile_color_for_biome
                     .run_if(in_state(TerrainOverlayState::Bioms))
-                    .run_if(in_state(PauseState::Running)),
+                    .run_if(in_state(SimState::Simulation)),
             );
     }
 }

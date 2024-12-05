@@ -6,7 +6,7 @@ use crate::bella::{
     config::SimConfig,
     organism::Health,
     pause::PauseState,
-    system_set::InitializationSet,
+    restart::SimState,
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::HourPassedEvent,
 };
@@ -28,14 +28,9 @@ pub struct AnimalPlugin;
 impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((MobilePlugin, AnimalGizmosPlugin))
-            .add_systems(
-                Startup,
-                (
-                    prepare_animal_assets,
-                    spawn_animals.in_set(InitializationSet::OrganismSpawning),
-                )
-                    .chain(),
-            )
+            .add_systems(OnEnter(SimState::LoadAssets), prepare_animal_assets)
+            .add_systems(OnEnter(SimState::OrganismGeneration), spawn_animals)
+            .add_systems(OnExit(SimState::Simulation), despawn_animals)
             .add_systems(
                 Update,
                 (
@@ -44,6 +39,7 @@ impl Plugin for AnimalPlugin {
                     decrease_satiation.run_if(on_event::<HourPassedEvent>()),
                     choose_new_destination,
                 )
+                    .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
             );
     }
@@ -147,7 +143,7 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(50.),          // FIXME: magic number
+                SightRange(150.),          // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number
@@ -165,6 +161,12 @@ fn spawn_animals(
                 },
             );
         }
+    }
+}
+
+fn despawn_animals(mut cmd: Commands, animals: Query<Entity, With<AnimalMarker>>) {
+    for animal_entity in animals.iter() {
+        cmd.entity(animal_entity).despawn_recursive();
     }
 }
 

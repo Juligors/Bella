@@ -1,16 +1,13 @@
 use bevy::prelude::*;
 use config::Config;
 
-use crate::bella::system_set::InitializationSet;
+use super::restart::SimState;
 
 pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreStartup,
-            load_config.in_set(InitializationSet::ConfigLoad),
-        );
+        app.add_systems(PreStartup, load_config);
     }
 }
 
@@ -63,7 +60,7 @@ fn load_config(mut cmd: Commands) {
         plant: plant_config,
         terrain: terrain_config,
         time: time_config,
-        environment: environment_config
+        environment: environment_config,
     });
 }
 
@@ -87,9 +84,9 @@ pub struct AnimalConfig {
     pub group_size_max: u32,
 
     pub development_time: i8,
-    pub waiting_for_reproduction_time : i8,
+    pub waiting_for_reproduction_time: i8,
 
-    pub carnivores_to_herbivores_ratio : f32,
+    pub carnivores_to_herbivores_ratio: f32,
 }
 
 #[derive(serde::Deserialize)]
@@ -99,7 +96,7 @@ pub struct PlantConfig {
     pub group_size_max: u32,
 
     pub development_time: i8,
-    pub waiting_for_reproduction_time : i8,
+    pub waiting_for_reproduction_time: i8,
 }
 
 #[derive(serde::Deserialize)]

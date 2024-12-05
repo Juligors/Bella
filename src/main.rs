@@ -7,7 +7,7 @@ use bella::environment::EnvironmentPlugin;
 use bella::organism::OrganismPlugin;
 use bella::pause::PausePlugin;
 use bella::plots::PlotsPlugin;
-use bella::system_set::SystemSetPlugin;
+use bella::restart::RestartPlugin;
 use bella::terrain::TerrainPlugin;
 use bella::time::TimePlugin;
 use bella::ui::UiPlugin;
@@ -19,10 +19,10 @@ fn main() {
         .add_plugins((
             MyWindowPlugin,
             ConfigPlugin,
-            SystemSetPlugin,
             TimePlugin,
             EnvironmentPlugin,
             PausePlugin,
+            RestartPlugin,
         ))
         .add_plugins((UiPlugin, PlotsPlugin))
         .add_plugins((TerrainPlugin, OrganismPlugin))

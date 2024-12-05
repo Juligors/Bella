@@ -9,19 +9,9 @@ pub enum TerrainOverlayState {
     Thermal,
 }
 
-// TODO: uncomment when we need it
-// #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-// pub enum SimState {
-//     #[default]
-//     Generation,
-//     Simulation,
-// }
-
 impl Plugin for TerrainOverlayStatePlugin {
     fn build(&self, app: &mut App) {
-        app
-            // .init_state::<SimState>()
-            .init_state::<TerrainOverlayState>()
+        app.init_state::<TerrainOverlayState>()
             .add_systems(Update, change_overlay_state_based_on_keyboard_input);
     }
 }

@@ -6,7 +6,7 @@ use crate::bella::{
     environment::Sun,
     organism::{EnergyData, Health},
     pause::PauseState,
-    system_set::InitializationSet,
+    restart::SimState,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
 };
@@ -17,26 +17,25 @@ pub struct PlantPlugin;
 
 impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            (
-                prepare_plant_assets,
-                spawn_plants.in_set(InitializationSet::OrganismSpawning),
+        app.add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
+            .add_systems(
+                OnEnter(SimState::OrganismGeneration),
+                spawn_plants,
             )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (
-                produce_energy_from_solar.run_if(on_event::<HourPassedEvent>()),
-                consume_energy_to_survive.run_if(on_event::<HourPassedEvent>()),
-                consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
-                consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
-                update_plant_color,
-            )
-                .chain()
-                .run_if(in_state(PauseState::Running)),
-        );
+            .add_systems(OnExit(SimState::Simulation), despawn_plants)
+            .add_systems(
+                Update,
+                (
+                    produce_energy_from_solar.run_if(on_event::<HourPassedEvent>()),
+                    consume_energy_to_survive.run_if(on_event::<HourPassedEvent>()),
+                    consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
+                    consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
+                    update_plant_color,
+                )
+                    .chain()
+                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(PauseState::Running)),
+            );
     }
 }
 
@@ -129,6 +128,12 @@ fn spawn_plants(
                 ReproductionState::Developing(config.plant.development_time),
             ));
         }
+    }
+}
+
+fn despawn_plants(mut cmd: Commands, plants: Query<Entity, With<PlantMarker>>) {
+    for plant_entity in plants.iter() {
+        cmd.entity(plant_entity).despawn_recursive();
     }
 }
 

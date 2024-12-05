@@ -1,8 +1,6 @@
-use std::default;
-
 use bevy::prelude::*;
 
-use crate::bella::organism::plant::PlantMarker;
+use crate::bella::{organism::plant::PlantMarker, restart::SimState};
 
 use super::{
     mobile::{Destination, Mobile},
@@ -13,16 +11,17 @@ pub struct AnimalGizmosPlugin;
 
 impl Plugin for AnimalGizmosPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<AnimalGizmosOverlayState>().add_systems(
-            Update,
-            (
-                change_overlay_state_based_on_keyboard_input,
-                draw_gizmo_to_animal_destination
+        app.init_state::<AnimalGizmosOverlayState>()
+            .add_systems(Update, change_overlay_state_based_on_keyboard_input)
+            .add_systems(
+                Update,
+                (
+                    draw_gizmo_to_animal_destination,
+                    draw_gizmo_of_animal_sight_range,
+                )
+                    .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(AnimalGizmosOverlayState::Visible)),
-                draw_gizmo_of_animal_sight_range
-                    .run_if(in_state(AnimalGizmosOverlayState::Visible)),
-            ),
-        );
+            );
     }
 }
 

@@ -9,7 +9,7 @@ use self::{
         ThermalConductorPlugin,
     },
 };
-use crate::bella::{config::SimConfig, system_set::InitializationSet};
+use crate::bella::config::SimConfig;
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
@@ -23,7 +23,7 @@ use noise::{
 use rand::Rng;
 use terrain_overlay_state::TerrainOverlayStatePlugin;
 
-use super::pause::PauseState;
+use super::{pause::PauseState, restart::SimState, time::HourPassedEvent};
 
 pub struct TerrainPlugin;
 
@@ -35,19 +35,23 @@ impl Plugin for TerrainPlugin {
             TerrainOverlayStatePlugin,
         ))
         .add_systems(
-            Startup,
-            (
-                init_thermal_overlay_update_timer.in_set(InitializationSet::ConfigLoad),
-                generate_terrain.in_set(InitializationSet::TerrainGeneration),
-            ),
+            OnEnter(SimState::PreSimulation),
+            init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
         )
+        .add_systems(OnEnter(SimState::TerrainGeneration), generate_terrain)
+        .add_systems(OnExit(SimState::Simulation), despawn_terrain)
         .add_systems(
             Update,
-            update_temperatures.run_if(in_state(PauseState::Running)),
-            // .run_if(on_timer(Duration::from_secs(1))), // TODO: this should be timer
+            update_temperatures
+                .run_if(in_state(PauseState::Running))
+                .run_if(in_state(SimState::Simulation))
+                // .run_if(on_event::<HourPassedEvent>()),
         );
     }
 }
+
+#[derive(Component)]
+pub struct TerrainMarker;
 
 #[derive(Component, Deref, DerefMut)]
 pub struct TerrainPosition {
@@ -147,6 +151,7 @@ fn generate_terrain(
 
             let terrain_tile = cmd
                 .spawn((
+                    TerrainMarker,
                     PbrBundle {
                         transform,
                         material: materials.add(Color::linear_rgb(0.9, 0.3, 0.3)),
@@ -167,6 +172,12 @@ fn generate_terrain(
         layout: hex_layout,
         entities,
     });
+}
+
+fn despawn_terrain(mut cmd: Commands, terrain: Query<Entity, With<TerrainMarker>>) {
+    for terrain_entity in terrain.iter() {
+        cmd.entity(terrain_entity).despawn_recursive();
+    }
 }
 
 mod helpers {
