@@ -8,7 +8,7 @@ use crate::bella::{
     pause::PauseState,
     restart::SimState,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
-    time::{DayPassedEvent, HourPassedEvent},
+    time::HourPassedEvent,
 };
 
 use super::{ReproductionState, Size};
@@ -196,9 +196,8 @@ fn consume_energy_to_reproduce(
         (
             &mut ReproductionState,
             &mut EnergyData,
-            &mut Size,
             &mut Health,
-            &mut Transform,
+            &Transform,
         ),
         With<PlantMarker>,
     >,
@@ -212,7 +211,7 @@ fn consume_energy_to_reproduce(
     let base_size = 3.;
     let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
 
-    for (mut life_cycle_state, mut energy_data, mut size, mut health, mut transform) in query.iter_mut() {
+    for (mut life_cycle_state, mut energy_data, mut health, transform) in query.iter_mut() {
         match *life_cycle_state {
             ReproductionState::Developing(_) => continue,
             ReproductionState::WaitingToReproduce(cooldown) => {

@@ -119,7 +119,7 @@ fn spawn_animals(
             };
 
             // TODO: temp
-            if let Diet::Carnivorous(_) = &diet{
+            if let Diet::Carnivorous(_) = &diet {
                 energy_data.production_efficiency /= 10.;
             }
 
@@ -139,7 +139,7 @@ fn spawn_animals(
             let x = group_middle_pos.x + offset_x * config.terrain.hex_size / 2.;
             let y = group_middle_pos.y + offset_y * config.terrain.hex_size / 2.;
 
-            let mut new_animal = cmd.spawn((
+            cmd.spawn((
                 AnimalMarker,
                 PbrBundle {
                     mesh: mesh_handle.clone(),
@@ -305,9 +305,8 @@ fn consume_energy_to_reproduce(
         (
             &mut ReproductionState,
             &mut EnergyData,
-            &mut Size,
             &mut Health,
-            &mut Transform,
+            &Transform,
             &Diet,
         ),
         With<AnimalMarker>,
@@ -322,9 +321,7 @@ fn consume_energy_to_reproduce(
     let base_size = 2.; // FIXME: magic number
     let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
 
-    for (mut life_cycle_state, mut energy_data, mut size, mut health, mut transform, diet) in
-        query.iter_mut()
-    {
+    for (mut life_cycle_state, mut energy_data, mut health, transform, diet) in query.iter_mut() {
         match *life_cycle_state {
             ReproductionState::Developing(_) => continue,
             ReproductionState::WaitingToReproduce(cooldown) => {
@@ -338,8 +335,6 @@ fn consume_energy_to_reproduce(
                 // TODO: for now to make plants smaller and die (why are they not get smaller?)
                 let by = 2.0;
                 energy_data.energy /= by;
-                // size.ratio /= by;
-                // transform.scale /= by;
 
                 health.hp /= by;
                 health.hp -= 1.;
