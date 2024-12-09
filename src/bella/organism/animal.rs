@@ -36,8 +36,10 @@ impl Plugin for AnimalPlugin {
                 (
                     update_animal_color,
                     connect_animal_with_medium_its_on,
-                    decrease_satiation.run_if(on_event::<HourPassedEvent>()),
                     choose_new_destination,
+                    decrease_satiation.run_if(on_event::<HourPassedEvent>()),
+                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>()),
+                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>()),
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
@@ -48,23 +50,23 @@ impl Plugin for AnimalPlugin {
 #[derive(Component)]
 pub struct AnimalMarker;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub enum HungerLevel {
     Satiated(u32),
     Hungry(u32),
     Starving,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 pub enum Diet {
     Carnivorous(f32),
     Herbivorous(f32),
 }
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Debug, Deref, DerefMut)]
 pub struct SightRange(f32);
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Attack {
     pub range: f32,
     pub damage: f32,
@@ -94,22 +96,32 @@ fn spawn_animals(
         }
 
         let group_middle_pos = tile_map.layout.hex_to_world_pos(terrain_position.hex_pos);
-        let plant_count =
+        let animal_count =
             rng.gen_range(config.animal.group_size_min..=config.animal.group_size_max);
 
-        for _ in 0..plant_count {
+        for _ in 0..animal_count {
             let hp = 100.; // FIXME: magic number
             let size = Size {
                 base_size,
                 ratio: rng.gen_range(0.5..2.0), // FIXME: magic number
             };
-            let energy_data = EnergyData {
-                energy: 1000.,                                // FIXME: magic number
-                production_efficiency: 0.01,                  // FIXME: magic number
-                energy_needed_for_survival_per_mass_unit: 5., // FIXME: magic number
-                energy_needed_for_growth_per_mass_unit: 50.,  // FIXME: magic number
-                grow_by: 0.2,                                 // FIXME: magic number
+            let diet = if rng.gen::<f32>() < config.animal.carnivores_to_herbivores_ratio {
+                Diet::Carnivorous(1.)
+            } else {
+                Diet::Herbivorous(1.)
             };
+            let mut energy_data = EnergyData {
+                energy: 10_000.,                               // FIXME: magic number
+                production_efficiency: 0.01,                   // FIXME: magic number
+                energy_needed_for_survival_per_mass_unit: 0.1, // FIXME: magic number
+                energy_needed_for_growth_per_mass_unit: 5.,    // FIXME: magic number
+                grow_by: 0.2,                                  // FIXME: magic number
+            };
+
+            // TODO: temp
+            if let Diet::Carnivorous(_) = &diet{
+                energy_data.production_efficiency /= 10.;
+            }
 
             // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
             let sqrt3 = 3.0f32.sqrt();
@@ -143,7 +155,7 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(150.),          // FIXME: magic number
+                SightRange(1000.),        // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number
@@ -151,15 +163,8 @@ fn spawn_animals(
                 size,
                 energy_data,
                 ReproductionState::Developing(config.animal.development_time),
+                diet,
             ));
-
-            new_animal.insert(
-                if rng.gen::<f32>() < config.animal.carnivores_to_herbivores_ratio {
-                    Diet::Carnivorous(1.)
-                } else {
-                    Diet::Herbivorous(1.)
-                },
-            );
         }
     }
 }
@@ -175,14 +180,14 @@ fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut Health)>)
         *hunger_level = match *hunger_level {
             HungerLevel::Satiated(level) => {
                 if level > 1 {
-                    HungerLevel::Satiated(level - 10) // FIXME: magic number
+                    HungerLevel::Satiated(level - 1) // FIXME: magic number
                 } else {
                     HungerLevel::Hungry(100) // FIXME: magic number
                 }
             }
             HungerLevel::Hungry(level) => {
                 if level > 1 {
-                    HungerLevel::Hungry(level - 20) // FIXME: magic number
+                    HungerLevel::Hungry(level - 1) // FIXME: magic number
                 } else {
                     HungerLevel::Starving
                 }
@@ -256,6 +261,148 @@ pub fn choose_new_destination(
                         utils::find_closest_plant(transforms[i], sight_ranges[i], &plants)
                     }
                 };
+            }
+        }
+    }
+}
+
+fn consume_energy_to_grow(
+    mut query: Query<
+        (
+            &mut EnergyData,
+            &mut Size,
+            &mut Transform,
+            &mut ReproductionState,
+        ),
+        With<AnimalMarker>,
+    >,
+) {
+    for (mut energy_data, mut size, mut transform, mut reproduction_state) in query.iter_mut() {
+        match *reproduction_state {
+            ReproductionState::ReadyToReproduce => continue,
+            ReproductionState::WaitingToReproduce(_) => continue,
+            ReproductionState::Developing(time) => {
+                let energy_consumed_to_grow =
+                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_mass();
+
+                if energy_data.energy < energy_consumed_to_grow {
+                    continue;
+                }
+
+                *reproduction_state = ReproductionState::Developing(time - 1);
+                energy_data.energy -= energy_consumed_to_grow;
+                size.ratio += energy_data.grow_by;
+
+                *transform = transform.with_scale(Vec3::splat(size.ratio));
+            }
+        }
+    }
+}
+
+fn consume_energy_to_reproduce(
+    mut cmd: Commands,
+    mut query: Query<
+        (
+            &mut ReproductionState,
+            &mut EnergyData,
+            &mut Size,
+            &mut Health,
+            &mut Transform,
+            &Diet,
+        ),
+        With<AnimalMarker>,
+    >,
+    _tile_map: Res<TileMap>,
+    config: Res<SimConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    animal_assets: Res<AnimalAssets>,
+) {
+    let mut rng = rand::thread_rng();
+
+    let base_size = 2.; // FIXME: magic number
+    let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
+
+    for (mut life_cycle_state, mut energy_data, mut size, mut health, mut transform, diet) in
+        query.iter_mut()
+    {
+        match *life_cycle_state {
+            ReproductionState::Developing(_) => continue,
+            ReproductionState::WaitingToReproduce(cooldown) => {
+                *life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
+            }
+            ReproductionState::ReadyToReproduce => {
+                *life_cycle_state = ReproductionState::WaitingToReproduce(
+                    config.plant.waiting_for_reproduction_time,
+                );
+
+                // TODO: for now to make plants smaller and die (why are they not get smaller?)
+                let by = 2.0;
+                energy_data.energy /= by;
+                // size.ratio /= by;
+                // transform.scale /= by;
+
+                health.hp /= by;
+                health.hp -= 1.;
+
+                // TODO: this function should work like this:
+                // iterate over neighbouring tiles and check if they are suitable for plant
+                // get list of them (including current tile)
+                // pick 1 of the tiles at random
+                // pawn new plant there
+
+                let old_x = transform.translation.x;
+                let old_y = transform.translation.y;
+
+                let range = -50.0..50.0;
+                let offset_x = rng.gen_range(range.clone());
+                let offset_y = rng.gen_range(range);
+
+                let new_x = old_x + offset_x;
+                let new_y = old_y + offset_y;
+
+                // TODO: this is copied from base spawn function, should create separate function for creating default plant (and organism as well)
+                let hp = 100.;
+                let size = Size {
+                    base_size,
+                    ratio: rng.gen_range(0.5..2.0),
+                };
+                let energy_data = EnergyData {
+                    energy: 1000.,
+                    production_efficiency: 0.01,
+                    energy_needed_for_survival_per_mass_unit: 5.,
+                    energy_needed_for_growth_per_mass_unit: 1.,
+                    grow_by: 0.2,
+                };
+
+                // TODO: copied from setup spawning (BUT CHANGED!!), maybe can be avoided a little with RequiredComponents and default values generated with default rng?
+                let mut new_animal = cmd.spawn((
+                    AnimalMarker,
+                    PbrBundle {
+                        mesh: mesh_handle.clone(),
+                        material: animal_assets.alive[hp as usize].clone(),
+                        transform: Transform::from_xyz(new_x, new_y, base_size)
+                            .with_scale(Vec3::splat(size.ratio)),
+                        ..default()
+                    },
+                    Health { hp },
+                    Mobile {
+                        speed: rng.gen_range(0.2..0.3), // FIXME: magic number
+                        destination: None,
+                        next_step_destination: None,
+                    },
+                    HungerLevel::Hungry(100), // FIXME: magic number
+                    SightRange(1000.),        // FIXME: magic number
+                    Attack {
+                        range: 2.,  // FIXME: magic number
+                        damage: 3., // FIXME: magic number
+                    },
+                    size,
+                    energy_data,
+                    ReproductionState::Developing(config.animal.development_time),
+                    diet.clone(),
+                ));
+
+                new_animal.insert(Diet::Herbivorous(1.));
             }
         }
     }

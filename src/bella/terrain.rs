@@ -52,12 +52,12 @@ impl Plugin for TerrainPlugin {
 #[derive(Component)]
 pub struct TerrainMarker;
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Debug, Deref, DerefMut)]
 pub struct TerrainPosition {
     pub hex_pos: Hex,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct TileMap {
     pub layout: HexLayout,
     pub entities: HashMap<Hex, Entity>,
@@ -187,7 +187,7 @@ mod helpers {
     use super::*;
 
     pub fn generate_hex_mesh() -> Mesh {
-        // return Cylinder::new(1., 0.1).into();
+        // return Cylinder::new(0.7, 0.1).into();
 
         let mut pts: Vec<[f32; 3]> = vec![];
         let c = HexCoord::new(0, 0);

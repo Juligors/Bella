@@ -17,7 +17,7 @@ impl Plugin for BiomePlugin {
     }
 }
 
-#[derive(Component, Hash, PartialEq, Eq, Debug)]
+#[derive(Component, Debug, Hash, PartialEq, Eq)]
 pub enum BiomeType {
     Stone,
     Sand,

@@ -43,7 +43,7 @@ fn despawn_dead_organisms(mut cmd: Commands, query: Query<(Entity, &Health)>) {
     }
 }
 
-// TODO: for now just remove organism, don't spawn anything
+// TODO: for now we just remove organism in function above, don't spawn anything like carcass
 // fn transform_dead_organisms_into_carcasses(
 //     mut cmd: Commands,
 //     mut meshes: ResMut<Assets<Mesh>>,

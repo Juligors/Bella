@@ -1,8 +1,8 @@
-group_spawn_chance_sand = 0.4
-group_size_min = 1
-group_size_max = 3
+group_spawn_chance_sand = 0.5
+group_size_min = 3
+group_size_max = 5
 
 development_time = 20
-waiting_for_reproduction_time = 5
+waiting_for_reproduction_time = 15
 
 carnivores_to_herbivores_ratio = 0.5

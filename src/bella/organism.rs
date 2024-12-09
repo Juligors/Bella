@@ -26,18 +26,18 @@ impl Plugin for OrganismPlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Health {
     hp: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Size {
     base_size: f32,
     ratio: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct EnergyData {
     energy: f32, // TODO: this should be only like a temporary thing, maybe even just local variable? And send it over event? That sounds good
     production_efficiency: f32, // TODO: this is only for plants
@@ -60,7 +60,7 @@ impl Size {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub enum ReproductionState {
     Developing(i8),
     ReadyToReproduce,

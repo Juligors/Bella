@@ -26,7 +26,7 @@ impl Plugin for ThermalConductorPlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct ThermalConductor {
     /// https://pl.wikipedia.org/wiki/Ciep%C5%82o
     pub heat: f32,

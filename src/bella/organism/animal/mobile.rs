@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use super::Attack;
-use crate::bella::{organism::Health, pause::PauseState, restart::SimState, terrain::TileMap};
+use super::{Attack, HungerLevel};
+use crate::bella::{organism::{EnergyData, Health}, pause::PauseState, restart::SimState, terrain::TileMap};
 
 pub struct MobilePlugin;
 
@@ -16,13 +16,14 @@ impl Plugin for MobilePlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Mobile {
     pub speed: f32,
     pub destination: Option<Destination>,
     pub next_step_destination: Option<Vec2>,
 }
 
+#[derive(Debug)]
 pub enum Destination {
     Place { position: Vec2 },
     Organism { entity: Entity },
@@ -80,10 +81,10 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileM
 }
 
 fn attack(
-    mut query: Query<(&Attack, &mut Mobile, &Transform)>,
+    mut query: Query<(&Attack, &mut Mobile, &mut HungerLevel, &mut EnergyData, &Transform)>,
     mut query_organisms: Query<(&mut Health, &Transform)>,
 ) {
-    for (attack, mut mobile, transform) in query.iter_mut() {
+    for (attack, mut mobile, mut hunger_level, mut energy_data, transform) in query.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
@@ -99,6 +100,12 @@ fn attack(
 
                     // TODO: this should also give energy/hunger to the animal, probably with event
                     health.hp -= attack.damage;
+                    energy_data.energy += 100.;
+                    *hunger_level = match *hunger_level {
+                        HungerLevel::Satiated(v) => HungerLevel::Hungry((v + 1).clamp(0, 100)),
+                        HungerLevel::Hungry(v) => HungerLevel::Hungry((v + 1).clamp(0, 100)),
+                        HungerLevel::Starving => HungerLevel::Hungry(1),
+                    }
                 }
                 Err(_) => mobile.destination = None,
             },

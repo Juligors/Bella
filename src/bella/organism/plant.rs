@@ -18,18 +18,15 @@ pub struct PlantPlugin;
 impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
-            .add_systems(
-                OnEnter(SimState::OrganismGeneration),
-                spawn_plants,
-            )
+            .add_systems(OnEnter(SimState::OrganismGeneration), spawn_plants)
             .add_systems(OnExit(SimState::Simulation), despawn_plants)
             .add_systems(
                 Update,
                 (
                     produce_energy_from_solar.run_if(on_event::<HourPassedEvent>()),
                     consume_energy_to_survive.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_grow.run_if(on_event::<DayPassedEvent>()),
-                    consume_energy_to_reproduce.run_if(on_event::<DayPassedEvent>()),
+                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>()),
+                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>()),
                     update_plant_color,
                 )
                     .chain()
@@ -92,9 +89,9 @@ fn spawn_plants(
             };
             let energy_data = EnergyData {
                 energy: 1000.,
-                production_efficiency: 0.01,
+                production_efficiency: 0.02,
                 energy_needed_for_survival_per_mass_unit: 5.,
-                energy_needed_for_growth_per_mass_unit: 50.,
+                energy_needed_for_growth_per_mass_unit: 30.,
                 grow_by: 0.2,
             };
 
@@ -195,7 +192,16 @@ fn consume_energy_to_grow(
 
 fn consume_energy_to_reproduce(
     mut cmd: Commands,
-    mut query: Query<(&mut ReproductionState, &Transform), With<PlantMarker>>,
+    mut query: Query<
+        (
+            &mut ReproductionState,
+            &mut EnergyData,
+            &mut Size,
+            &mut Health,
+            &mut Transform,
+        ),
+        With<PlantMarker>,
+    >,
     _tile_map: Res<TileMap>,
     config: Res<SimConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -206,7 +212,7 @@ fn consume_energy_to_reproduce(
     let base_size = 3.;
     let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
 
-    for (mut life_cycle_state, transform) in query.iter_mut() {
+    for (mut life_cycle_state, mut energy_data, mut size, mut health, mut transform) in query.iter_mut() {
         match *life_cycle_state {
             ReproductionState::Developing(_) => continue,
             ReproductionState::WaitingToReproduce(cooldown) => {
@@ -217,6 +223,15 @@ fn consume_energy_to_reproduce(
                     config.plant.waiting_for_reproduction_time,
                 );
 
+                // TODO: for now to make plants smaller and die (why are they not get smaller?)
+                let by = 2.0;
+                energy_data.energy /= by;
+                // size.ratio /= by;
+                // transform.scale /= by;
+
+                health.hp /= by;
+                health.hp -= 1.;
+
                 // TODO: this function should work like this:
                 // iterate over neighbouring tiles and check if they are suitable for plant
                 // get list of them (including current tile)
@@ -226,7 +241,7 @@ fn consume_energy_to_reproduce(
                 let old_plant_x = transform.translation.x;
                 let old_plant_y = transform.translation.y;
 
-                let range = -10.0..10.0;
+                let range = -50.0..50.0;
                 let offset_x = rng.gen_range(range.clone());
                 let offset_y = rng.gen_range(range);
 

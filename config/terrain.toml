@@ -1,5 +1,5 @@
-map_radius = 5
-hex_size = 50.0
+map_radius = 10
+hex_size = 100.0
 
 biome_overlay_update_cooldown = 60.0
 thermal_overlay_update_cooldown = 1.0
