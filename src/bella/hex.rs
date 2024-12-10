@@ -106,7 +106,7 @@ impl HexCoord {
             c: &'a HexCoord,
             iter: std::slice::Iter<'a, Direction>,
         }
-        impl<'a> Iterator for NeighborIter<'a> {
+        impl Iterator for NeighborIter<'_> {
             type Item = HexCoord;
             fn next(&mut self) -> Option<Self::Item> {
                 self.iter.next().map(|d| self.c.neighbor(*d))

@@ -102,7 +102,7 @@ fn update_simulation_time(mut time_passed: ResMut<SimTime>) {
 #[derive(Component)]
 pub struct TimerUiTextMarker;
 
-fn setup_timer_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+fn setup_timer_ui(mut cmd: Commands) {
     let initial_hour = 0;
     let initial_day = 0;
 
