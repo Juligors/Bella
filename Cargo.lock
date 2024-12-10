@@ -403,6 +403,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_egui",
+ "bevy_panorbit_camera",
  "config",
  "hexx",
  "itertools 0.13.0",
@@ -981,6 +982,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da5ea3ad25d74ea36ea45418ad799f135d046db35c322b9704c4a8934eb65ce9"
 dependencies = [
  "glam 0.29.2",
+]
+
+[[package]]
+name = "bevy_panorbit_camera"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e025ec14a381fa89ec0ffcb99ae44ebbdd3b2ee4369e13165a70187b96c8c52e"
+dependencies = [
+ "bevy",
+ "bevy_egui",
 ]
 
 [[package]]
