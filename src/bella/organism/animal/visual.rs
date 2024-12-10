@@ -24,11 +24,11 @@ pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<Sta
 }
 
 pub fn update_animal_color(
-    mut query: Query<(&mut Handle<StandardMaterial>, &Diet), With<AnimalMarker>>,
+    mut query: Query<(&mut MeshMaterial3d<StandardMaterial>, &Diet), With<AnimalMarker>>,
     assets: Res<AnimalAssets>,
 ) {
-    for (mut handle, diet) in query.iter_mut() {
-        *handle = match &diet {
+    for (mut mesh_material, diet) in query.iter_mut() {
+        mesh_material.0 = match &diet {
             Diet::Carnivorous(_) => assets.carnivorous.clone(),
             Diet::Herbivorous(_) => assets.herbivorous.clone(),
         }

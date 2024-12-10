@@ -85,6 +85,9 @@ fn draw_gizmo_of_animal_sight_range(
             Diet::Herbivorous(_) => bevy::color::palettes::css::GREEN,
         };
 
-        gizmos.circle(position, normal, radius, color);
+        // gizmos.circle( position,  radius, color);
+        gizmos
+            .circle(Isometry3d::IDENTITY, radius, color)
+            .resolution(64);
     }
 }

@@ -47,11 +47,11 @@ fn initialize_assets_map_biomes(
     });
 }
 fn update_tile_color_for_biome(
-    mut tiles: Query<(&mut Handle<StandardMaterial>, &BiomeType)>,
+    mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &BiomeType)>,
     assets_map: Res<AssetsMapBiomes>,
 ) {
-    for (mut handle, medium_type) in tiles.iter_mut() {
-        *handle = assets_map
+    for (mut mesh_material, medium_type) in tiles.iter_mut() {
+        mesh_material.0 = assets_map
             .medium_type_materials
             .get(medium_type)
             .unwrap()

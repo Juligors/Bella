@@ -47,8 +47,7 @@ impl Plugin for MyWindowPlugin {
 
 fn setup_window_cursor_lock(mut window_q: Query<&mut Window>) {
     let mut window = window_q.single_mut();
-
-    window.cursor.grab_mode = CursorGrabMode::Confined;
+    window.cursor_options.grab_mode = CursorGrabMode::Confined;
 }
 
 pub fn close_on_esc(

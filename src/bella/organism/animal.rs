@@ -37,9 +37,9 @@ impl Plugin for AnimalPlugin {
                     update_animal_color,
                     connect_animal_with_medium_its_on,
                     choose_new_destination,
-                    decrease_satiation.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>()),
+                    decrease_satiation.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
@@ -141,13 +141,9 @@ fn spawn_animals(
 
             cmd.spawn((
                 AnimalMarker,
-                PbrBundle {
-                    mesh: mesh_handle.clone(),
-                    material: animal_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x, y, base_size)
-                        .with_scale(Vec3::splat(size.ratio)),
-                    ..default()
-                },
+                Mesh3d(mesh_handle.clone()),
+                MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
+                Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
                 Health { hp },
                 Mobile {
                     speed: rng.gen_range(0.2..0.3), // FIXME: magic number
@@ -372,13 +368,9 @@ fn consume_energy_to_reproduce(
                 // TODO: copied from setup spawning (BUT CHANGED!!), maybe can be avoided a little with RequiredComponents and default values generated with default rng?
                 let mut new_animal = cmd.spawn((
                     AnimalMarker,
-                    PbrBundle {
-                        mesh: mesh_handle.clone(),
-                        material: animal_assets.alive[hp as usize].clone(),
-                        transform: Transform::from_xyz(new_x, new_y, base_size)
-                            .with_scale(Vec3::splat(size.ratio)),
-                        ..default()
-                    },
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
+                    Transform::from_xyz(new_x, new_y, base_size).with_scale(Vec3::splat(size.ratio)),
                     Health { hp },
                     Mobile {
                         speed: rng.gen_range(0.2..0.3), // FIXME: magic number

@@ -6,7 +6,6 @@ use bella::config::ConfigPlugin;
 use bella::environment::EnvironmentPlugin;
 use bella::organism::OrganismPlugin;
 use bella::pause::PausePlugin;
-use bella::plots::PlotsPlugin;
 use bella::restart::RestartPlugin;
 use bella::terrain::TerrainPlugin;
 use bella::time::TimePlugin;
@@ -24,7 +23,7 @@ fn main() {
             PausePlugin,
             RestartPlugin,
         ))
-        .add_plugins((UiPlugin, PlotsPlugin))
+        .add_plugins(UiPlugin)
         .add_plugins((TerrainPlugin, OrganismPlugin))
         .run();
 }

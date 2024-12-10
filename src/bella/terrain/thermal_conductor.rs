@@ -154,7 +154,7 @@ fn initialize_assets_map_temperature(
     });
 }
 fn update_tile_color_for_thermal(
-    mut tiles: Query<(&mut Handle<StandardMaterial>, &ThermalConductor)>,
+    mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &ThermalConductor)>,
     assets_map: Res<AssetsMapTemperature>,
     mut timer: ResMut<ThermalOverlayUpdateTimer>,
 ) {
@@ -162,10 +162,10 @@ fn update_tile_color_for_thermal(
         return;
     }
 
-    for (mut handle, medium) in tiles.iter_mut() {
+    for (mut mesh_material, medium) in tiles.iter_mut() {
         let temp = medium.heat / medium.heat_capacity;
 
-        *handle = if temp < ThermalConductor::min_temperature() {
+        mesh_material.0 = if temp < ThermalConductor::min_temperature() {
             assets_map.default_material_low.clone()
         } else if temp > ThermalConductor::max_temperature() {
             assets_map.default_material_high.clone()
@@ -182,7 +182,7 @@ fn update_tile_color_for_thermal(
 fn handle_select_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
-    mut tiles: Query<(&mut Handle<StandardMaterial>, &mut ThermalConductor, Entity)>,
+    mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut ThermalConductor, Entity)>,
     map: Res<TileMap>,
 ) {
     let (camera, camera_transform) = cameras.single();
@@ -190,12 +190,12 @@ fn handle_select_input(
         return;
     };
 
-    let Some(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+    let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
 
     if let Some(selected_entity) = map.world_pos_to_entity(pos) {
-        for (_handle, mut medium, entity) in tiles.iter_mut() {
+        for (mesh_material, mut medium, entity) in tiles.iter_mut() {
             if entity == selected_entity {
                 medium.heat = medium.heat_capacity * ThermalConductor::max_temperature();
             }

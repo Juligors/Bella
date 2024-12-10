@@ -151,12 +151,9 @@ fn generate_terrain(
             let terrain_tile = cmd
                 .spawn((
                     TerrainMarker,
-                    PbrBundle {
-                        transform,
-                        material: materials.add(Color::linear_rgb(0.9, 0.3, 0.3)),
-                        mesh: mesh_handle.clone(),
-                        ..default()
-                    },
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
+                    transform,
                     terrain_position,
                     biome,
                     thermal_conductor,

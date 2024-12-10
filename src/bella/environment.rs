@@ -10,7 +10,7 @@ impl Plugin for EnvironmentPlugin {
             Update,
             update_sun_with_time_passing
                 .run_if(in_state(PauseState::Running))
-                .run_if(on_event::<HourPassedEvent>()),
+                .run_if(on_event::<HourPassedEvent>),
         );
     }
 }

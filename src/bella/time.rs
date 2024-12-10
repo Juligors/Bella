@@ -18,7 +18,7 @@ impl Plugin for TimePlugin {
             .add_systems(
                 Update,
                 (
-                    update_simulation_time.run_if(on_event::<HourPassedEvent>()),
+                    update_simulation_time.run_if(on_event::<HourPassedEvent>),
                     update_timer_ui,
                 )
                     .chain()
@@ -107,20 +107,7 @@ fn setup_timer_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
     let initial_day = 0;
 
     cmd.spawn((
-        TextBundle::from_section(
-            format!("Day: {}\nHour: {}", initial_day, initial_hour),
-            TextStyle {
-                font: asset_server.load("fonts/Consolas.ttf"),
-                font_size: 20.,
-                ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.),
-            right: Val::Px(5.),
-            ..default()
-        }),
+        Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
         TimerUiTextMarker,
     ));
 }
@@ -130,7 +117,7 @@ fn update_timer_ui(
     time_passed: Res<SimTime>,
 ) {
     for mut text in query.iter_mut() {
-        text.sections[0].value = format!(
+        text.0 = format!(
             "Day:  {: >2}\nHour: {: >2}",
             time_passed.days, time_passed.hours
         );

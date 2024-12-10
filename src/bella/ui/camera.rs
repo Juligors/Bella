@@ -19,38 +19,34 @@ impl Plugin for MyCameraPlugin {
 struct MyGameCameraMarker;
 
 fn spawn_camera_and_light(mut cmd: Commands) {
+    let mut projection = OrthographicProjection::default_3d();
+    projection.scale = 0.5;
+
     cmd.spawn((
         MyGameCameraMarker,
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 200.0)
-                .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
-            projection: OrthographicProjection {
-                scale: 0.5,
-                ..default()
-            }
-            .into(),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 200.0)
+            .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
+        projection,
     ));
 
-    cmd.spawn(PointLightBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 2_000.0),
-        point_light: PointLight {
+    cmd.spawn((
+        Transform::from_xyz(0.0, 0.0, 2_000.0),
+        PointLight {
             color: Color::WHITE,
             intensity: 100_000_000_000.0,
             range: 200_000.0,
             radius: 10.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
-    });
+    ));
 }
 
 const CAMERA_BORDER_COEFF: f32 = 0.1;
 
 fn camera_movement(
-    mut camera_q: Query<(&mut Transform, &mut Projection), With<MyGameCameraMarker>>,
+    mut camera_q: Query<(&mut Transform, &mut OrthographicProjection), With<MyGameCameraMarker>>,
     window_q: Query<&Window>,
 ) {
     let window = window_q.single();
@@ -60,11 +56,7 @@ fn camera_movement(
 
     let (mut camera_transform, projection) = camera_q.single_mut();
 
-    let scale = match projection.as_ref() {
-        Projection::Perspective(_) => 1.,
-        Projection::Orthographic(ortographic_projection) => ortographic_projection.scale,
-    };
-    let move_by_value = 10.0 * scale;
+    let move_by_value = 10.0 * projection.scale;
 
     let border_width = CAMERA_BORDER_COEFF * window.width();
     let right_border = window.width() - border_width;
@@ -97,6 +89,7 @@ fn camera_zoom(
     match projection_q.single_mut().as_mut() {
         Projection::Perspective(_) => (),
         Projection::Orthographic(ortographic_projection) => {
+            println!("Hi?");
             let mut change = 0.0;
 
             for event in scroll_er.read() {

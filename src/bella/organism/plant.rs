@@ -23,10 +23,10 @@ impl Plugin for PlantPlugin {
             .add_systems(
                 Update,
                 (
-                    produce_energy_from_solar.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_survive.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>()),
-                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>()),
+                    produce_energy_from_solar.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_survive.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
                     update_plant_color,
                 )
                     .chain()
@@ -112,13 +112,9 @@ fn spawn_plants(
 
             cmd.spawn((
                 PlantMarker,
-                PbrBundle {
-                    mesh: mesh_handle.clone(),
-                    material: plant_assets.alive[hp as usize].clone(),
-                    transform: Transform::from_xyz(x, y, base_size)
-                        .with_scale(Vec3::splat(size.ratio)),
-                    ..default()
-                },
+                Mesh3d(mesh_handle.clone()),
+                MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
+                Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
                 Health { hp },
                 size,
                 energy_data,
@@ -263,13 +259,10 @@ fn consume_energy_to_reproduce(
 
                 cmd.spawn((
                     PlantMarker,
-                    PbrBundle {
-                        mesh: mesh_handle.clone(),
-                        material: plant_assets.alive[hp as usize].clone(),
-                        transform: Transform::from_xyz(new_plant_x, new_plant_y, 1.)
-                            .with_scale(Vec3::splat(size.ratio)),
-                        ..default()
-                    },
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
+                    Transform::from_xyz(new_plant_x, new_plant_y, 1.)
+                        .with_scale(Vec3::splat(size.ratio)),
                     Health { hp },
                     size,
                     energy_data,
@@ -281,11 +274,11 @@ fn consume_energy_to_reproduce(
 }
 
 fn update_plant_color(
-    mut plants: Query<(&mut Handle<StandardMaterial>, &Health), With<PlantMarker>>,
+    mut plants: Query<(&mut MeshMaterial3d<StandardMaterial>, &Health), With<PlantMarker>>,
     assets: Res<PlantAssets>,
 ) {
-    for (mut handle, health) in plants.iter_mut() {
-        *handle = if health.hp > 0. {
+    for (mut mesh_material, health) in plants.iter_mut() {
+        mesh_material.0 = if health.hp > 0. {
             assets.alive[health.hp as usize].clone()
         } else {
             assets.dead.clone()
