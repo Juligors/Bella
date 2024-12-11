@@ -20,9 +20,12 @@ fn spawn_camera_and_light(mut cmd: Commands) {
     cmd.spawn((
         MyGameCameraMarker,
         Camera3d::default(),
-        PanOrbitCamera::default(),
-        Transform::from_xyz(0.0, 0.0, 200.0)
-            .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
+        PanOrbitCamera {
+            allow_upside_down: true,
+            focus: Vec3::new(0., 300., 0.),
+            ..Default::default()
+        },
+        Transform::from_xyz(0.0, 0.0, 1600.0),
     ));
 
     cmd.spawn((
