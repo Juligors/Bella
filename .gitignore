@@ -1,5 +1,11 @@
+# Rust
 /target
 
+# default directory for tracy files
+/tracy_out
+
+# directory with docs about what to do
 /todo
 
-/tracy_out
+# default directory for collected data
+/data

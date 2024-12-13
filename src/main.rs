@@ -3,6 +3,7 @@
 pub mod bella;
 
 use bella::config::ConfigPlugin;
+use bella::data_collection::DataCollectionPlugin;
 use bella::environment::EnvironmentPlugin;
 use bella::organism::OrganismPlugin;
 use bella::pause::PausePlugin;
@@ -22,6 +23,7 @@ fn main() {
             EnvironmentPlugin,
             PausePlugin,
             RestartPlugin,
+            DataCollectionPlugin,
         ))
         .add_plugins(UiPlugin)
         .add_plugins((TerrainPlugin, OrganismPlugin))

@@ -1,4 +1,5 @@
 pub mod config;
+pub mod data_collection;
 pub mod environment;
 pub mod organism;
 pub mod pause;

@@ -8,7 +8,7 @@ use crate::bella::{
     pause::PauseState,
     restart::SimState,
     terrain::{biome::BiomeType, TerrainPosition, TileMap},
-    time::HourPassedEvent,
+    time::{DayPassedEvent, HourPassedEvent},
 };
 
 use super::{ReproductionState, Size};
@@ -23,15 +23,19 @@ impl Plugin for PlantPlugin {
             .add_systems(
                 Update,
                 (
-                    produce_energy_from_solar.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_survive.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
+                    produce_energy_from_solar,
+                    consume_energy_to_survive,
+                    consume_energy_to_grow,
+                    consume_energy_to_reproduce,
                     update_plant_color,
                 )
                     .chain()
-                    .run_if(in_state(SimState::Simulation))
-                    .run_if(in_state(PauseState::Running)),
+                    .run_if(on_event::<HourPassedEvent>),
+                // .run_if(in_state(SimState::Simulation).and(in_state(PauseState::Running))),
+            )
+            .add_systems(
+                Update,
+                data_collection::save_plant_data.run_if(on_event::<DayPassedEvent>),
             );
     }
 }
@@ -284,4 +288,78 @@ fn update_plant_color(
             assets.dead.clone()
         };
     }
+}
+
+mod data_collection {
+    use crate::bella::data_collection::DataCollectionDirectory;
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[derive(Debug, serde::Serialize)]
+    pub struct Plant {
+        pub id: u64,
+        pub health: f32,
+        pub base_size: f32,
+        pub ratio: f32,
+
+        pub energy: f32,
+        pub production_efficiency: f32,
+        pub energy_needed_for_survival_per_mass_unit: f32,
+        pub energy_needed_for_growth_per_mass_unit: f32,
+        pub grow_by: f32,
+    }
+
+    pub fn save_plant_data(
+        plants: Query<(Entity, &Health, &Size, &EnergyData), With<PlantMarker>>,
+        path: Res<DataCollectionDirectory>,
+    ) {
+        let path = path.0.join("plants.csv");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .append(path.exists())
+            // .truncate(true)
+            .create(true)
+            .open(path)
+            .unwrap();
+
+        let needs_headers = std::io::Seek::seek(&mut file, std::io::SeekFrom::End(0)).unwrap() == 0;
+
+        let mut writer = csv::WriterBuilder::new()
+            .delimiter(b'|')
+            // .quote_style(csv::QuoteStyle::Always)
+            .has_headers(needs_headers)
+            .from_writer(file);
+
+        for x in plants.iter() {
+            let plant_record = Plant {
+                id: x.0.to_bits(),
+                health: x.1.hp,
+                base_size: x.2.base_size,
+                ratio: x.2.ratio,
+                energy: x.3.energy,
+                production_efficiency: x.3.production_efficiency,
+                energy_needed_for_survival_per_mass_unit: x
+                    .3
+                    .energy_needed_for_survival_per_mass_unit,
+                energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
+                grow_by: x.3.grow_by,
+            };
+
+            writer
+                .serialize(&plant_record)
+                .unwrap_or_else(|_| panic!("Couldn't serialize object {:?}", plant_record));
+        }
+
+        writer
+            .flush()
+            .expect("Couldn't save new plant data to a file");
+    }
+
+    // pub fn save_to_csv<T>(elements: &[T], path: PathBuf)
+    // where
+    //     T: serde::Serialize,
+    //     T: std::fmt::Debug,
+    // {
+    // }
 }
