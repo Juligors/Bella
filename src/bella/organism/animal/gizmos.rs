@@ -77,17 +77,13 @@ fn draw_gizmo_of_animal_sight_range(
     animals: Query<(&Transform, &SightRange, &Diet), With<AnimalMarker>>,
 ) {
     for (transform, sight_range, diet) in animals.iter() {
-        let position = transform.translation;
-        let normal = Dir3::Z;
+        let isometry = Isometry3d::from_translation(transform.translation);
         let radius = **sight_range;
         let color = match diet {
             Diet::Carnivorous(_) => bevy::color::palettes::css::RED,
             Diet::Herbivorous(_) => bevy::color::palettes::css::GREEN,
         };
 
-        // gizmos.circle( position,  radius, color);
-        gizmos
-            .circle(Isometry3d::IDENTITY, radius, color)
-            .resolution(64);
+        gizmos.circle(isometry, radius, color).resolution(64);
     }
 }
