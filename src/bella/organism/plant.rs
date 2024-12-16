@@ -122,7 +122,11 @@ fn spawn_plants(
                 Health { hp },
                 size,
                 energy_data,
-                ReproductionState::Developing(config.plant.development_time),
+                ReproductionState::Developing(
+                    rng.gen_range(
+                        config.plant.development_time..(config.plant.development_time * 2),
+                    ),
+                ),
             ));
         }
     }
@@ -270,7 +274,9 @@ fn consume_energy_to_reproduce(
                     Health { hp },
                     size,
                     energy_data,
-                    ReproductionState::Developing(config.plant.development_time),
+                    ReproductionState::Developing(rng.gen_range(
+                        config.plant.development_time..(config.plant.development_time * 2),
+                    )),
                 ));
             }
         }
@@ -292,11 +298,14 @@ fn update_plant_color(
 
 mod data_collection {
     use super::*;
-    use crate::bella::data_collection::DataCollectionDirectory;
+    use crate::bella::{data_collection::DataCollectionDirectory, time::SimTime};
 
     #[derive(Debug, serde::Serialize)]
     pub struct Plant {
         pub id: u64,
+        pub hour: u32,
+        pub day: u32,
+
         pub health: f32,
         pub base_size: f32,
         pub ratio: f32,
@@ -311,6 +320,7 @@ mod data_collection {
     pub fn save_plant_data(
         plants: Query<(Entity, &Health, &Size, &EnergyData), With<PlantMarker>>,
         path: Res<DataCollectionDirectory>,
+        time: Res<SimTime>,
     ) {
         let path = path.0.join("plants.csv");
         let mut file = std::fs::OpenOptions::new()
@@ -332,6 +342,9 @@ mod data_collection {
         for x in plants.iter() {
             let plant_record = Plant {
                 id: x.0.to_bits(),
+                hour: time.hours,
+                day: time.days,
+
                 health: x.1.hp,
                 base_size: x.2.base_size,
                 ratio: x.2.ratio,

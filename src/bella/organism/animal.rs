@@ -155,14 +155,16 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(300.),        // FIXME: magic number
+                SightRange(300.),         // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number
                 },
                 size,
                 energy_data,
-                ReproductionState::Developing(config.animal.development_time),
+                ReproductionState::Developing(rng.gen_range(
+                    config.animal.development_time..(config.animal.development_time * 2),
+                )),
                 diet,
             ));
         }
@@ -250,7 +252,7 @@ pub fn choose_new_destination(
     ) = multiunzip(animals.iter_mut());
 
     for i in 0..mobiles.len() {
-        if mobiles[i].destination.is_some(){
+        if mobiles[i].destination.is_some() {
             continue;
         }
 
@@ -387,14 +389,16 @@ fn consume_energy_to_reproduce(
                         next_step_destination: None,
                     },
                     HungerLevel::Hungry(100), // FIXME: magic number
-                    SightRange(300.),        // FIXME: magic number
+                    SightRange(300.),         // FIXME: magic number
                     Attack {
                         range: 2.,  // FIXME: magic number
                         damage: 3., // FIXME: magic number
                     },
                     size,
                     energy_data,
-                    ReproductionState::Developing(config.animal.development_time),
+                    ReproductionState::Developing(rng.gen_range(
+                        config.animal.development_time..(config.animal.development_time * 2),
+                    )),
                     diet.clone(),
                 ));
 
@@ -459,11 +463,14 @@ mod utils {
 
 mod data_collection {
     use super::*;
-    use crate::bella::data_collection::DataCollectionDirectory;
+    use crate::bella::{data_collection::DataCollectionDirectory, time::SimTime};
 
     #[derive(Debug, serde::Serialize)]
     pub struct Animal {
         pub id: u64,
+        pub hour: u32,
+        pub day: u32,
+
         pub health: f32,
         pub base_size: f32,
         pub ratio: f32,
@@ -478,6 +485,7 @@ mod data_collection {
     pub fn save_animal_data(
         animals: Query<(Entity, &Health, &Size, &EnergyData), With<AnimalMarker>>,
         path: Res<DataCollectionDirectory>,
+        time: Res<SimTime>,
     ) {
         let path = path.0.join("animals.csv");
         let mut file = std::fs::OpenOptions::new()
@@ -498,6 +506,9 @@ mod data_collection {
         for x in animals.iter() {
             let animal_record = Animal {
                 id: x.0.to_bits(),
+                hour: time.hours,
+                day: time.days,
+
                 health: x.1.hp,
                 base_size: x.2.base_size,
                 ratio: x.2.ratio,
