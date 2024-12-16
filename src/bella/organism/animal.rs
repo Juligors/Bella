@@ -155,7 +155,7 @@ fn spawn_animals(
                     next_step_destination: None,
                 },
                 HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(1000.),        // FIXME: magic number
+                SightRange(300.),        // FIXME: magic number
                 Attack {
                     range: 2.,  // FIXME: magic number
                     damage: 3., // FIXME: magic number
@@ -250,6 +250,10 @@ pub fn choose_new_destination(
     ) = multiunzip(animals.iter_mut());
 
     for i in 0..mobiles.len() {
+        if mobiles[i].destination.is_some(){
+            continue;
+        }
+
         match hunger_levels[i] {
             HungerLevel::Satiated(_) => continue,
             HungerLevel::Hungry(_) | HungerLevel::Starving => {
@@ -383,7 +387,7 @@ fn consume_energy_to_reproduce(
                         next_step_destination: None,
                     },
                     HungerLevel::Hungry(100), // FIXME: magic number
-                    SightRange(1000.),        // FIXME: magic number
+                    SightRange(300.),        // FIXME: magic number
                     Attack {
                         range: 2.,  // FIXME: magic number
                         damage: 3., // FIXME: magic number
@@ -454,10 +458,8 @@ mod utils {
 }
 
 mod data_collection {
-    use crate::bella::data_collection::DataCollectionDirectory;
-
     use super::*;
-    use std::path::PathBuf;
+    use crate::bella::data_collection::DataCollectionDirectory;
 
     #[derive(Debug, serde::Serialize)]
     pub struct Animal {

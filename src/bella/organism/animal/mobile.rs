@@ -1,7 +1,13 @@
 use bevy::prelude::*;
+use rand::Rng;
 
-use super::{Attack, HungerLevel};
-use crate::bella::{organism::{EnergyData, Health}, pause::PauseState, restart::SimState, terrain::TileMap};
+use super::{Attack, HungerLevel, SightRange};
+use crate::bella::{
+    organism::{EnergyData, Health},
+    pause::PauseState,
+    restart::SimState,
+    terrain::TileMap,
+};
 
 pub struct MobilePlugin;
 
@@ -31,10 +37,13 @@ pub enum Destination {
 
 pub fn find_next_step_destination(
     query_organisms: Query<&Transform>,
-    mut query_mobiles: Query<&mut Mobile>,
+    mut query_mobiles: Query<(&mut Mobile, &Transform, &SightRange)>,
 ) {
-    for mut mobile in query_mobiles.iter_mut() {
+    let mut rng = rand::thread_rng();
+
+    for (mut mobile, transform, sight_range) in query_mobiles.iter_mut() {
         match &mobile.destination {
+            // we already have a destination, make it move there
             Some(destination) => {
                 mobile.next_step_destination = match &destination {
                     Destination::Place { position } => Some(*position),
@@ -44,13 +53,29 @@ pub fn find_next_step_destination(
                     },
                 }
             }
-            None => continue,
+            // no destination, let's choose a random one
+            None => {
+                // TODO: this can go out of bounds
+                // TODO: magic number
+                let r = **sight_range;
+                let new_destination = Vec2::new(
+                    transform.translation.x + rng.gen_range(-r..r),
+                    transform.translation.y + rng.gen_range(-r..r),
+                );
+
+                mobile.destination = Some(Destination::Place {
+                    position: new_destination,
+                });
+
+                mobile.next_step_destination = Some(new_destination);
+            }
         }
     }
 }
 
 pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileMap>) {
     for (mut mobile, mut transform) in query.iter_mut() {
+        // TODO: this field probably shouldn't exist, it should just be a local variable
         if mobile.next_step_destination.is_none() {
             continue;
         }
@@ -81,7 +106,13 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileM
 }
 
 fn attack(
-    mut query: Query<(&Attack, &mut Mobile, &mut HungerLevel, &mut EnergyData, &Transform)>,
+    mut query: Query<(
+        &Attack,
+        &mut Mobile,
+        &mut HungerLevel,
+        &mut EnergyData,
+        &Transform,
+    )>,
     mut query_organisms: Query<(&mut Health, &Transform)>,
 ) {
     for (attack, mut mobile, mut hunger_level, mut energy_data, transform) in query.iter_mut() {
