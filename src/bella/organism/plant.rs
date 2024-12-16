@@ -93,9 +93,9 @@ fn spawn_plants(
             };
             let energy_data = EnergyData {
                 energy: 1000.,
-                production_efficiency: 0.02,
+                production_efficiency: 0.01,
                 energy_needed_for_survival_per_mass_unit: 5.,
-                energy_needed_for_growth_per_mass_unit: 30.,
+                energy_needed_for_growth_per_mass_unit: 5.,
                 grow_by: 0.2,
             };
 
@@ -224,7 +224,7 @@ fn consume_energy_to_reproduce(
 
                 // TODO: for now to make plants smaller and die (why are they not get smaller?)
                 let by = 2.0;
-                energy_data.energy /= by;
+                // energy_data.energy /= by;
                 // size.ratio /= by;
                 // transform.scale /= by;
 
@@ -291,10 +291,8 @@ fn update_plant_color(
 }
 
 mod data_collection {
-    use crate::bella::data_collection::DataCollectionDirectory;
-
     use super::*;
-    use std::path::PathBuf;
+    use crate::bella::data_collection::DataCollectionDirectory;
 
     #[derive(Debug, serde::Serialize)]
     pub struct Plant {
