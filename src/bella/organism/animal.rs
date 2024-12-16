@@ -471,6 +471,8 @@ mod data_collection {
         pub hour: u32,
         pub day: u32,
 
+        pub is_herbivorous: bool,
+
         pub health: f32,
         pub base_size: f32,
         pub ratio: f32,
@@ -483,7 +485,7 @@ mod data_collection {
     }
 
     pub fn save_animal_data(
-        animals: Query<(Entity, &Health, &Size, &EnergyData), With<AnimalMarker>>,
+        animals: Query<(Entity, &Health, &Size, &EnergyData, &Diet), With<AnimalMarker>>,
         path: Res<DataCollectionDirectory>,
         time: Res<SimTime>,
     ) {
@@ -506,8 +508,11 @@ mod data_collection {
         for x in animals.iter() {
             let animal_record = Animal {
                 id: x.0.to_bits(),
+
                 hour: time.hours,
                 day: time.days,
+
+                is_herbivorous: matches!(x.4, Diet::Herbivorous(_)),
 
                 health: x.1.hp,
                 base_size: x.2.base_size,
