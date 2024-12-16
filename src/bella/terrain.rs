@@ -211,5 +211,25 @@ mod helpers {
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
 
         mesh
+
+        // let mut mesh = Mesh::new(
+        //     PrimitiveTopology::TriangleList,
+        //     RenderAssetUsages::RENDER_WORLD,
+        // );
+
+        // let vertexes: Vec<[f32; 3]> = vec![[1.5, 0., 0.], [0., 0., 1.], [0., 0., 0.]];
+
+        // let indices = vec![2, 1, 0];
+
+        // let normals: Vec<[f32; 3]> = [[0., 1., 0.]].repeat(3);
+
+        // let uvs: Vec<[f32; 2]> = (0..vertexes.len()).map(|_| [0., 0.]).collect();
+
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertexes);
+        // mesh.insert_indices(Indices::U32(indices));
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+
+        // mesh
     }
 }
