@@ -35,7 +35,7 @@ impl Plugin for PlantPlugin {
             )
             .add_systems(
                 Update,
-                data_collection::save_plant_data.run_if(on_event::<DayPassedEvent>),
+                data_collection::save_plant_data.run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -355,11 +355,4 @@ mod data_collection {
             .flush()
             .expect("Couldn't save new plant data to a file");
     }
-
-    // pub fn save_to_csv<T>(elements: &[T], path: PathBuf)
-    // where
-    //     T: serde::Serialize,
-    //     T: std::fmt::Debug,
-    // {
-    // }
 }

@@ -8,7 +8,7 @@ use crate::bella::{
     pause::PauseState,
     restart::SimState,
     terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
-    time::HourPassedEvent,
+    time::{DayPassedEvent, HourPassedEvent},
 };
 use bevy::prelude::*;
 use gizmos::AnimalGizmosPlugin;
@@ -43,6 +43,10 @@ impl Plugin for AnimalPlugin {
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
+            )
+            .add_systems(
+                Update,
+                data_collection::save_animal_data.run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -370,7 +374,8 @@ fn consume_energy_to_reproduce(
                     AnimalMarker,
                     Mesh3d(mesh_handle.clone()),
                     MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
-                    Transform::from_xyz(new_x, new_y, base_size).with_scale(Vec3::splat(size.ratio)),
+                    Transform::from_xyz(new_x, new_y, base_size)
+                        .with_scale(Vec3::splat(size.ratio)),
                     Health { hp },
                     Mobile {
                         speed: rng.gen_range(0.2..0.3), // FIXME: magic number
@@ -445,5 +450,71 @@ mod utils {
             .filter(|(_, distance)| *distance < **sight_range)
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(entity, _)| Destination::Organism { entity })
+    }
+}
+
+mod data_collection {
+    use crate::bella::data_collection::DataCollectionDirectory;
+
+    use super::*;
+    use std::path::PathBuf;
+
+    #[derive(Debug, serde::Serialize)]
+    pub struct Animal {
+        pub id: u64,
+        pub health: f32,
+        pub base_size: f32,
+        pub ratio: f32,
+
+        pub energy: f32,
+        pub production_efficiency: f32,
+        pub energy_needed_for_survival_per_mass_unit: f32,
+        pub energy_needed_for_growth_per_mass_unit: f32,
+        pub grow_by: f32,
+    }
+
+    pub fn save_animal_data(
+        animals: Query<(Entity, &Health, &Size, &EnergyData), With<AnimalMarker>>,
+        path: Res<DataCollectionDirectory>,
+    ) {
+        let path = path.0.join("animals.csv");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .append(path.exists())
+            // .truncate(true)
+            .create(true)
+            .open(path)
+            .unwrap();
+
+        let needs_headers = std::io::Seek::seek(&mut file, std::io::SeekFrom::End(0)).unwrap() == 0;
+
+        let mut writer = csv::WriterBuilder::new()
+            .delimiter(b'|')
+            .has_headers(needs_headers)
+            .from_writer(file);
+
+        for x in animals.iter() {
+            let animal_record = Animal {
+                id: x.0.to_bits(),
+                health: x.1.hp,
+                base_size: x.2.base_size,
+                ratio: x.2.ratio,
+                energy: x.3.energy,
+                production_efficiency: x.3.production_efficiency,
+                energy_needed_for_survival_per_mass_unit: x
+                    .3
+                    .energy_needed_for_survival_per_mass_unit,
+                energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
+                grow_by: x.3.grow_by,
+            };
+
+            writer
+                .serialize(&animal_record)
+                .unwrap_or_else(|_| panic!("Couldn't serialize object {:?}", animal_record));
+        }
+
+        writer
+            .flush()
+            .expect("Couldn't save new animal data to a file");
     }
 }
