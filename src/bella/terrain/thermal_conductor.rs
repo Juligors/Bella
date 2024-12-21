@@ -1,5 +1,5 @@
 use super::{terrain_overlay_state::TerrainOverlayState, TerrainPosition, TileMap};
-use crate::bella::{config::SimConfig, restart::SimState};
+use crate::bella::{config::SimConfig, environment::Sun, restart::SimState, time::HourPassedEvent};
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use std::time::Duration;
 
@@ -17,11 +17,15 @@ impl Plugin for ThermalConductorPlugin {
                 .run_if(in_state(TerrainOverlayState::Thermal))
                 .run_if(in_state(SimState::Simulation)),
         )
+        // .add_systems(
+        //     Update,
+        //     handle_select_input
+        //         .run_if(in_state(SimState::Simulation))
+        //         .run_if(in_state(TerrainOverlayState::Thermal)),
+        // )
         .add_systems(
             Update,
-            handle_select_input
-                .run_if(in_state(SimState::Simulation))
-                .run_if(in_state(TerrainOverlayState::Thermal)),
+            accumulate_energy_from_solar.run_if(on_event::<HourPassedEvent>),
         );
     }
 }
@@ -44,6 +48,22 @@ impl ThermalConductor {
         self.heat / self.heat_capacity
     }
 
+    pub fn min_heat(&self) -> f32 {
+        self.heat_capacity * ThermalConductor::min_temperature()
+    }
+
+    pub fn max_heat(&self) -> f32 {
+        self.heat_capacity * ThermalConductor::max_temperature()
+    }
+
+    pub fn clamp_heat(&mut self) {
+        let _ = self.heat.clamp(self.min_heat(), self.max_heat());
+    }
+
+    pub fn get_heat_lose(&self) -> f32{
+        ThermalConductor::default_heat_lose() * self.temperature()
+    }
+
     pub const fn min_temperature() -> f32 {
         0.
     }
@@ -60,8 +80,8 @@ impl ThermalConductor {
         20.
     }
 
-    pub const fn default_heat_lose() -> f32 {
-        50.
+    const fn default_heat_lose() -> f32 {
+        200.
     }
 }
 
@@ -103,14 +123,18 @@ pub fn update_temperatures(mut query: Query<(&TerrainPosition, &mut ThermalCondu
     }
 
     // set all heat at once
-    // also lower temperature by constant, like it's getting colder with time
     for i in 0..media_org.len() {
-        media_org[i].heat -= heat_diffs[i] + ThermalConductor::default_heat_lose();
+        media_org[i].heat -= heat_diffs[i];
+    }
+}
 
-        // if temperature is below minimal set it to minimal
-        if media_org[i].temperature() < ThermalConductor::min_temperature() {
-            media_org[i].heat = ThermalConductor::min_temperature() * media_org[i].heat_capacity;
-        }
+fn accumulate_energy_from_solar(mut terrain: Query<&mut ThermalConductor>, sun: Res<Sun>) {
+    for mut thermal_conductor in terrain.iter_mut() {
+        thermal_conductor.heat += sun.get_energy_part(0.001);
+
+        thermal_conductor.heat -= thermal_conductor.get_heat_lose();
+
+        thermal_conductor.clamp_heat();
     }
 }
 
@@ -121,12 +145,13 @@ pub struct AssetsMapTemperature {
     pub default_material_high: Handle<StandardMaterial>,
     pub selected_material: Handle<StandardMaterial>,
 }
+
 fn initialize_assets_map_temperature(
     mut cmd: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let default_material_low = materials.add(Color::BLACK);
-    let default_material_high = materials.add(Color::WHITE);
+    let default_material_high = materials.add(Color::linear_rgb(1., 1., 1.));
     let selected_material = materials.add(Color::linear_rgb(0.2, 0.8, 0.8));
 
     let mut medium_materials = HashMap::new();
@@ -182,7 +207,11 @@ fn update_tile_color_for_thermal(
 fn handle_select_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
-    mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut ThermalConductor, Entity)>,
+    mut tiles: Query<(
+        &mut MeshMaterial3d<StandardMaterial>,
+        &mut ThermalConductor,
+        Entity,
+    )>,
     map: Res<TileMap>,
 ) {
     let (camera, camera_transform) = cameras.single();

@@ -23,7 +23,7 @@ use noise::{
 use rand::Rng;
 use terrain_overlay_state::TerrainOverlayStatePlugin;
 
-use super::{pause::PauseState, restart::SimState};
+use super::{pause::PauseState, restart::SimState, time::HourPassedEvent};
 
 pub struct TerrainPlugin;
 
@@ -39,13 +39,14 @@ impl Plugin for TerrainPlugin {
             init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
         )
         .add_systems(OnEnter(SimState::TerrainGeneration), generate_terrain)
-        .add_systems(OnExit(SimState::Simulation), despawn_terrain)
-        .add_systems(
-            Update,
-            update_temperatures
-                .run_if(in_state(PauseState::Running))
-                .run_if(in_state(SimState::Simulation)), // .run_if(on_event::<HourPassedEvent>()),
-        );
+        .add_systems(OnExit(SimState::Simulation), despawn_terrain);
+        // .add_systems(
+        //     Update,
+        //     update_temperatures
+        //         // .run_if(in_state(PauseState::Running))
+        //         // .run_if(in_state(SimState::Simulation)),
+        //         .run_if(on_event::<HourPassedEvent>),
+        // );
     }
 }
 

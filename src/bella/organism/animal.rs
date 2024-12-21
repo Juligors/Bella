@@ -222,7 +222,7 @@ fn connect_animal_with_medium_its_on(
                     }
                 }
             }
-            None => error!("No tile under this creature :("),
+            None =>(),//TODO: error!("No tile under this creature :("),
         }
     }
 }

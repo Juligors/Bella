@@ -7,7 +7,7 @@ use crate::bella::{
     organism::{EnergyData, Health},
     pause::PauseState,
     restart::SimState,
-    terrain::{biome::BiomeType, TerrainPosition, TileMap},
+    terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
     time::{DayPassedEvent, HourPassedEvent},
 };
 
@@ -23,7 +23,8 @@ impl Plugin for PlantPlugin {
             .add_systems(
                 Update,
                 (
-                    produce_energy_from_solar,
+                    // produce_energy_from_solar,
+                    give_plant_energy_from_thermal_conductor_its_on,
                     consume_energy_to_survive,
                     consume_energy_to_grow,
                     consume_energy_to_reproduce,
@@ -226,13 +227,16 @@ fn consume_energy_to_reproduce(
                     config.plant.waiting_for_reproduction_time,
                 );
 
+                if energy_data.energy < 1_000. {
+                    continue;
+                }
+
                 // TODO: for now to make plants smaller and die (why are they not get smaller?)
-                let by = 2.0;
-                // energy_data.energy /= by;
+                energy_data.energy = 0.;
                 // size.ratio /= by;
                 // transform.scale /= by;
 
-                health.hp /= by;
+                health.hp /= 5.;
                 health.hp -= 1.;
 
                 // TODO: this function should work like this:
@@ -293,6 +297,33 @@ fn update_plant_color(
         } else {
             assets.dead.clone()
         };
+    }
+}
+
+fn give_plant_energy_from_thermal_conductor_its_on(
+    mut plants: Query<(&mut EnergyData, &Transform), With<PlantMarker>>,
+    mut tiles: Query<(Entity, &mut ThermalConductor)>,
+    map: Res<TileMap>,
+) {
+    for (mut energy_data, plant_transform) in plants.iter_mut() {
+        let entity = map.world_pos_to_entity(plant_transform.translation.truncate());
+
+        match entity {
+            Some(e) => {
+                for (tile_entity, mut thermal_conductor) in tiles.iter_mut() {
+                    if tile_entity != e {
+                        continue;
+                    }
+
+                    let energy_taken = 1_000_000. * energy_data.production_efficiency;
+                    if energy_taken < thermal_conductor.heat {
+                        thermal_conductor.heat -= energy_taken;
+                        energy_data.energy += energy_taken;
+                    }
+                }
+            }
+            None => (), // TODO: error!("No tile under this plant :("),
+        }
     }
 }
 
