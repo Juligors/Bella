@@ -36,7 +36,11 @@ impl Plugin for PlantPlugin {
             )
             .add_systems(
                 Update,
-                data_collection::save_plant_data.run_if(on_event::<HourPassedEvent>),
+                (
+                    data_collection::save_plant_data,
+                    data_collection::send_plant_data_through_websocket,
+                )
+                    .run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -328,8 +332,14 @@ fn give_plant_energy_from_thermal_conductor_its_on(
 }
 
 mod data_collection {
+    use itertools::Itertools;
+    use tungstenite::{accept, Message};
+
     use super::*;
-    use crate::bella::{data_collection::DataCollectionDirectory, time::SimTime};
+    use crate::bella::{
+        data_collection::{DataCollectionDirectory, WebsocketServer},
+        time::SimTime,
+    };
 
     #[derive(Debug, serde::Serialize)]
     pub struct Plant {
@@ -396,5 +406,24 @@ mod data_collection {
         writer
             .flush()
             .expect("Couldn't save new plant data to a file");
+    }
+
+    pub fn send_plant_data_through_websocket(
+        plants: Query<(Entity, &Health, &Size, &EnergyData), With<PlantMarker>>,
+        time: Res<SimTime>,
+        mut ws_server: ResMut<WebsocketServer>,
+    ) {
+        if let Some(websocket) = ws_server.websocket.as_mut() {
+            let msg = plants
+                .iter()
+                .map(|(entity, health, size, energy_data)| {
+                    format!("{};{};{};{};{}", entity.to_bits(), health.hp, energy_data.energy, time.days, time.hours)
+                })
+                .join("\n");
+
+                // NOTE: if we can't send data to the client we just ignore error
+                // BACKLOG: maybe this should be logged on some low level?
+            _ = websocket.send(Message::Text(msg.into()));
+        }
     }
 }
