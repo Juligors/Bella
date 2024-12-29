@@ -147,37 +147,39 @@ impl TileLayout {
     // }
 
     pub fn generate_mesh(&self) -> Mesh {
-        // Cuboid::new(1.0, 1.0, 0.00001).into()
+        Cuboid::new(1.0, 1.0, 0.00001).into()
 
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            // NOTE: RENDER_WORLD for rendering, MAIN_WORLD for bevy_picking
-            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
-        );
+        // NOTE: this standard Cuboid works better with lighting, custom mesh would probably be more performant, but it's not important for now
 
-        let side_of_the_square = 1.0;
-        let x = side_of_the_square / 2.0;
+        // let mut mesh = Mesh::new(
+        //     PrimitiveTopology::TriangleList,
+        //     // NOTE: RENDER_WORLD for rendering, MAIN_WORLD for bevy_picking
+        //     RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        // );
 
-        let vertexes: Vec<[f32; 3]> = vec![
-            [-x, x, 0.],  // 0 top left
-            [x, x, 0.],   // 1 top right
-            [-x, -x, 0.], // 2 bottom left
-            [x, -x, 0.],  // 3 bottom right
-        ];
+        // let side_of_the_square = 1.0;
+        // let x = side_of_the_square / 2.0;
 
-        let indices = vec![
-            2, 1, 0, // top left
-            2, 3, 1, // bottom right
-        ];
-        let normals: Vec<[f32; 3]> = [[0., 1., 0.]].repeat(vertexes.len());
-        let uvs: Vec<[f32; 2]> = (0..vertexes.len()).map(|_| [0., 0.]).collect();
+        // let vertexes: Vec<[f32; 3]> = vec![
+        //     [-x, x, 0.],  // 0 top left
+        //     [x, x, 0.],   // 1 top right
+        //     [-x, -x, 0.], // 2 bottom left
+        //     [x, -x, 0.],  // 3 bottom right
+        // ];
 
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertexes);
-        mesh.insert_indices(Indices::U32(indices));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        // let indices = vec![
+        //     2, 1, 0, // top left
+        //     2, 3, 1, // bottom right
+        // ];
+        // let normals: Vec<[f32; 3]> = [[0., 1., 0.]].repeat(vertexes.len());
+        // let uvs: Vec<[f32; 2]> = (0..vertexes.len()).map(|_| [0., 0.]).collect();
 
-        mesh
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertexes);
+        // mesh.insert_indices(Indices::U32(indices));
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+
+        // mesh
     }
 }
 

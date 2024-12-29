@@ -42,25 +42,13 @@ fn spawn_camera_and_light(mut cmd: Commands) {
     ));
 
     cmd.spawn((
-        Transform::from_xyz(0.0, 0.0, 2_000.0),
+        Transform::from_xyz(2000.0, 2400.0, 20_000.0),
         PointLight {
             color: Color::WHITE,
-            intensity: 100_000_000_000.0,
-            range: 2_000_000_000.0,
-            radius: 100.0,
-            shadows_enabled: true,
-            ..Default::default()
-        },
-    ));
-
-    cmd.spawn((
-        Transform::from_xyz(3800.0, 2400.0, 2_000.0),
-        PointLight {
-            color: Color::WHITE,
-            intensity: 100_000_000_000.0,
-            range: 2_000_000_000.0,
-            radius: 100.0,
-            shadows_enabled: true,
+            intensity: 1e13,
+            range: 1e20,
+            // radius: 1.0,
+            // shadows_enabled: true,
             ..Default::default()
         },
     ));
