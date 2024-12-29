@@ -8,7 +8,10 @@ pub struct TimePlugin;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<HourPassedEvent>()
+        app.register_type::<HourlyTimer>()
+            .register_type::<DailyTimer>()
+            .register_type::<SimTime>()
+            .add_event::<HourPassedEvent>()
             .add_event::<DayPassedEvent>()
             .insert_resource(SimTime { days: 0, hours: 0 })
             .add_systems(
@@ -37,8 +40,8 @@ impl Plugin for TimePlugin {
 #[derive(Event)]
 pub struct HourPassedEvent;
 
-#[derive(Resource, Deref, DerefMut)]
-struct HourlyTimer(Timer);
+#[derive(Resource, Reflect, Deref, DerefMut)]
+pub struct HourlyTimer(Timer);
 
 fn init_hourly_timer(mut cmd: Commands, config: Res<SimConfig>) {
     cmd.insert_resource(HourlyTimer(Timer::from_seconds(
@@ -61,8 +64,8 @@ fn send_hour_passed_event(
 #[derive(Event)]
 pub struct DayPassedEvent;
 
-#[derive(Resource, Deref, DerefMut)]
-struct DailyTimer(Timer);
+#[derive(Resource, Reflect, Deref, DerefMut)]
+pub struct DailyTimer(Timer);
 
 fn init_daily_timer(mut cmd: Commands, config: Res<SimConfig>) {
     cmd.insert_resource(DailyTimer(Timer::from_seconds(
@@ -82,7 +85,7 @@ fn send_day_passed_event(
 
 ///////////////////// time passed /////////////////////
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct SimTime {
     pub days: u32,
     pub hours: u32,

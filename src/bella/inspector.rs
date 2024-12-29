@@ -1,10 +1,14 @@
 use super::{
     organism::{animal::AnimalMarker, plant::PlantMarker},
     terrain::{tile::TileLayout, TerrainMarker},
+    time::{DailyTimer, HourlyTimer, SimTime},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSet};
-use bevy_inspector_egui::DefaultInspectorConfigPlugin;
+use bevy_inspector_egui::{
+    bevy_inspector::{ui_for_resource, ui_for_world_entities_filtered},
+    DefaultInspectorConfigPlugin,
+};
 
 pub struct InspectorPlugin;
 
@@ -73,7 +77,27 @@ fn resources_ui(world: &mut World) {
         .show(egui_context.get_mut(), |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
                 ui.collapsing("TileLayout", |ui| {
-                    bevy_inspector_egui::bevy_inspector::ui_for_resource::<TileLayout>(world, ui);
+                    ui_for_resource::<TileLayout>(world, ui);
+                });
+
+                ui.separator();
+
+                ui.collapsing("Time", |ui| {
+                    ui.push_id(0, |ui| {
+                        ui_for_resource::<DailyTimer>(world, ui);
+                    });
+
+                    ui.separator();
+
+                    ui.push_id(1, |ui| {
+                        ui_for_resource::<HourlyTimer>(world, ui);
+                    });
+
+                    ui.separator();
+
+                    ui.push_id(2, |ui| {
+                        ui_for_resource::<SimTime>(world, ui);
+                    });
                 });
             });
         });
@@ -91,25 +115,19 @@ fn entities_ui(world: &mut World) {
         .show(egui_context.get_mut(), |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
                 ui.collapsing("Terrain", |ui| {
-                    bevy_inspector_egui::bevy_inspector::ui_for_world_entities_filtered::<
-                        With<TerrainMarker>,
-                    >(world, ui, false);
+                    ui_for_world_entities_filtered::<With<TerrainMarker>>(world, ui, false);
                 });
 
                 ui.separator();
 
                 ui.collapsing("Animals", |ui| {
-                    bevy_inspector_egui::bevy_inspector::ui_for_world_entities_filtered::<
-                        With<AnimalMarker>,
-                    >(world, ui, false);
+                    ui_for_world_entities_filtered::<With<AnimalMarker>>(world, ui, false);
                 });
 
                 ui.separator();
 
                 ui.collapsing("Plants", |ui| {
-                    bevy_inspector_egui::bevy_inspector::ui_for_world_entities_filtered::<
-                        With<PlantMarker>,
-                    >(world, ui, false);
+                    ui_for_world_entities_filtered::<With<PlantMarker>>(world, ui, false);
                 });
             });
         });
