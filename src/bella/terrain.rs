@@ -6,7 +6,7 @@ use self::thermal_conductor::{
     init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
     ThermalConductorPlugin,
 };
-use super::{restart::SimState, time::HourPassedEvent};
+use super::{inspector::choose_entity_observer, restart::SimState, time::HourPassedEvent};
 use crate::bella::config::SimConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 use noise::{
@@ -36,11 +36,11 @@ impl Plugin for TerrainPlugin {
                 update_tile_color_for_biome
                     .run_if(in_state(TerrainOverlayState::Bioms))
                     .run_if(in_state(SimState::Simulation)),
+            )
+            .add_systems(
+                Update,
+                update_temperatures.run_if(on_event::<HourPassedEvent>),
             );
-        // .add_systems(
-        //     Update,
-        //     update_temperatures.run_if(on_event::<HourPassedEvent>),
-        // );
     }
 }
 
@@ -57,7 +57,7 @@ pub enum BiomeType {
 }
 
 fn generate_terrain(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     config: Res<SimConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -82,6 +82,8 @@ fn generate_terrain(
 
     let mesh = tile_layout.generate_mesh();
     let mesh_handle = meshes.add(mesh);
+    
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for row in 0..rows_count {
         tile_layout.add_new_row();
@@ -112,7 +114,7 @@ fn generate_terrain(
             let transform = Transform::from_xyz(tile_position.x, tile_position.y, 0.)
                 .with_scale(Vec3::splat(config.terrain.tile_size));
 
-            let entity = cmd
+            let entity = commands
                 .spawn((
                     TerrainMarker,
                     Name::new(format!("Terrain {} {}", col, row)),
@@ -123,20 +125,17 @@ fn generate_terrain(
                     biome,
                     thermal_conductor,
                 ))
-                .observe(on_click_do_stuff)
                 .id();
+                
+            choose_entity_observer.watch_entity(entity);
 
             tile_layout.add_new_tile_to_last_row(entity);
         }
     }
 
-    cmd.insert_resource(tile_layout);
-}
+    commands.spawn(choose_entity_observer);
 
-fn on_click_do_stuff(drag: Trigger<Pointer<Click>>, mut transforms: Query<&mut Transform>) {
-    println!("ON CLICK");
-    let transform = transforms.get_mut(drag.entity()).unwrap();
-    dbg!(transform);
+    commands.insert_resource(tile_layout);
 }
 
 fn despawn_terrain(mut cmd: Commands, terrain: Query<Entity, With<TerrainMarker>>) {

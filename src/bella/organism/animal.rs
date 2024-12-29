@@ -4,6 +4,7 @@ pub mod visual;
 
 use crate::bella::{
     config::SimConfig,
+    inspector::choose_entity_observer,
     organism::Health,
     pause::PauseState,
     restart::SimState,
@@ -85,7 +86,7 @@ pub struct Attack {
 }
 
 fn spawn_animals(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     animal_assets: Res<AnimalAssets>,
     config: Res<SimConfig>,
@@ -96,6 +97,8 @@ fn spawn_animals(
 
     let base_size = 2.; // FIXME: magic number
     let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
+
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
         if !rng.gen_bool(config.animal.group_spawn_chance_sand as f64) {
@@ -138,37 +141,43 @@ fn spawn_animals(
             let x = rng.gen_range(pos_min.x..pos_max.x);
             let y = rng.gen_range(pos_min.y..pos_max.y);
 
-            cmd.spawn((
-                AnimalMarker,
-                Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
-                Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
-                Health { hp },
-                Mobile {
-                    speed: rng.gen_range(0.2..0.3), // FIXME: magic number
-                    destination: None,
-                    next_step_destination: None,
-                },
-                HungerLevel::Hungry(100), // FIXME: magic number
-                SightRange(300.),         // FIXME: magic number
-                Attack {
-                    range: 2.,  // FIXME: magic number
-                    damage: 3., // FIXME: magic number
-                },
-                size,
-                energy_data,
-                ReproductionState::Developing(rng.gen_range(
-                    config.animal.development_time..(config.animal.development_time * 2),
-                )),
-                diet,
-            ));
+            let entity = commands
+                .spawn((
+                    AnimalMarker,
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
+                    Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
+                    Health { hp },
+                    Mobile {
+                        speed: rng.gen_range(0.2..0.3), // FIXME: magic number
+                        destination: None,
+                        next_step_destination: None,
+                    },
+                    HungerLevel::Hungry(100), // FIXME: magic number
+                    SightRange(300.),         // FIXME: magic number
+                    Attack {
+                        range: 2.,  // FIXME: magic number
+                        damage: 3., // FIXME: magic number
+                    },
+                    size,
+                    energy_data,
+                    ReproductionState::Developing(rng.gen_range(
+                        config.animal.development_time..(config.animal.development_time * 2),
+                    )),
+                    diet,
+                ))
+                .id();
+
+            choose_entity_observer.watch_entity(entity);
         }
     }
+
+    commands.spawn(choose_entity_observer);
 }
 
-fn despawn_animals(mut cmd: Commands, animals: Query<Entity, With<AnimalMarker>>) {
+fn despawn_animals(mut commands: Commands, animals: Query<Entity, With<AnimalMarker>>) {
     for animal_entity in animals.iter() {
-        cmd.entity(animal_entity).despawn_recursive();
+        commands.entity(animal_entity).despawn_recursive();
     }
 }
 
@@ -301,7 +310,7 @@ fn consume_energy_to_grow(
 }
 
 fn consume_energy_to_reproduce(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut query: Query<
         (
             &mut ReproductionState,
@@ -321,6 +330,8 @@ fn consume_energy_to_reproduce(
 
     let base_size = 2.; // FIXME: magic number
     let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
+
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (mut life_cycle_state, mut energy_data, mut health, transform, diet) in query.iter_mut() {
         match *life_cycle_state {
@@ -371,36 +382,40 @@ fn consume_energy_to_reproduce(
                 };
 
                 // TODO: copied from setup spawning (BUT CHANGED!!), maybe can be avoided a little with RequiredComponents and default values generated with default rng?
-                let mut new_animal = cmd.spawn((
-                    AnimalMarker,
-                    Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
-                    Transform::from_xyz(new_x, new_y, base_size)
-                        .with_scale(Vec3::splat(size.ratio)),
-                    Health { hp },
-                    Mobile {
-                        speed: rng.gen_range(0.2..0.3), // FIXME: magic number
-                        destination: None,
-                        next_step_destination: None,
-                    },
-                    HungerLevel::Hungry(100), // FIXME: magic number
-                    SightRange(300.),         // FIXME: magic number
-                    Attack {
-                        range: 2.,  // FIXME: magic number
-                        damage: 3., // FIXME: magic number
-                    },
-                    size,
-                    energy_data,
-                    ReproductionState::Developing(rng.gen_range(
-                        config.animal.development_time..(config.animal.development_time * 2),
-                    )),
-                    diet.clone(),
-                ));
+                let entity = commands
+                    .spawn((
+                        AnimalMarker,
+                        Mesh3d(mesh_handle.clone()),
+                        MeshMaterial3d(animal_assets.alive[hp as usize].clone()),
+                        Transform::from_xyz(new_x, new_y, base_size)
+                            .with_scale(Vec3::splat(size.ratio)),
+                        Health { hp },
+                        Mobile {
+                            speed: rng.gen_range(0.2..0.3), // FIXME: magic number
+                            destination: None,
+                            next_step_destination: None,
+                        },
+                        HungerLevel::Hungry(100), // FIXME: magic number
+                        SightRange(300.),         // FIXME: magic number
+                        Attack {
+                            range: 2.,  // FIXME: magic number
+                            damage: 3., // FIXME: magic number
+                        },
+                        size,
+                        energy_data,
+                        ReproductionState::Developing(rng.gen_range(
+                            config.animal.development_time..(config.animal.development_time * 2),
+                        )),
+                        diet.clone(),
+                    ))
+                    .id();
 
-                new_animal.insert(Diet::Herbivorous(1.));
+                choose_entity_observer.watch_entity(entity);
             }
         }
     }
+
+    commands.spawn(choose_entity_observer);
 }
 
 mod utils {

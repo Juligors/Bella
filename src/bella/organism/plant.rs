@@ -4,6 +4,7 @@ use rand::Rng;
 use crate::bella::{
     config::SimConfig,
     environment::Sun,
+    inspector::choose_entity_observer,
     organism::{EnergyData, Health},
     pause::PauseState,
     restart::SimState,
@@ -54,7 +55,7 @@ pub struct PlantAssets {
     dead: Handle<StandardMaterial>,
 }
 
-fn prepare_plant_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn prepare_plant_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let plant_assets = PlantAssets {
         alive: (0..=100)
             .map(|i| materials.add(Color::srgb(0.3, i as f32 / 100., 0.3)))
@@ -62,11 +63,11 @@ fn prepare_plant_assets(mut cmd: Commands, mut materials: ResMut<Assets<Standard
         dead: materials.add(Color::srgb(0., 0., 0.)),
     };
 
-    cmd.insert_resource(plant_assets);
+    commands.insert_resource(plant_assets);
 }
 
 fn spawn_plants(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
     config: Res<SimConfig>,
@@ -77,6 +78,8 @@ fn spawn_plants(
 
     let base_size = 3.;
     let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
+
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
         if !rng.gen_bool(config.plant.group_spawn_chance_grass as f64) {
@@ -107,22 +110,26 @@ fn spawn_plants(
             let x = rng.gen_range(pos_min.x..pos_max.x);
             let y = rng.gen_range(pos_min.y..pos_max.y);
 
-            cmd.spawn((
-                PlantMarker,
-                Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
-                Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
-                Health { hp },
-                size,
-                energy_data,
-                ReproductionState::Developing(
-                    rng.gen_range(
+            let entity = commands
+                .spawn((
+                    PlantMarker,
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
+                    Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
+                    Health { hp },
+                    size,
+                    energy_data,
+                    ReproductionState::Developing(rng.gen_range(
                         config.plant.development_time..(config.plant.development_time * 2),
-                    ),
-                ),
-            ));
+                    )),
+                ))
+                .id();
+
+            choose_entity_observer.watch_entity(entity);
         }
     }
+
+    commands.spawn(choose_entity_observer);
 }
 
 fn despawn_plants(mut cmd: Commands, plants: Query<Entity, With<PlantMarker>>) {
@@ -188,7 +195,7 @@ fn consume_energy_to_grow(
 }
 
 fn consume_energy_to_reproduce(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut query: Query<
         (
             &mut ReproductionState,
@@ -207,6 +214,8 @@ fn consume_energy_to_reproduce(
 
     let base_size = 3.;
     let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
+
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (mut life_cycle_state, mut energy_data, mut health, transform) in query.iter_mut() {
         match *life_cycle_state {
@@ -261,22 +270,28 @@ fn consume_energy_to_reproduce(
                     grow_by: 0.2,
                 };
 
-                cmd.spawn((
-                    PlantMarker,
-                    Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
-                    Transform::from_xyz(new_plant_x, new_plant_y, 1.)
-                        .with_scale(Vec3::splat(size.ratio)),
-                    Health { hp },
-                    size,
-                    energy_data,
-                    ReproductionState::Developing(rng.gen_range(
-                        config.plant.development_time..(config.plant.development_time * 2),
-                    )),
-                ));
+                let entity = commands
+                    .spawn((
+                        PlantMarker,
+                        Mesh3d(mesh_handle.clone()),
+                        MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
+                        Transform::from_xyz(new_plant_x, new_plant_y, 1.)
+                            .with_scale(Vec3::splat(size.ratio)),
+                        Health { hp },
+                        size,
+                        energy_data,
+                        ReproductionState::Developing(rng.gen_range(
+                            config.plant.development_time..(config.plant.development_time * 2),
+                        )),
+                    ))
+                    .id();
+
+                choose_entity_observer.watch_entity(entity);
             }
         }
     }
+
+    commands.spawn(choose_entity_observer);
 }
 
 fn update_plant_color(
@@ -314,7 +329,9 @@ fn give_plant_energy_from_thermal_conductor_its_on(
                     }
                 }
             }
-            None => error!("No tile under this plant :("),
+            None => {
+                error!("No tile under this plant :(");
+            }
         }
     }
 }

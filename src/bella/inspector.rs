@@ -6,7 +6,7 @@ use super::{
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSet};
 use bevy_inspector_egui::{
-    bevy_inspector::{ui_for_resource, ui_for_world_entities_filtered},
+    bevy_inspector::{ui_for_entity, ui_for_resource, ui_for_world_entities_filtered},
     DefaultInspectorConfigPlugin,
 };
 
@@ -17,6 +17,7 @@ impl Plugin for InspectorPlugin {
         app.add_plugins((EguiPlugin, DefaultInspectorConfigPlugin))
             .init_state::<EguiFocusState>()
             .init_state::<EguiVisibleState>()
+            .insert_resource(ChosenEntity { entity: None })
             .add_systems(Startup, setup_egui)
             .add_systems(
                 Update,
@@ -25,7 +26,8 @@ impl Plugin for InspectorPlugin {
             )
             .add_systems(
                 Update,
-                (resources_ui, entities_ui).run_if(in_state(EguiVisibleState::Yes)),
+                (chosen_entity_ui, resources_ui, entities_ui)
+                    .run_if(in_state(EguiVisibleState::Yes)),
             )
             .add_systems(
                 PostUpdate,
@@ -41,17 +43,16 @@ pub enum EguiVisibleState {
     No,
 }
 
-fn update_egui_visible_state_based_on_keyboard_input(
-    current_state: Res<State<EguiVisibleState>>,
-    mut next_state: ResMut<NextState<EguiVisibleState>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        next_state.set(match **current_state {
-            EguiVisibleState::Yes => EguiVisibleState::No,
-            EguiVisibleState::No => EguiVisibleState::Yes,
-        });
-    }
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum EguiFocusState {
+    #[default]
+    IsNotFocused,
+    IsFocused,
+}
+
+#[derive(Resource)]
+pub struct ChosenEntity {
+    entity: Option<Entity>,
 }
 
 fn setup_egui(world: &mut World) {
@@ -63,6 +64,52 @@ fn setup_egui(world: &mut World) {
     egui_context
         .get_mut()
         .style_mut(|style| style.visuals.window_shadow = egui::Shadow::NONE);
+}
+
+fn chosen_entity_ui(world: &mut World) {
+    if let Some(entity) = world.resource::<ChosenEntity>().entity {
+        // clear ChosenEntity resource if entity disappeared
+        if world.get_entity(entity).is_err() {
+            world.resource_mut::<ChosenEntity>().entity = None;
+            return;
+        }
+
+        let mut egui_context = world
+            .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
+            .single_mut(world)
+            .clone();
+
+        egui::Window::new("Chosen entity")
+            .default_open(true)
+            .default_pos((0.0, 70.0))
+            .show(egui_context.get_mut(), |ui| {
+                if ui.button("Clear chosen entity").clicked() {
+                    world.resource_mut::<ChosenEntity>().entity = None;
+                }
+
+                ui.separator();
+
+                egui::ScrollArea::both().show(ui, |ui| {
+                    ui_for_entity(world, entity, ui);
+                });
+            });
+    }
+}
+
+pub fn choose_entity_observer(
+    click: Trigger<Pointer<Click>>,
+    mut chosen_entity: ResMut<ChosenEntity>,
+    egui_focus_state: Res<State<EguiFocusState>>,
+) {
+    if matches!(**egui_focus_state, EguiFocusState::IsFocused) {
+        return;
+    }
+
+    if click.button != PointerButton::Primary {
+        return;
+    }
+
+    chosen_entity.entity = Some(click.target);
 }
 
 fn resources_ui(world: &mut World) {
@@ -133,11 +180,17 @@ fn entities_ui(world: &mut World) {
         });
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum EguiFocusState {
-    #[default]
-    IsNotFocused,
-    IsFocused,
+fn update_egui_visible_state_based_on_keyboard_input(
+    current_state: Res<State<EguiVisibleState>>,
+    mut next_state: ResMut<NextState<EguiVisibleState>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        next_state.set(match **current_state {
+            EguiVisibleState::Yes => EguiVisibleState::No,
+            EguiVisibleState::No => EguiVisibleState::Yes,
+        });
+    }
 }
 
 pub fn update_egui_focus_state(
