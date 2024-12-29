@@ -8,7 +8,7 @@ authors = ["Julian Górski"]
 
 [dependencies]
 bevy = { version = "0.15.0", features = ["dynamic_linking", "trace_tracy"] }
-bevy-inspector-egui = { version = "0.28.0", features = ["highlight_changes"] }
+bevy-inspector-egui = { version = "0.28.0" }
 bevy_egui = "0.31.1"
 
 csv = "1.3.1"
