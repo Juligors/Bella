@@ -1,14 +1,10 @@
-use bevy::{ecs::system::SystemState, prelude::*, window::PrimaryWindow};
-use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSet};
-use bevy_inspector_egui::DefaultInspectorConfigPlugin;
-
 use super::{
-    organism::{
-        animal::AnimalMarker,
-        plant::{PlantAssets, PlantMarker},
-    },
+    organism::{animal::AnimalMarker, plant::PlantMarker},
     terrain::{tile::TileLayout, TerrainMarker},
 };
+use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSet};
+use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 pub struct InspectorPlugin;
 
@@ -17,9 +13,11 @@ impl Plugin for InspectorPlugin {
         app.add_plugins((EguiPlugin, DefaultInspectorConfigPlugin))
             .init_state::<EguiFocusState>()
             .init_state::<EguiVisibleState>()
+            .add_systems(Startup, setup_egui)
             .add_systems(
                 Update,
-                update_egui_visible_state_based_on_keyboard_input.run_if(in_state(EguiFocusState::IsNotFocused)),
+                update_egui_visible_state_based_on_keyboard_input
+                    .run_if(in_state(EguiFocusState::IsNotFocused)),
             )
             .add_systems(
                 Update,
@@ -50,6 +48,17 @@ fn update_egui_visible_state_based_on_keyboard_input(
             EguiVisibleState::No => EguiVisibleState::Yes,
         });
     }
+}
+
+fn setup_egui(world: &mut World) {
+    let mut egui_context = world
+        .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
+        .single_mut(world)
+        .clone();
+
+    egui_context
+        .get_mut()
+        .style_mut(|style| style.visuals.window_shadow = egui::Shadow::NONE);
 }
 
 fn resources_ui(world: &mut World) {
