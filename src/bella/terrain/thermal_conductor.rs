@@ -10,7 +10,7 @@ pub struct ThermalConductorPlugin;
 
 impl Plugin for ThermalConductorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.register_type::<ThermalConductor>().add_systems(
             OnEnter(SimState::LoadAssets),
             initialize_assets_map_temperature,
         )
@@ -33,7 +33,7 @@ impl Plugin for ThermalConductorPlugin {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct ThermalConductor {
     /// https://pl.wikipedia.org/wiki/Ciep%C5%82o
     pub heat: f32,

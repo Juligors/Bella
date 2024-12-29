@@ -14,6 +14,10 @@ pub struct OrganismPlugin;
 impl Plugin for OrganismPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((AnimalPlugin, PlantPlugin, CarcassPlugin))
+            .register_type::<Health>()
+            .register_type::<Size>()
+            .register_type::<EnergyData>()
+            .register_type::<ReproductionState>()
             .add_systems(
                 Update,
                 (
@@ -26,24 +30,15 @@ impl Plugin for OrganismPlugin {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct Health {
     hp: f32,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct Size {
     base_size: f32,
     ratio: f32,
-}
-
-#[derive(Component, Debug)]
-pub struct EnergyData {
-    energy: f32, // TODO: this should be only like a temporary thing, maybe even just local variable? And send it over event? That sounds good
-    production_efficiency: f32, // TODO: this is only for plants
-    energy_needed_for_survival_per_mass_unit: f32,
-    energy_needed_for_growth_per_mass_unit: f32,
-    grow_by: f32,
 }
 
 impl Size {
@@ -60,7 +55,16 @@ impl Size {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
+pub struct EnergyData {
+    energy: f32, // TODO: this should be only like a temporary thing, maybe even just local variable? And send it over event? That sounds good
+    production_efficiency: f32, // TODO: this is only for plants
+    energy_needed_for_survival_per_mass_unit: f32,
+    energy_needed_for_growth_per_mass_unit: f32,
+    grow_by: f32,
+}
+
+#[derive(Component, Reflect, Debug)]
 pub enum ReproductionState {
     Developing(i8),
     ReadyToReproduce,

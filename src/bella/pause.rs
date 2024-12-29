@@ -1,11 +1,16 @@
 use bevy::prelude::*;
 
+use super::inspector::EguiFocusState;
+
 pub struct PausePlugin;
 
 impl Plugin for PausePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<PauseState>()
-            .add_systems(Update, change_overlay_state_based_on_keyboard_input);
+        app.init_state::<PauseState>().add_systems(
+            Update,
+            change_overlay_state_based_on_keyboard_input
+                .run_if(in_state(EguiFocusState::IsNotFocused)),
+        );
     }
 }
 

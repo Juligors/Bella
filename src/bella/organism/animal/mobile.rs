@@ -13,23 +13,25 @@ pub struct MobilePlugin;
 
 impl Plugin for MobilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            ((find_next_step_destination, make_step).chain(), attack)
-                .run_if(in_state(SimState::Simulation))
-                .run_if(in_state(PauseState::Running)),
-        );
+        app.register_type::<Mobile>()
+            .register_type::<Destination>()
+            .add_systems(
+                Update,
+                ((find_next_step_destination, make_step).chain(), attack)
+                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(PauseState::Running)),
+            );
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct Mobile {
     pub speed: f32,
     pub destination: Option<Destination>,
     pub next_step_destination: Option<Vec2>,
 }
 
-#[derive(Debug)]
+#[derive(Reflect, Debug)]
 pub enum Destination {
     Place { position: Vec2 },
     Organism { entity: Entity },

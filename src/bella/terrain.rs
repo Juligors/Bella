@@ -22,6 +22,8 @@ pub struct TerrainPlugin;
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((ThermalConductorPlugin, TerrainOverlayStatePlugin))
+            .register_type::<BiomeType>()
+            .register_type::<Tile>()
             .add_systems(OnEnter(SimState::LoadAssets), initialize_assets_map_biomes)
             .add_systems(
                 OnEnter(SimState::PreSimulation),
@@ -44,6 +46,15 @@ impl Plugin for TerrainPlugin {
 
 #[derive(Component)]
 pub struct TerrainMarker;
+
+#[derive(Component, Reflect, Debug, Hash, PartialEq, Eq)]
+pub enum BiomeType {
+    Stone,
+    Sand,
+    Dirt,
+    Grass,
+    Water,
+}
 
 fn generate_terrain(
     mut cmd: Commands,
@@ -104,6 +115,7 @@ fn generate_terrain(
             let entity = cmd
                 .spawn((
                     TerrainMarker,
+                    Name::new(format!("Terrain {} {}", col, row)),
                     Mesh3d(mesh_handle.clone()),
                     MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
                     transform,
@@ -133,19 +145,11 @@ fn despawn_terrain(mut cmd: Commands, terrain: Query<Entity, With<TerrainMarker>
     }
 }
 
-#[derive(Component, Debug, Hash, PartialEq, Eq)]
-pub enum BiomeType {
-    Stone,
-    Sand,
-    Dirt,
-    Grass,
-    Water,
-}
-
 #[derive(Resource)]
 pub struct AssetsMapBiomes {
     pub medium_type_materials: HashMap<BiomeType, Handle<StandardMaterial>>,
 }
+
 fn initialize_assets_map_biomes(
     mut cmd: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -162,6 +166,7 @@ fn initialize_assets_map_biomes(
         medium_type_materials,
     });
 }
+
 fn update_tile_color_for_biome(
     mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &BiomeType)>,
     assets_map: Res<AssetsMapBiomes>,

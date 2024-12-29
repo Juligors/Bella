@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::bella::{organism::plant::PlantMarker, restart::SimState};
+use crate::bella::{inspector::EguiFocusState, organism::plant::PlantMarker, restart::SimState};
 
 use super::{
     mobile::{Destination, Mobile},
@@ -12,7 +12,11 @@ pub struct AnimalGizmosPlugin;
 impl Plugin for AnimalGizmosPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<AnimalGizmosOverlayState>()
-            .add_systems(Update, change_overlay_state_based_on_keyboard_input)
+            .add_systems(
+                Update,
+                change_overlay_state_based_on_keyboard_input
+                    .run_if(in_state(EguiFocusState::IsNotFocused)),
+            )
             .add_systems(
                 Update,
                 (

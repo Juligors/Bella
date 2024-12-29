@@ -32,6 +32,10 @@ pub struct AnimalPlugin;
 impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((MobilePlugin, AnimalGizmosPlugin))
+            .register_type::<HungerLevel>()
+            .register_type::<Diet>()
+            .register_type::<SightRange>()
+            .register_type::<Attack>()
             .add_systems(OnEnter(SimState::LoadAssets), prepare_animal_assets)
             .add_systems(OnEnter(SimState::OrganismGeneration), spawn_animals)
             .add_systems(OnExit(SimState::Simulation), despawn_animals)
@@ -43,7 +47,7 @@ impl Plugin for AnimalPlugin {
                     choose_new_destination,
                     decrease_satiation.run_if(on_event::<HourPassedEvent>),
                     consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
-                    // consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
+                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
@@ -58,23 +62,23 @@ impl Plugin for AnimalPlugin {
 #[derive(Component)]
 pub struct AnimalMarker;
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub enum HungerLevel {
     Satiated(u32),
     Hungry(u32),
     Starving,
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub enum Diet {
     Carnivorous(f32),
     Herbivorous(f32),
 }
 
-#[derive(Component, Debug, Deref, DerefMut)]
+#[derive(Component, Reflect, Debug, Deref, DerefMut)]
 pub struct SightRange(f32);
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct Attack {
     pub range: f32,
     pub damage: f32,

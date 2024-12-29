@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use super::inspector::EguiFocusState;
+
 pub struct RestartPlugin;
 
 impl Plugin for RestartPlugin {
@@ -29,7 +31,11 @@ impl Plugin for RestartPlugin {
                 OnEnter(SimState::PreSimulation),
                 |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::Simulation),
             )
-            .add_systems(Update, restart_simulation_based_on_keyboard_input);
+            .add_systems(
+                Update,
+                restart_simulation_based_on_keyboard_input
+                    .run_if(in_state(EguiFocusState::IsNotFocused)),
+            );
     }
 }
 

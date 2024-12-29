@@ -72,9 +72,26 @@ impl TileLayout {
 
     pub fn get_entity_for_position(&self, point: Vec2) -> Option<Entity> {
         if self.is_position_in_bounds(point) {
-            let col = ((point.x - point.x % self.tile_size) / self.tile_size) as usize;
-            let row = ((point.y - point.y % self.tile_size) / self.tile_size) as usize;
+            let mut col = ((point.x - point.x % self.tile_size) / self.tile_size) as usize;
+            let mut row = ((point.y - point.y % self.tile_size) / self.tile_size) as usize;
 
+            // NOTE: make sure that if position is on the border, we treat it as in bounds
+            if row as u32 == self.rows {
+                row -= 1;
+            }
+
+            if col as u32 == self.cols {
+                col -= 1;
+            }
+
+            // if row as u32 >= self.rows || col as u32 >= self.cols {
+            //     println!("Something went wrong!");
+
+            //     println!("Col: {}, row: {}", col, row);
+            //     println!("{}", point);
+
+            //     panic!("PANICCCCCCCCCC");
+            // }
             Some(self.entities[row][col])
         } else {
             None
@@ -164,7 +181,7 @@ impl TileLayout {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Debug)]
 pub struct Tile {
     pub col: u32,
     pub row: u32,

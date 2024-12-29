@@ -7,7 +7,11 @@ use crate::bella::{
     organism::{EnergyData, Health},
     pause::PauseState,
     restart::SimState,
-    terrain::{ thermal_conductor::ThermalConductor, tile::{Tile, TileLayout}, BiomeType},
+    terrain::{
+        thermal_conductor::ThermalConductor,
+        tile::{Tile, TileLayout},
+        BiomeType,
+    },
     time::{DayPassedEvent, HourPassedEvent},
 };
 
@@ -45,7 +49,7 @@ impl Plugin for PlantPlugin {
 pub struct PlantMarker;
 
 #[derive(Resource)]
-struct PlantAssets {
+pub struct PlantAssets {
     alive: Vec<Handle<StandardMaterial>>,
     dead: Handle<StandardMaterial>,
 }
@@ -99,7 +103,6 @@ fn spawn_plants(
                 energy_needed_for_growth_per_mass_unit: 5.,
                 grow_by: 0.2,
             };
-
 
             let x = rng.gen_range(pos_min.x..pos_max.x);
             let y = rng.gen_range(pos_min.y..pos_max.y);
