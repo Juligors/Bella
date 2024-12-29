@@ -59,8 +59,8 @@ impl TileLayout {
         let mut entities = Vec::new();
 
         for (row_offset, col_offset) in neighbor_offsets.into_iter() {
-            let neighbour_row = row + row_offset as u32;
-            let neighbour_col = col + col_offset as u32;
+            let neighbour_row = (row as i32 + row_offset) as u32;
+            let neighbour_col = (col as i32 + col_offset) as u32;
 
             if self.is_tile_in_bounds(neighbour_col, neighbour_row) {
                 entities.push(self.entities[neighbour_row as usize][neighbour_col as usize]);
