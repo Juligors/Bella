@@ -107,8 +107,14 @@ fn setup_timer_ui(mut cmd: Commands) {
     let initial_day = 0;
 
     cmd.spawn((
-        Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
         TimerUiTextMarker,
+        Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
     ));
 }
 
