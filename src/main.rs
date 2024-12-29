@@ -5,6 +5,7 @@ pub mod bella;
 use bella::config::ConfigPlugin;
 use bella::data_collection::DataCollectionPlugin;
 use bella::environment::EnvironmentPlugin;
+use bella::inspector::InspectorPlugin;
 use bella::organism::OrganismPlugin;
 use bella::pause::PausePlugin;
 use bella::restart::RestartPlugin;
@@ -17,6 +18,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins((
+            MeshPickingPlugin,
             MyWindowPlugin,
             ConfigPlugin,
             TimePlugin,
@@ -27,5 +29,6 @@ fn main() {
         ))
         .add_plugins(UiPlugin)
         .add_plugins((TerrainPlugin, OrganismPlugin))
+        .add_plugins(InspectorPlugin)
         .run();
 }

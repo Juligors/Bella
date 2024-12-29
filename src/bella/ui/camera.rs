@@ -4,12 +4,18 @@ use bevy::{
     render::camera::ScalingMode,
 };
 
+use crate::bella::inspector::EguiFocusState;
+
 pub struct MyCameraPlugin;
 
 impl Plugin for MyCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera_and_light)
-            .add_systems(Update, (camera_movement, camera_zoom, rotate_camera));
+            .add_systems(
+                Update,
+                (camera_movement, camera_zoom, rotate_camera)
+                    .run_if(in_state(EguiFocusState::IsNotFocused)),
+            );
     }
 }
 
