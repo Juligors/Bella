@@ -1,51 +1,43 @@
-pub mod biome;
 pub mod terrain_overlay_state;
 pub mod thermal_conductor;
+pub mod tile;
 
-use self::{
-    biome::{BiomePlugin, BiomeType},
-    thermal_conductor::{
-        init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
-        ThermalConductorPlugin,
-    },
+use self::thermal_conductor::{
+    init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
+    ThermalConductorPlugin,
 };
+use super::{restart::SimState, time::HourPassedEvent};
 use crate::bella::config::SimConfig;
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
-    utils::hashbrown::HashMap,
-};
-use hexx::{shapes, Hex, HexLayout};
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 use noise::{
     utils::{NoiseMapBuilder, PlaneMapBuilder},
     HybridMulti, Perlin,
 };
 use rand::Rng;
-use terrain_overlay_state::TerrainOverlayStatePlugin;
-
-use super::{pause::PauseState, restart::SimState, time::HourPassedEvent};
+use terrain_overlay_state::{TerrainOverlayState, TerrainOverlayStatePlugin};
+use tile::{Tile, TileLayout};
 
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            ThermalConductorPlugin,
-            BiomePlugin,
-            TerrainOverlayStatePlugin,
-        ))
-        .add_systems(
-            OnEnter(SimState::PreSimulation),
-            init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
-        )
-        .add_systems(OnEnter(SimState::TerrainGeneration), generate_terrain)
-        .add_systems(OnExit(SimState::Simulation), despawn_terrain);
+        app.add_plugins((ThermalConductorPlugin, TerrainOverlayStatePlugin))
+            .add_systems(OnEnter(SimState::LoadAssets), initialize_assets_map_biomes)
+            .add_systems(
+                OnEnter(SimState::PreSimulation),
+                init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
+            )
+            .add_systems(OnEnter(SimState::TerrainGeneration), generate_terrain)
+            .add_systems(OnExit(SimState::Simulation), despawn_terrain)
+            .add_systems(
+                Update,
+                update_tile_color_for_biome
+                    .run_if(in_state(TerrainOverlayState::Bioms))
+                    .run_if(in_state(SimState::Simulation)),
+            );
         // .add_systems(
         //     Update,
-        //     update_temperatures
-        //         // .run_if(in_state(PauseState::Running))
-        //         // .run_if(in_state(SimState::Simulation)),
-        //         .run_if(on_event::<HourPassedEvent>),
+        //     update_temperatures.run_if(on_event::<HourPassedEvent>),
         // );
     }
 }
@@ -53,34 +45,6 @@ impl Plugin for TerrainPlugin {
 #[derive(Component)]
 pub struct TerrainMarker;
 
-#[derive(Component, Debug, Deref, DerefMut)]
-pub struct TerrainPosition {
-    pub hex_pos: Hex,
-}
-
-#[derive(Resource, Debug)]
-pub struct TileMap {
-    pub layout: HexLayout,
-    pub entities: HashMap<Hex, Entity>,
-}
-
-impl TileMap {
-    pub fn world_pos_to_entity(&self, position: Vec2) -> Option<Entity> {
-        let hex = self
-            .layout
-            .world_pos_to_hex(hexx::Vec2::new(position.x, position.y));
-
-        self.entities.get(&hex).copied()
-    }
-
-    pub fn world_pos_in_entities(&self, position: Vec2) -> bool {
-        let hex = self
-            .layout
-            .world_pos_to_hex(hexx::Vec2::new(position.x, position.y));
-
-        self.entities.contains_key(&hex)
-    }
-}
 fn generate_terrain(
     mut cmd: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -92,41 +56,30 @@ fn generate_terrain(
         .expect("Can't read system time.")
         .as_secs();
 
+    let rows_count = config.terrain.map_height;
+    let cols_count = config.terrain.map_width;
+
     let mut rng = rand::thread_rng();
+
     let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::new(current_time as u32))
-        .set_size(
-            (config.terrain.map_radius * 2 + 1) as usize,
-            (config.terrain.map_radius * 2 + 1) as usize,
-        )
+        .set_size(cols_count as usize, rows_count as usize)
         .build();
 
     // noise_map.write_to_file(std::path::Path::new("test.png"));
 
-    let hex_layout = HexLayout {
-        hex_size: hexx::Vec2::splat(config.terrain.hex_size),
-        orientation: hexx::HexOrientation::Pointy,
-        ..default()
-    };
+    let mut tile_layout = TileLayout::new(rows_count, cols_count, config.terrain.tile_size);
 
-    // let mesh = hexagonal_plane(&hex_layout);
-    let mesh = helpers::generate_hex_mesh();
+    let mesh = tile_layout.generate_mesh();
     let mesh_handle = meshes.add(mesh);
 
-    let entities = shapes::hexagon(Hex::ZERO, config.terrain.map_radius)
-        // let entities = shapes::flat_rectangle([
-        //     -(config.terrain.map_radius as i32),
-        //     (config.terrain.map_radius as i32),
-        //     -(config.terrain.map_radius as i32),
-        //     (config.terrain.map_radius as i32),
-        // ])
-        .map(|hex| {
-            let pos = hex_layout.hex_to_world_pos(hex);
-            let terrain_position = TerrainPosition { hex_pos: hex };
+    for row in 0..rows_count {
+        tile_layout.add_new_row();
 
-            let noise_value = noise_map.get_value(
-                (hex.x + config.terrain.map_radius as i32) as usize,
-                (hex.y + config.terrain.map_radius as i32) as usize,
-            );
+        for col in 0..cols_count {
+            let tile = Tile { row, col };
+            let tile_position = tile_layout.get_tile_position(&tile);
+
+            let noise_value = noise_map.get_value(col as usize, row as usize);
             let biome = match noise_value {
                 x if x < 0.3 => BiomeType::Dirt,
                 x if x < 0.6 => BiomeType::Sand,
@@ -145,30 +98,33 @@ fn generate_terrain(
                 thermal_conductivity: k,
             };
 
-            let mut transform = Transform::from_xyz(pos.x, pos.y, 0.)
-                .with_scale(Vec3::splat(config.terrain.hex_size));
-            transform.rotate_x(90.0_f32.to_radians());
+            let transform = Transform::from_xyz(tile_position.x, tile_position.y, 0.)
+                .with_scale(Vec3::splat(config.terrain.tile_size));
 
-            let terrain_tile = cmd
+            let entity = cmd
                 .spawn((
                     TerrainMarker,
                     Mesh3d(mesh_handle.clone()),
                     MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
                     transform,
-                    terrain_position,
+                    tile,
                     biome,
                     thermal_conductor,
                 ))
+                .observe(on_click_do_stuff)
                 .id();
 
-            (hex, terrain_tile)
-        })
-        .collect();
+            tile_layout.add_new_tile_to_last_row(entity);
+        }
+    }
 
-    cmd.insert_resource(TileMap {
-        layout: hex_layout,
-        entities,
-    });
+    cmd.insert_resource(tile_layout);
+}
+
+fn on_click_do_stuff(drag: Trigger<Pointer<Click>>, mut transforms: Query<&mut Transform>) {
+    println!("ON CLICK");
+    let transform = transforms.get_mut(drag.entity()).unwrap();
+    dbg!(transform);
 }
 
 fn despawn_terrain(mut cmd: Commands, terrain: Query<Entity, With<TerrainMarker>>) {
@@ -177,60 +133,44 @@ fn despawn_terrain(mut cmd: Commands, terrain: Query<Entity, With<TerrainMarker>
     }
 }
 
-mod helpers {
-    use crate::bella::hex::{
-        bevel_hexagon_indices, bevel_hexagon_normals, bevel_hexagon_points, HexCoord,
-    };
+#[derive(Component, Debug, Hash, PartialEq, Eq)]
+pub enum BiomeType {
+    Stone,
+    Sand,
+    Dirt,
+    Grass,
+    Water,
+}
 
-    use super::*;
+#[derive(Resource)]
+pub struct AssetsMapBiomes {
+    pub medium_type_materials: HashMap<BiomeType, Handle<StandardMaterial>>,
+}
+fn initialize_assets_map_biomes(
+    mut cmd: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let medium_type_materials = HashMap::from([
+        (BiomeType::Stone, materials.add(Color::srgb(0.5, 0.5, 0.5))),
+        (BiomeType::Sand, materials.add(Color::srgb(0.9, 0.9, 0.2))),
+        (BiomeType::Dirt, materials.add(Color::srgb(0.8, 0.5, 0.2))),
+        (BiomeType::Grass, materials.add(Color::srgb(0.4, 0.9, 0.4))),
+        (BiomeType::Water, materials.add(Color::srgb(0.2, 0.4, 0.9))),
+    ]);
 
-    pub fn generate_hex_mesh() -> Mesh {
-        // return Cylinder::new(0.7, 0.1).into();
-
-        let mut pts: Vec<[f32; 3]> = vec![];
-        let c = HexCoord::new(0, 0);
-        bevel_hexagon_points(&mut pts, 1.0, 0.9, &c);
-
-        let mut normals: Vec<[f32; 3]> = vec![];
-        bevel_hexagon_normals(&mut normals);
-
-        let mut uvs: Vec<[f32; 2]> = vec![];
-        for _ in 0..pts.len() {
-            uvs.push([0., 0.]);
-        }
-
-        let mut indices = vec![];
-        bevel_hexagon_indices(&mut indices);
-
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        mesh.insert_indices(Indices::U32(indices));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, pts);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-
-        mesh
-
-        // let mut mesh = Mesh::new(
-        //     PrimitiveTopology::TriangleList,
-        //     RenderAssetUsages::RENDER_WORLD,
-        // );
-
-        // let vertexes: Vec<[f32; 3]> = vec![[1.5, 0., 0.], [0., 0., 1.], [0., 0., 0.]];
-
-        // let indices = vec![2, 1, 0];
-
-        // let normals: Vec<[f32; 3]> = [[0., 1., 0.]].repeat(3);
-
-        // let uvs: Vec<[f32; 2]> = (0..vertexes.len()).map(|_| [0., 0.]).collect();
-
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertexes);
-        // mesh.insert_indices(Indices::U32(indices));
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-
-        // mesh
+    cmd.insert_resource(AssetsMapBiomes {
+        medium_type_materials,
+    });
+}
+fn update_tile_color_for_biome(
+    mut tiles: Query<(&mut MeshMaterial3d<StandardMaterial>, &BiomeType)>,
+    assets_map: Res<AssetsMapBiomes>,
+) {
+    for (mut mesh_material, medium_type) in tiles.iter_mut() {
+        mesh_material.0 = assets_map
+            .medium_type_materials
+            .get(medium_type)
+            .unwrap()
+            .clone();
     }
 }

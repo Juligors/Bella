@@ -17,7 +17,7 @@ impl Plugin for MyWindowPlugin {
                         resolution: (1000., 700.).into(),
                         present_mode: PresentMode::AutoVsync,
                         window_theme: Some(WindowTheme::Dark),
-                        window_level: WindowLevel::AlwaysOnBottom,
+                        window_level: WindowLevel::AlwaysOnTop,
                         position: WindowPosition::At((400, 100).into()),
                         ..default()
                     }),

@@ -8,5 +8,4 @@ pub mod terrain;
 pub mod time;
 pub mod ui;
 pub mod window;
-
-pub mod hex;
+pub mod inspector;

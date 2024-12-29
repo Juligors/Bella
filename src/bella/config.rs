@@ -99,17 +99,12 @@ pub struct PlantConfig {
 
 #[derive(serde::Deserialize)]
 pub struct TerrainConfig {
-    pub map_radius: u32,
-    pub hex_size: f32,
+    pub map_width: u32,
+    pub map_height: u32,
+    pub tile_size: f32,
 
     pub thermal_overlay_update_cooldown: f32,
     pub biome_overlay_update_cooldown: f32,
-}
-
-impl TerrainConfig {
-    pub fn hex_surface(&self) -> f32 {
-        self.hex_size * self.hex_size * 3. * f32::sqrt(3.) / 8.
-    }
 }
 
 #[derive(serde::Deserialize)]

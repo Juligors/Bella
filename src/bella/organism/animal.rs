@@ -7,7 +7,11 @@ use crate::bella::{
     organism::Health,
     pause::PauseState,
     restart::SimState,
-    terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
+    terrain::{
+        thermal_conductor::ThermalConductor,
+        tile::{Tile, TileLayout},
+        BiomeType,
+    },
     time::{DayPassedEvent, HourPassedEvent},
 };
 use bevy::prelude::*;
@@ -39,7 +43,7 @@ impl Plugin for AnimalPlugin {
                     choose_new_destination,
                     decrease_satiation.run_if(on_event::<HourPassedEvent>),
                     consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
+                    // consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
@@ -81,15 +85,15 @@ fn spawn_animals(
     mut meshes: ResMut<Assets<Mesh>>,
     animal_assets: Res<AnimalAssets>,
     config: Res<SimConfig>,
-    tiles: Query<(&BiomeType, &TerrainPosition)>,
-    tile_map: Res<TileMap>,
+    tiles: Query<(&BiomeType, &Tile)>,
+    tile_layout: Res<TileLayout>,
 ) {
     let mut rng = rand::thread_rng();
 
     let base_size = 2.; // FIXME: magic number
     let mesh_handle = meshes.add(Sphere::new(base_size)); // FIXME: magic number
 
-    for (biome_type, terrain_position) in tiles.iter() {
+    for (biome_type, tile) in tiles.iter() {
         if !rng.gen_bool(config.animal.group_spawn_chance_sand as f64) {
             // TODO: where should animal spawn?
             continue;
@@ -99,7 +103,7 @@ fn spawn_animals(
             continue;
         }
 
-        let group_middle_pos = tile_map.layout.hex_to_world_pos(terrain_position.hex_pos);
+        let (pos_min, pos_max) = tile_layout.get_tile_bounds(tile);
         let animal_count =
             rng.gen_range(config.animal.group_size_min..=config.animal.group_size_max);
 
@@ -127,21 +131,8 @@ fn spawn_animals(
                 energy_data.production_efficiency /= 10.;
             }
 
-            // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
-            let sqrt3 = 3.0f32.sqrt();
-            let vectors = [(-1., 0.), (0.5, sqrt3 / 2.), (0.5, -sqrt3 / 2.)];
-
-            let index = rng.gen_range(0..=2);
-            let vector_x = vectors[index];
-            let vector_y = vectors[(index + 1) % 3];
-
-            let (base_x, base_y) = rng.gen::<(f32, f32)>();
-            let offset_x = base_x * vector_x.0 + base_y * vector_y.0;
-            let offset_y = base_x * vector_x.1 + base_y * vector_y.1;
-
-            // TODO: this is halved so animals spawn inside hex for sure
-            let x = group_middle_pos.x + offset_x * config.terrain.hex_size / 2.;
-            let y = group_middle_pos.y + offset_y * config.terrain.hex_size / 2.;
+            let x = rng.gen_range(pos_min.x..pos_max.x);
+            let y = rng.gen_range(pos_min.y..pos_max.y);
 
             cmd.spawn((
                 AnimalMarker,
@@ -206,13 +197,11 @@ fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut Health)>)
 fn connect_animal_with_medium_its_on(
     creature_transforms: Query<&Transform, With<AnimalMarker>>,
     tiles: Query<(Entity, &ThermalConductor)>,
-    map: Res<TileMap>,
+    tile_layout: Res<TileLayout>,
 ) {
     for creature_transform in creature_transforms.iter() {
-        let entity = map.world_pos_to_entity(Vec2 {
-            x: creature_transform.translation.x,
-            y: creature_transform.translation.z,
-        });
+        let creature_pos = creature_transform.translation.truncate();
+        let entity = tile_layout.get_entity_for_position(creature_pos);
 
         match entity {
             Some(e) => {
@@ -222,7 +211,9 @@ fn connect_animal_with_medium_its_on(
                     }
                 }
             }
-            None =>(),//TODO: error!("No tile under this creature :("),
+            None => {
+                error!("No tile under this creature, pos: {}", creature_pos);
+            }
         }
     }
 }
@@ -317,7 +308,7 @@ fn consume_energy_to_reproduce(
         ),
         With<AnimalMarker>,
     >,
-    _tile_map: Res<TileMap>,
+    _tile_map: Res<TileLayout>,
     config: Res<SimConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     animal_assets: Res<AnimalAssets>,

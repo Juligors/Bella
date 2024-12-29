@@ -27,8 +27,8 @@ impl Plugin for AnimalGizmosPlugin {
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AnimalGizmosOverlayState {
-    #[default]
     Visible,
+    #[default]
     Hidden,
 }
 

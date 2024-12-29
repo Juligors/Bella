@@ -6,7 +6,7 @@ use crate::bella::{
     organism::{EnergyData, Health},
     pause::PauseState,
     restart::SimState,
-    terrain::TileMap,
+    terrain::tile::TileLayout,
 };
 
 pub struct MobilePlugin;
@@ -73,7 +73,7 @@ pub fn find_next_step_destination(
     }
 }
 
-pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileMap>) {
+pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, tile_layout: Res<TileLayout>) {
     for (mut mobile, mut transform) in query.iter_mut() {
         // TODO: this field probably shouldn't exist, it should just be a local variable
         if mobile.next_step_destination.is_none() {
@@ -93,7 +93,7 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, map: Res<TileM
 
         let new_position = old_position + move_by;
 
-        if !map.world_pos_in_entities(new_position) {
+        if !tile_layout.is_position_in_bounds(new_position) {
             mobile.destination = None;
             continue;
         }

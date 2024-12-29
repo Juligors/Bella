@@ -7,7 +7,7 @@ use crate::bella::{
     organism::{EnergyData, Health},
     pause::PauseState,
     restart::SimState,
-    terrain::{biome::BiomeType, thermal_conductor::ThermalConductor, TerrainPosition, TileMap},
+    terrain::{ thermal_conductor::ThermalConductor, tile::{Tile, TileLayout}, BiomeType},
     time::{DayPassedEvent, HourPassedEvent},
 };
 
@@ -66,15 +66,15 @@ fn spawn_plants(
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
     config: Res<SimConfig>,
-    tiles: Query<(&BiomeType, &TerrainPosition)>,
-    tile_map: Res<TileMap>,
+    tiles: Query<(&BiomeType, &Tile)>,
+    tile_layout: Res<TileLayout>,
 ) {
     let mut rng = rand::thread_rng();
 
     let base_size = 3.;
     let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
 
-    for (biome_type, terrain_position) in tiles.iter() {
+    for (biome_type, tile) in tiles.iter() {
         if !rng.gen_bool(config.plant.group_spawn_chance_grass as f64) {
             continue;
         }
@@ -83,7 +83,7 @@ fn spawn_plants(
             continue;
         }
 
-        let group_middle_pos = tile_map.layout.hex_to_world_pos(terrain_position.hex_pos);
+        let (pos_min, pos_max) = tile_layout.get_tile_bounds(tile);
         let plant_count = rng.gen_range(config.plant.group_size_min..=config.plant.group_size_max);
 
         for _ in 0..plant_count {
@@ -100,20 +100,9 @@ fn spawn_plants(
                 grow_by: 0.2,
             };
 
-            // algorithm taken from: https://stackoverflow.com/questions/3239611/generating-random-points-within-a-hexagon-for-procedural-game-content
-            let sqrt3 = 3.0f32.sqrt();
-            let vectors = [(-1., 0.), (0.5, sqrt3 / 2.), (0.5, -sqrt3 / 2.)];
 
-            let index = rng.gen_range(0..=2);
-            let vector_x = vectors[index];
-            let vector_y = vectors[(index + 1) % 3];
-
-            let (base_x, base_y) = rng.gen::<(f32, f32)>();
-            let offset_x = base_x * vector_x.0 + base_y * vector_y.0;
-            let offset_y = base_x * vector_x.1 + base_y * vector_y.1;
-
-            let x = group_middle_pos.x + offset_x * config.terrain.hex_size;
-            let y = group_middle_pos.y + offset_y * config.terrain.hex_size;
+            let x = rng.gen_range(pos_min.x..pos_max.x);
+            let y = rng.gen_range(pos_min.y..pos_max.y);
 
             cmd.spawn((
                 PlantMarker,
@@ -145,7 +134,7 @@ fn produce_energy_from_solar(
     config: Res<SimConfig>,
 ) {
     for (mut energy_data, size) in query.iter_mut() {
-        let surface_percentage = size.real_surface() / config.terrain.hex_surface();
+        let surface_percentage = size.real_surface() / config.terrain.tile_size.powi(2);
         let energy_from_sun = sun.get_energy_part(surface_percentage);
         let produced_energy = energy_from_sun * energy_data.production_efficiency;
 
@@ -206,7 +195,7 @@ fn consume_energy_to_reproduce(
         ),
         With<PlantMarker>,
     >,
-    _tile_map: Res<TileMap>,
+    _tile_map: Res<TileLayout>,
     config: Res<SimConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
@@ -303,10 +292,10 @@ fn update_plant_color(
 fn give_plant_energy_from_thermal_conductor_its_on(
     mut plants: Query<(&mut EnergyData, &Transform), With<PlantMarker>>,
     mut tiles: Query<(Entity, &mut ThermalConductor)>,
-    map: Res<TileMap>,
+    tile_layout: Res<TileLayout>,
 ) {
     for (mut energy_data, plant_transform) in plants.iter_mut() {
-        let entity = map.world_pos_to_entity(plant_transform.translation.truncate());
+        let entity = tile_layout.get_entity_for_position(plant_transform.translation.truncate());
 
         match entity {
             Some(e) => {
@@ -322,7 +311,7 @@ fn give_plant_energy_from_thermal_conductor_its_on(
                     }
                 }
             }
-            None => (), // TODO: error!("No tile under this plant :("),
+            None => error!("No tile under this plant :("),
         }
     }
 }

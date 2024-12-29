@@ -1,4 +1,7 @@
-use super::{terrain_overlay_state::TerrainOverlayState, TerrainPosition, TileMap};
+use super::{
+    terrain_overlay_state::TerrainOverlayState,
+    tile::{Tile, TileLayout},
+};
 use crate::bella::{config::SimConfig, environment::Sun, restart::SimState, time::HourPassedEvent};
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use std::time::Duration;
@@ -17,12 +20,12 @@ impl Plugin for ThermalConductorPlugin {
                 .run_if(in_state(TerrainOverlayState::Thermal))
                 .run_if(in_state(SimState::Simulation)),
         )
-        // .add_systems(
-        //     Update,
-        //     handle_select_input
-        //         .run_if(in_state(SimState::Simulation))
-        //         .run_if(in_state(TerrainOverlayState::Thermal)),
-        // )
+        .add_systems(
+            Update,
+            handle_select_input
+                .run_if(in_state(SimState::Simulation))
+                .run_if(in_state(TerrainOverlayState::Thermal)),
+        )
         .add_systems(
             Update,
             accumulate_energy_from_solar.run_if(on_event::<HourPassedEvent>),
@@ -60,7 +63,7 @@ impl ThermalConductor {
         let _ = self.heat.clamp(self.min_heat(), self.max_heat());
     }
 
-    pub fn get_heat_lose(&self) -> f32{
+    pub fn get_heat_lose(&self) -> f32 {
         ThermalConductor::default_heat_lose() * self.temperature()
     }
 
@@ -95,27 +98,63 @@ pub fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimConfi
     )));
 }
 
-pub fn update_temperatures(mut query: Query<(&TerrainPosition, &mut ThermalConductor)>) {
-    let (hexes, mut media_org): (Vec<_>, Vec<_>) = query.iter_mut().unzip();
+pub fn update_temperatures(
+    mut query: Query<(&Tile, &mut ThermalConductor)>,
+    tile_layout: Res<TileLayout>,
+) {
+    // for (tile, mut thermal_conductor) in query.iter_mut() {
+    //     let neighbours: Vec<_> = tile_layout
+    //         .get_neighbour_entities(tile.col, tile.row)
+    //         .iter()
+    //         .flat_map(|&entity| query.get(entity).ok())
+    //         .collect();
+
+    // let heat_diff = neighbours
+    //     .iter()
+    //     .map(|(&tile, &mut thermal_conductor)| {
+    //         let temp_diff = media_org.temperature() - media_org[neighbour_i].temperature();
+    //         media_org[i].thermal_conductivity * temp_diff
+    //     })
+    //     .sum();
+    // }
+
+    // for x in 0..tile_layout.cols {
+    //     for y in 0..tile_layout.rows {
+    //         let neighbours: Vec<(&Tile, &mut ThermalConductor)> = tile_layout
+    //             .get_neighbour_entities(x, y)
+    //             .iter()
+    //             .filter_map(|entity| query.get(entity))
+    //             .collect();
+
+    //         let heat_diff = neighbours
+    //             .iter()
+    //             .map(|(&tile, &mut thermal_conductor)| {
+    //                 let temp_diff = media_org.temperature() - media_org[neighbour_i].temperature();
+    //                 media_org[i].thermal_conductivity * temp_diff
+    //             })
+    //             .sum();
+
+    //         heat_diffs.push(heat_diff);
+    //     }
+    // }
+
+    let (tiles, thermal_conductors): (Vec<_>, Vec<_>) = query.iter().unzip();
 
     // we will set all heat at once to make sure order of iteration doesn't matter and energy is conserved
-    let mut heat_diffs: Vec<f32> = Vec::with_capacity(media_org.capacity());
+    let mut heat_diffs: Vec<f32> = Vec::with_capacity(thermal_conductors.capacity());
 
-    for i in 0..media_org.len() {
-        let all_neighbour_hexes = hexes[i].all_neighbors();
+    for i in 0..thermal_conductors.len() {
+        let all_neighbours = tile_layout.get_neighbour_entities(tiles[i].col, tiles[i].row);
 
-        let all_existing_neighbours = hexes
+        let heat_diff = all_neighbours
             .iter()
-            .enumerate()
-            .filter(|(_, hex)| all_neighbour_hexes.contains(hex))
-            .map(|(e, _)| e)
-            .collect::<Vec<_>>();
-
-        let heat_diff = all_existing_neighbours
-            .iter()
-            .map(|&neighbour_i| {
-                let temp_diff = media_org[i].temperature() - media_org[neighbour_i].temperature();
-                media_org[i].thermal_conductivity * temp_diff
+            .map(|&neighbour_entity| {
+                let (_, neighbour_thermal_conductor) = query
+                    .get(neighbour_entity)
+                    .expect("This entity doesn't exist (it should)");
+                let temp_diff =
+                    thermal_conductors[i].temperature() - neighbour_thermal_conductor.temperature();
+                thermal_conductors[i].thermal_conductivity * temp_diff
             })
             .sum();
 
@@ -123,8 +162,8 @@ pub fn update_temperatures(mut query: Query<(&TerrainPosition, &mut ThermalCondu
     }
 
     // set all heat at once
-    for i in 0..media_org.len() {
-        media_org[i].heat -= heat_diffs[i];
+    for (i, (_, mut thermal_conductor)) in query.iter_mut().enumerate() {
+        thermal_conductor.heat -= heat_diffs[i];
     }
 }
 
@@ -204,30 +243,27 @@ fn update_tile_color_for_thermal(
     }
 }
 
+// TODO: this might be useful, but probably needs to be reworked with bevy_picking (maybe some more general solution allowing for changing of anything?)
 fn handle_select_input(
-    windows: Query<&Window, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
-    mut tiles: Query<(
-        &mut MeshMaterial3d<StandardMaterial>,
-        &mut ThermalConductor,
-        Entity,
-    )>,
-    map: Res<TileMap>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    mut tiles: Query<(Entity, &mut ThermalConductor)>,
+    tile_layout: Res<TileLayout>,
 ) {
-    let (camera, camera_transform) = cameras.single();
-    let Some(cursor_position) = windows.single().cursor_position() else {
-        return;
-    };
+    // let (camera, camera_transform) = camera.into_inner();
+    // let Some(cursor_position) = window.into_inner().cursor_position() else {
+    //     return;
+    // };
 
-    let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
-        return;
-    };
+    
+    // let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+    //     return;
+    // };
 
-    if let Some(selected_entity) = map.world_pos_to_entity(pos) {
-        for (mesh_material, mut medium, entity) in tiles.iter_mut() {
-            if entity == selected_entity {
-                medium.heat = medium.heat_capacity * ThermalConductor::max_temperature();
-            }
-        }
-    }
+    // let length = ray.origin.length();
+
+    // if let Some(selected_entity) = tile_layout.get_entity_for_position(pos) {
+    //     let (_, mut thermal_conductor) = tiles.get_mut(selected_entity).unwrap();
+    //     thermal_conductor.heat = thermal_conductor.max_heat();
+    // }
 }
