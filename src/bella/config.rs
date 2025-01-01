@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 use config::Config;
+use serde::Deserialize;
+
+use super::distribution::{BooleanDistribution, ContinuousDistribution, DiscreteDistribution};
 
 pub struct ConfigPlugin;
 
@@ -62,7 +65,7 @@ fn load_config(mut cmd: Commands) {
     });
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct SimConfig {
     pub organism: OrganismConfig,
     pub animal: AnimalConfig,
@@ -72,14 +75,13 @@ pub struct SimConfig {
     pub environment: EnvironmentConfig,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct OrganismConfig {}
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AnimalConfig {
-    pub group_spawn_chance_sand: f32,
-    pub group_size_min: u32,
-    pub group_size_max: u32,
+    pub group_spawn_on_sand_chance: BooleanDistribution,
+    pub group_size_dist: DiscreteDistribution,
 
     pub development_time: i8,
     pub waiting_for_reproduction_time: i8,
@@ -87,17 +89,16 @@ pub struct AnimalConfig {
     pub carnivores_to_herbivores_ratio: f32,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct PlantConfig {
-    pub group_spawn_chance_grass: f32,
-    pub group_size_min: u32,
-    pub group_size_max: u32,
+    pub group_spawn_on_grass_chance: BooleanDistribution,
+    pub group_size_dist: DiscreteDistribution,
 
     pub development_time: i8,
     pub waiting_for_reproduction_time: i8,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TerrainConfig {
     pub map_width: u32,
     pub map_height: u32,
@@ -107,12 +108,12 @@ pub struct TerrainConfig {
     pub biome_overlay_update_cooldown: f32,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TimeConfig {
     pub hour_length_in_frames: f32,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct EnvironmentConfig {
     pub starting_hour: u8,
     pub sun_energy_output: f32,

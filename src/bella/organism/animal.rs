@@ -101,18 +101,16 @@ fn spawn_animals(
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
-        if !rng.gen_bool(config.animal.group_spawn_chance_sand as f64) {
-            // TODO: where should animal spawn?
-            continue;
-        }
-
         if *biome_type != BiomeType::Sand {
             continue;
         }
 
+        if !config.animal.group_spawn_on_sand_chance.happened() {
+            continue;
+        }
+
         let (pos_min, pos_max) = tile_layout.get_tile_bounds(tile);
-        let animal_count =
-            rng.gen_range(config.animal.group_size_min..=config.animal.group_size_max);
+        let animal_count = config.animal.group_size_dist.sample();
 
         for _ in 0..animal_count {
             let hp = 100.; // FIXME: magic number

@@ -415,6 +415,7 @@ dependencies = [
  "itertools 0.13.0",
  "noise",
  "rand",
+ "rand_distr",
  "serde",
 ]
 

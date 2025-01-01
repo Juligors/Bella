@@ -1,6 +1,11 @@
-group_spawn_chance_grass = 0.2
-group_size_min = 3
-group_size_max = 10
-
 development_time = 5
 waiting_for_reproduction_time = 5
+
+[group_spawn_on_grass_chance]
+type = "chance"
+chance = 0.2
+
+[group_size_dist]
+type = "range"
+min = 3
+max = 10

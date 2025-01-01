@@ -82,16 +82,16 @@ fn spawn_plants(
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
-        if !rng.gen_bool(config.plant.group_spawn_chance_grass as f64) {
-            continue;
-        }
-
         if *biome_type != BiomeType::Dirt {
             continue;
         }
 
+        if !config.plant.group_spawn_on_grass_chance.happened() {
+            continue;
+        }
+
         let (pos_min, pos_max) = tile_layout.get_tile_bounds(tile);
-        let plant_count = rng.gen_range(config.plant.group_size_min..=config.plant.group_size_max);
+        let plant_count = config.plant.group_size_dist.sample();
 
         for _ in 0..plant_count {
             let hp = 100.;
@@ -109,6 +109,10 @@ fn spawn_plants(
 
             let x = rng.gen_range(pos_min.x..pos_max.x);
             let y = rng.gen_range(pos_min.y..pos_max.y);
+
+            rng.gen_range(1.0..5.0);
+
+            // rand::distributions::stan
 
             let entity = commands
                 .spawn((

@@ -17,6 +17,7 @@ itertools = "0.13.0"
 config = { version = "0.15.4", features = ["toml"] }
 noise = { version = "0.9.0", features = ["images"] }
 serde = { version = "1.0.217", features = ["derive"] }
+rand_distr = "0.4.3"
 
 
 
