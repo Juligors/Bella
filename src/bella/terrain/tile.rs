@@ -1,8 +1,4 @@
-use bevy::{
-    asset::RenderAssetUsages,
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-};
+use bevy::prelude::*;
 
 #[derive(Resource, Reflect)]
 pub struct TileLayout {
@@ -70,10 +66,12 @@ impl TileLayout {
         entities
     }
 
-    pub fn get_entity_for_position(&self, point: Vec2) -> Option<Entity> {
-        if self.is_position_in_bounds(point) {
-            let mut col = ((point.x - point.x % self.tile_size) / self.tile_size) as usize;
-            let mut row = ((point.y - point.y % self.tile_size) / self.tile_size) as usize;
+    pub fn get_entity_for_position(&self, position: impl Into<Vec2>) -> Option<Entity> {
+        let pos = position.into();
+
+        if self.is_position_in_bounds(pos) {
+            let mut col = ((pos.x - pos.x % self.tile_size) / self.tile_size) as usize;
+            let mut row = ((pos.y - pos.y % self.tile_size) / self.tile_size) as usize;
 
             // NOTE: make sure that if position is on the border, we treat it as in bounds
             if row as u32 == self.rows {
@@ -84,14 +82,6 @@ impl TileLayout {
                 col -= 1;
             }
 
-            // if row as u32 >= self.rows || col as u32 >= self.cols {
-            //     println!("Something went wrong!");
-
-            //     println!("Col: {}, row: {}", col, row);
-            //     println!("{}", point);
-
-            //     panic!("PANICCCCCCCCCC");
-            // }
             Some(self.entities[row][col])
         } else {
             None
@@ -102,18 +92,22 @@ impl TileLayout {
         row < self.rows && col < self.cols
     }
 
-    pub fn is_position_in_bounds(&self, point: Vec2) -> bool {
-        point.x >= 0.0 && point.x <= self.width && point.y >= 0.0 && point.y <= self.height
+    pub fn is_position_in_bounds(&self, position: impl Into<Vec2>) -> bool {
+        let pos = position.into();
+
+        pos.x >= 0.0 && pos.x <= self.width && pos.y >= 0.0 && pos.y <= self.height
     }
 
-    pub fn is_position_inside_tile(&self, point: Vec2, tile: &Tile) -> bool {
+    pub fn is_position_inside_tile(&self, position: impl Into<Vec2>, tile: &Tile) -> bool {
+        let pos = position.into();
+
         let (tile_min, tile_max) = self.get_tile_bounds(tile);
 
-        if point.x < tile_min.x || point.x > tile_max.x {
+        if pos.x < tile_min.x || pos.x > tile_max.x {
             return false;
         }
 
-        if point.y < tile_min.y || point.y > tile_max.y {
+        if pos.y < tile_min.y || pos.y > tile_max.y {
             return false;
         }
 
