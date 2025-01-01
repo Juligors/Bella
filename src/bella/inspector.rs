@@ -55,12 +55,7 @@ pub struct ChosenEntity {
     entity: Option<Entity>,
 }
 
-fn setup_egui(world: &mut World) {
-    let mut egui_context = world
-        .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
-        .single_mut(world)
-        .clone();
-
+fn setup_egui(mut egui_context: Single<&mut EguiContext, With<PrimaryWindow>>) {
     egui_context
         .get_mut()
         .style_mut(|style| style.visuals.window_shadow = egui::Shadow::NONE);
@@ -74,10 +69,13 @@ fn chosen_entity_ui(world: &mut World) {
             return;
         }
 
-        let mut egui_context = world
+        let mut egui_context = match world
             .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
-            .single_mut(world)
-            .clone();
+            .get_single_mut(world)
+        {
+            Ok(egui_context) => egui_context.clone(),
+            Err(_) => return,
+        };
 
         egui::Window::new("Chosen entity")
             .default_open(true)
@@ -113,10 +111,13 @@ pub fn choose_entity_observer(
 }
 
 fn resources_ui(world: &mut World) {
-    let mut egui_context = world
+    let mut egui_context = match world
         .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
-        .single_mut(world)
-        .clone();
+        .get_single_mut(world)
+    {
+        Ok(egui_context) => egui_context.clone(),
+        Err(_) => return,
+    };
 
     egui::Window::new("Resources")
         .default_open(false)
@@ -151,10 +152,13 @@ fn resources_ui(world: &mut World) {
 }
 
 fn entities_ui(world: &mut World) {
-    let mut egui_context = world
+    let mut egui_context = match world
         .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
-        .single_mut(world)
-        .clone();
+        .get_single_mut(world)
+    {
+        Ok(egui_context) => egui_context.clone(),
+        Err(_) => return,
+    };
 
     egui::Window::new("Entities")
         .default_open(false)
