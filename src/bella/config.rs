@@ -82,9 +82,17 @@ pub struct OrganismConfig {}
 pub struct AnimalConfig {
     pub group_spawn_on_sand_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
+    pub size_dist: ContinuousDistribution,
+    pub diet_dist: DiscreteDistribution,
+    pub max_health_dist: ContinuousDistribution,
+    pub speed_dist: ContinuousDistribution,
+    pub sight_range_dist: ContinuousDistribution,
+    pub attack_range_dist: ContinuousDistribution,
+    pub attack_damage_dist: ContinuousDistribution,
 
     pub development_time: i8,
     pub waiting_for_reproduction_time: i8,
+    pub reproduction_range: f32,
 
     pub carnivores_to_herbivores_ratio: f32,
 }
@@ -93,7 +101,10 @@ pub struct AnimalConfig {
 pub struct PlantConfig {
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
-
+    pub size_dist: ContinuousDistribution,
+    pub max_health_dist: ContinuousDistribution,
+    
+    pub reproduction_range: f32,
     pub development_time: i8,
     pub waiting_for_reproduction_time: i8,
 }

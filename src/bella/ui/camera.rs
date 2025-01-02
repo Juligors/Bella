@@ -4,7 +4,7 @@ use bevy::{
     render::camera::ScalingMode,
 };
 
-use crate::bella::inspector::EguiFocusState;
+use crate::bella::{config::SimConfig, inspector::EguiFocusState};
 
 pub struct MyCameraPlugin;
 
@@ -22,7 +22,7 @@ impl Plugin for MyCameraPlugin {
 #[derive(Component)]
 struct MyGameCameraMarker;
 
-fn spawn_camera_and_light(mut cmd: Commands) {
+fn spawn_camera_and_light(mut cmd: Commands, config: Res<SimConfig>) {
     let projection = OrthographicProjection {
         scale: 0.5,
         near: -1_000_000.0,
@@ -41,11 +41,14 @@ fn spawn_camera_and_light(mut cmd: Commands) {
         projection,
     ));
 
+    let light_x = config.terrain.map_width as f32 * config.terrain.tile_size / 2.0;
+    let light_y = config.terrain.map_height as f32 * config.terrain.tile_size / 2.0;
+
     cmd.spawn((
-        Transform::from_xyz(2000.0, 2400.0, 20_000.0),
+        Transform::from_xyz(light_x, light_y, 500_000.0),
         PointLight {
             color: Color::WHITE,
-            intensity: 1e13,
+            intensity: 1e16,
             range: 1e20,
             // radius: 1.0,
             // shadows_enabled: true,

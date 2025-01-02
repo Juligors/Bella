@@ -1,6 +1,3 @@
-use bevy::prelude::*;
-use rand::Rng;
-
 use crate::bella::{
     config::SimConfig,
     environment::Sun,
@@ -15,6 +12,7 @@ use crate::bella::{
     },
     time::{DayPassedEvent, HourPassedEvent},
 };
+use bevy::prelude::*;
 
 use super::{ReproductionState, Size};
 
@@ -33,7 +31,6 @@ impl Plugin for PlantPlugin {
                     consume_energy_to_survive,
                     consume_energy_to_grow,
                     consume_energy_to_reproduce,
-                    update_plant_color,
                 )
                     .chain()
                     .run_if(on_event::<HourPassedEvent>),
@@ -51,16 +48,14 @@ pub struct PlantMarker;
 
 #[derive(Resource)]
 pub struct PlantAssets {
-    alive: Vec<Handle<StandardMaterial>>,
+    alive: Handle<StandardMaterial>,
     dead: Handle<StandardMaterial>,
 }
 
 fn prepare_plant_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let plant_assets = PlantAssets {
-        alive: (0..=100)
-            .map(|i| materials.add(Color::srgb(0.3, i as f32 / 100., 0.3)))
-            .collect(),
-        dead: materials.add(Color::srgb(0., 0., 0.)),
+        alive: materials.add(Color::srgb(0.0, 1.0, 0.0)),
+        dead: materials.add(Color::srgb(0.0, 0.0, 0.0)),
     };
 
     commands.insert_resource(plant_assets);
@@ -74,11 +69,7 @@ fn spawn_plants(
     tiles: Query<(&BiomeType, &Tile)>,
     tile_layout: Res<TileLayout>,
 ) {
-    let mut rng = rand::thread_rng();
-
-    let base_size = 3.;
-    let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
-
+    let mesh_handle = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
@@ -90,15 +81,16 @@ fn spawn_plants(
             continue;
         }
 
-        let (pos_min, pos_max) = tile_layout.get_tile_bounds(tile);
+        let size = config.plant.size_dist.sample();
         let plant_count = config.plant.group_size_dist.sample();
 
         for _ in 0..plant_count {
-            let hp = 100.;
-            let size = Size {
-                base_size,
-                ratio: rng.gen_range(0.5..2.0),
+            let max_hp = config.plant.max_health_dist.sample();
+            let health = Health {
+                max: max_hp,
+                hp: max_hp / 2.0,
             };
+
             let energy_data = EnergyData {
                 energy: 1000.,
                 production_efficiency: 0.01,
@@ -107,25 +99,19 @@ fn spawn_plants(
                 grow_by: 0.2,
             };
 
-            let x = rng.gen_range(pos_min.x..pos_max.x);
-            let y = rng.gen_range(pos_min.y..pos_max.y);
-
-            rng.gen_range(1.0..5.0);
-
-            // rand::distributions::stan
+            let position = tile_layout.get_random_position_in_tile(tile);
 
             let entity = commands
                 .spawn((
                     PlantMarker,
                     Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
-                    Transform::from_xyz(x, y, base_size).with_scale(Vec3::splat(size.ratio)),
-                    Health { hp },
-                    size,
+                    MeshMaterial3d(plant_assets.alive.clone()),
+                    Transform::from_translation(position.extend(size))
+                        .with_scale(Vec3::splat(size)),
+                    Size { size },
+                    ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
                     energy_data,
-                    ReproductionState::Developing(rng.gen_range(
-                        config.plant.development_time..(config.plant.development_time * 2),
-                    )),
+                    health,
                 ))
                 .id();
 
@@ -159,7 +145,7 @@ fn produce_energy_from_solar(
 fn consume_energy_to_survive(mut query: Query<(&mut EnergyData, &Size), With<PlantMarker>>) {
     for (mut energy_data, size) in query.iter_mut() {
         let energy_consumed_to_survive =
-            energy_data.energy_needed_for_survival_per_mass_unit * size.real_mass();
+            energy_data.energy_needed_for_survival_per_mass_unit * size.real_volume();
 
         energy_data.energy -= energy_consumed_to_survive;
     }
@@ -182,7 +168,7 @@ fn consume_energy_to_grow(
             ReproductionState::WaitingToReproduce(_) => continue,
             ReproductionState::Developing(time) => {
                 let energy_consumed_to_grow =
-                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_mass();
+                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_volume();
 
                 if energy_data.energy < energy_consumed_to_grow {
                     continue;
@@ -190,9 +176,9 @@ fn consume_energy_to_grow(
 
                 *reproduction_state = ReproductionState::Developing(time - 1);
                 energy_data.energy -= energy_consumed_to_grow;
-                size.ratio += energy_data.grow_by;
+                size.size += energy_data.grow_by;
 
-                *transform = transform.with_scale(Vec3::splat(size.ratio));
+                *transform = transform.with_scale(Vec3::splat(size.size));
             }
         }
     }
@@ -206,108 +192,73 @@ fn consume_energy_to_reproduce(
             &mut EnergyData,
             &mut Health,
             &Transform,
+            &Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
+            &Size,
         ),
         With<PlantMarker>,
     >,
-    _tile_map: Res<TileLayout>,
+    tile_layout: Res<TileLayout>,
     config: Res<SimConfig>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    plant_assets: Res<PlantAssets>,
 ) {
-    let mut rng = rand::thread_rng();
-
-    let base_size = 3.;
-    let mesh_handle = meshes.add(Cuboid::new(base_size, base_size, base_size));
-
-    let mut choose_entity_observer = Observer::new(choose_entity_observer);
-
-    for (mut life_cycle_state, mut energy_data, mut health, transform) in query.iter_mut() {
-        match *life_cycle_state {
+    // TODO: more data should be inherited from parent/parents
+    for (
+        mut parent_life_cycle_state,
+        mut parent_energy_data,
+        mut parent_health,
+        parent_transform,
+        parent_mesh,
+        parent_material,
+        parent_size,
+    ) in query.iter_mut()
+    {
+        // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
+        match *parent_life_cycle_state {
             ReproductionState::Developing(_) => continue,
             ReproductionState::WaitingToReproduce(cooldown) => {
-                *life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
+                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
             }
             ReproductionState::ReadyToReproduce => {
-                *life_cycle_state = ReproductionState::WaitingToReproduce(
+                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(
                     config.plant.waiting_for_reproduction_time,
                 );
 
-                if energy_data.energy < 1_000. {
-                    continue;
-                }
-
-                // TODO: for now to make plants smaller and die (why are they not get smaller?)
-                energy_data.energy = 0.;
-                // size.ratio /= by;
-                // transform.scale /= by;
-
-                health.hp /= 5.;
-                health.hp -= 1.;
-
-                // TODO: this function should work like this:
-                // iterate over neighbouring tiles and check if they are suitable for plant
-                // get list of them (including current tile)
-                // pick 1 of the tiles at random
-                // pawn new plant there
-
-                let old_plant_x = transform.translation.x;
-                let old_plant_y = transform.translation.y;
-
-                let range = -50.0..50.0;
-                let offset_x = rng.gen_range(range.clone());
-                let offset_y = rng.gen_range(range);
-
-                let new_plant_x = old_plant_x + offset_x;
-                let new_plant_y = old_plant_y + offset_y;
-
-                // TODO: this is copied from base spawn function, should create separate function for creating default plant (and organism as well)
-                let hp = 100.;
                 let size = Size {
-                    base_size,
-                    ratio: rng.gen_range(0.5..2.0),
+                    size: parent_size.size,
                 };
+                let health = Health {
+                    max: parent_health.max,
+                    hp: parent_health.max / 2.0,
+                };
+
                 let energy_data = EnergyData {
                     energy: 1000.,
                     production_efficiency: 0.01,
                     energy_needed_for_survival_per_mass_unit: 5.,
-                    energy_needed_for_growth_per_mass_unit: 1.,
+                    energy_needed_for_growth_per_mass_unit: 5.,
                     grow_by: 0.2,
                 };
 
-                let entity = commands
+                let position = tile_layout.get_random_position_in_range(
+                    parent_transform.translation.truncate(),
+                    config.plant.reproduction_range,
+                );
+
+                commands
                     .spawn((
                         PlantMarker,
-                        Mesh3d(mesh_handle.clone()),
-                        MeshMaterial3d(plant_assets.alive[hp as usize].clone()),
-                        Transform::from_xyz(new_plant_x, new_plant_y, 1.)
-                            .with_scale(Vec3::splat(size.ratio)),
-                        Health { hp },
+                        Transform::from_translation(position.extend(size.size))
+                            .with_scale(Vec3::splat(size.size)),
+                        ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
+                        parent_mesh.clone(),
+                        parent_material.clone(),
+                        health,
                         size,
                         energy_data,
-                        ReproductionState::Developing(rng.gen_range(
-                            config.plant.development_time..(config.plant.development_time * 2),
-                        )),
                     ))
-                    .id();
-
-                choose_entity_observer.watch_entity(entity);
+                    .observe(choose_entity_observer);
             }
         }
-    }
-
-    commands.spawn(choose_entity_observer);
-}
-
-fn update_plant_color(
-    mut plants: Query<(&mut MeshMaterial3d<StandardMaterial>, &Health), With<PlantMarker>>,
-    assets: Res<PlantAssets>,
-) {
-    for (mut mesh_material, health) in plants.iter_mut() {
-        mesh_material.0 = if health.hp > 0. {
-            assets.alive[health.hp as usize].clone()
-        } else {
-            assets.dead.clone()
-        };
     }
 }
 
@@ -351,8 +302,7 @@ mod data_collection {
         pub day: u32,
 
         pub health: f32,
-        pub base_size: f32,
-        pub ratio: f32,
+        pub size: f32,
 
         pub energy: f32,
         pub production_efficiency: f32,
@@ -390,8 +340,7 @@ mod data_collection {
                 day: time.days,
 
                 health: x.1.hp,
-                base_size: x.2.base_size,
-                ratio: x.2.ratio,
+                size: x.2.size,
                 energy: x.3.energy,
                 production_efficiency: x.3.production_efficiency,
                 energy_needed_for_survival_per_mass_unit: x

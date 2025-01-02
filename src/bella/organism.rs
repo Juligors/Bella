@@ -33,25 +33,31 @@ impl Plugin for OrganismPlugin {
 #[derive(Component, Reflect, Debug)]
 pub struct Health {
     hp: f32,
+    max: f32,
 }
+
+// impl Health{
+//     pub fn current_hp_percentage(&self) -> f32{
+//         self.hp / self.max * 100.0
+//     }
+// }
 
 #[derive(Component, Reflect, Debug)]
 pub struct Size {
-    base_size: f32,
-    ratio: f32,
+    size: f32,
 }
 
 impl Size {
     pub fn real_size(&self) -> f32 {
-        self.base_size * self.ratio
+        self.size
     }
 
     pub fn real_surface(&self) -> f32 {
-        self.base_size * self.ratio.powi(2)
+        self.size.powi(2)
     }
 
-    pub fn real_mass(&self) -> f32 {
-        self.base_size * self.ratio.powi(3)
+    pub fn real_volume(&self) -> f32 {
+        self.size.powi(3)
     }
 }
 

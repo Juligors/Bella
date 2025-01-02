@@ -1,4 +1,12 @@
+use std::cell::RefCell;
+
 use bevy::prelude::*;
+use rand::{rngs::ThreadRng, thread_rng, Rng};
+use rand_distr::Uniform;
+
+thread_local! {
+    static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
+}
 
 #[derive(Resource, Reflect)]
 pub struct TileLayout {
@@ -135,10 +143,37 @@ impl TileLayout {
         (min, max)
     }
 
-    // pub fn connect_tile_to_entity(x: u32, y: u32, entity: Entity, ){
-    //     entity
+    pub fn get_random_position_in_tile(&self, tile: &Tile) -> Vec2 {
+        let (pos_min, pos_max) = self.get_tile_bounds(tile);
 
-    // }
+        RNG.with(|rng| {
+            let mut rng = rng.borrow_mut();
+
+            let x = rng.gen_range(pos_min.x..pos_max.x);
+            let y = rng.gen_range(pos_min.y..pos_max.y);
+
+            Vec2::new(x, y)
+        })
+    }
+
+    pub fn get_random_position_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec2 {
+        let pos = position.into();
+
+        RNG.with(|rng| {
+            let mut rng = rng.borrow_mut();
+
+            let r: f32 = rng.gen_range(0.0..range);
+            let theta: f32 = rng.gen_range(0.0..1.0);
+
+            let x_possibly_outside_bounds = pos.x + r * theta.cos();
+            let y_possibly_outside_bounds = pos.y + r * theta.sin();
+
+            let x = x_possibly_outside_bounds.clamp(0.0, self.width);
+            let y = y_possibly_outside_bounds.clamp(0.0, self.height);
+
+            Vec2::new(x, y)
+        })
+    }
 
     pub fn generate_mesh(&self) -> Mesh {
         Cuboid::new(1.0, 1.0, 0.00001).into()

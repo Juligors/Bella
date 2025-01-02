@@ -67,10 +67,7 @@ fn draw_gizmo_to_animal_destination(
                 Err(_) => continue,
             },
         };
-        let color = match diet {
-            Diet::Carnivorous(_) => bevy::color::palettes::css::RED,
-            Diet::Herbivorous(_) => bevy::color::palettes::css::GREEN,
-        };
+        let color = get_color_for_diet(diet);
 
         gizmos.line(start, end, color);
     }
@@ -83,11 +80,16 @@ fn draw_gizmo_of_animal_sight_range(
     for (transform, sight_range, diet) in animals.iter() {
         let isometry = Isometry3d::from_translation(transform.translation);
         let radius = **sight_range;
-        let color = match diet {
-            Diet::Carnivorous(_) => bevy::color::palettes::css::RED,
-            Diet::Herbivorous(_) => bevy::color::palettes::css::GREEN,
-        };
+        let color = get_color_for_diet(diet);
 
         gizmos.circle(isometry, radius, color).resolution(64);
+    }
+}
+
+fn get_color_for_diet(diet: &Diet) -> Srgba {
+    match diet {
+        Diet::Carnivorous => bevy::color::palettes::css::RED,
+        Diet::Herbivorous => bevy::color::palettes::css::GREEN,
+        Diet::Omnivore => bevy::color::palettes::css::BLUE,
     }
 }

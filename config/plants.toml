@@ -1,5 +1,6 @@
 development_time = 5
 waiting_for_reproduction_time = 5
+reproduction_range = 10.0
 
 [group_spawn_on_grass_chance]
 type = "chance"
@@ -9,3 +10,16 @@ chance = 0.2
 type = "range"
 min = 3
 max = 10
+
+[size_dist]
+type = "normal"
+mean = 2.0
+std = 1.0
+min = 1.0
+
+[max_health_dist]
+type = "normal"
+mean = 75.0
+std = 20.0
+min = 10.0
+max = 150.0

@@ -1,6 +1,7 @@
 development_time = 20
 waiting_for_reproduction_time = 15
 carnivores_to_herbivores_ratio = 0.5
+reproduction_range = 10.0
 
 [group_spawn_on_sand_chance]
 type = "chance"
@@ -10,3 +11,46 @@ chance = 0.5
 type = "range"
 min = 1
 max = 10
+
+[size_dist]
+type = "normal"
+mean = 2.0
+std = 1.0
+min = 1.0
+
+[diet_dist]
+type = "weightedchoice"
+choices = [0, 1, 2]
+weights = [0.4, 0.4, 0.2]
+
+[max_health_dist]
+type = "normal"
+mean = 75.0
+std = 20.0
+min = 10.0
+max = 150.0
+
+[speed_dist]
+type = "normal"
+mean = 0.3
+std = 0.1
+min = 0.1
+max = 0.5
+
+[sight_range_dist]
+type = "normal"
+mean = 200.0
+std = 50.0
+min = 0.0
+
+[attack_range_dist]
+type = "normal"
+mean = 3.0
+std = 1.0
+min = 0.0
+
+[attack_damage_dist]
+type = "normal"
+mean = 3.0
+std = 1.0
+min = 0.0
