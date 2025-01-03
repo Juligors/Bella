@@ -59,7 +59,7 @@ pub fn save_plant_data(
     path: Res<DataCollectionDirectory>,
     time: Res<SimTime>,
 ) {
-    let path = path.0.join("plants.csv");
+    let path = path.0.join("plants.msgpack");
     let file = std::fs::OpenOptions::new()
         .write(true)
         .append(path.exists())
