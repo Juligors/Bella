@@ -32,8 +32,8 @@ impl Plugin for OrganismPlugin {
 
 #[derive(Component, Reflect, Debug)]
 pub struct Health {
-    hp: f32,
-    max: f32,
+    pub hp: f32,
+    pub max: f32,
 }
 
 // impl Health{
@@ -44,7 +44,7 @@ pub struct Health {
 
 #[derive(Component, Reflect, Debug)]
 pub struct Size {
-    size: f32,
+    pub size: f32,
 }
 
 impl Size {
@@ -63,11 +63,11 @@ impl Size {
 
 #[derive(Component, Reflect, Debug)]
 pub struct EnergyData {
-    energy: f32, // TODO: this should be only like a temporary thing, maybe even just local variable? And send it over event? That sounds good
-    production_efficiency: f32, // TODO: this is only for plants
-    energy_needed_for_survival_per_mass_unit: f32,
-    energy_needed_for_growth_per_mass_unit: f32,
-    grow_by: f32,
+    pub energy: f32, // TODO: this should be only like a temporary thing, maybe even just local variable? And send it over event? That sounds good
+    pub production_efficiency: f32, // TODO: this is only for plants
+    pub energy_needed_for_survival_per_mass_unit: f32,
+    pub energy_needed_for_growth_per_mass_unit: f32,
+    pub grow_by: f32,
 }
 
 #[derive(Component, Reflect, Debug)]

@@ -14,7 +14,7 @@ use crate::bella::{
         tile::{Tile, TileLayout},
         BiomeType,
     },
-    time::{DayPassedEvent, HourPassedEvent},
+    time::HourPassedEvent,
 };
 use bevy::prelude::*;
 use gizmos::AnimalGizmosPlugin;
@@ -44,10 +44,6 @@ impl Plugin for AnimalPlugin {
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
-            )
-            .add_systems(
-                Update,
-                data_collection::save_animal_data.run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -216,10 +212,14 @@ fn connect_animal_with_medium_its_on(
 
         match entity {
             Some(e) => {
-                for (tile_entity, _medium) in tiles.iter() {
-                    if tile_entity != e {
-                        continue;
-                    }
+                // for (tile_entity, _medium) in tiles.iter() {
+                //     if tile_entity != e {
+                //         continue;
+                //     }
+                // }
+                match tiles.get(e) {
+                    Ok(_) => continue,
+                    Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
                 }
             }
             None => {
@@ -471,80 +471,6 @@ mod utils {
             .filter(|(_, distance)| *distance < **sight_range)
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(entity, _)| Destination::Organism { entity })
-    }
-}
-
-mod data_collection {
-    use super::*;
-    use crate::bella::{data_collection::DataCollectionDirectory, time::SimTime};
-
-    #[derive(Debug, serde::Serialize)]
-    pub struct Animal {
-        pub id: u64,
-        pub hour: u32,
-        pub day: u32,
-
-        pub is_herbivorous: bool,
-
-        pub health: f32,
-        pub size: f32,
-
-        pub energy: f32,
-        pub production_efficiency: f32,
-        pub energy_needed_for_survival_per_mass_unit: f32,
-        pub energy_needed_for_growth_per_mass_unit: f32,
-        pub grow_by: f32,
-    }
-
-    pub fn save_animal_data(
-        animals: Query<(Entity, &Health, &Size, &EnergyData, &Diet), With<AnimalMarker>>,
-        path: Res<DataCollectionDirectory>,
-        time: Res<SimTime>,
-    ) {
-        let path = path.0.join("animals.csv");
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(path.exists())
-            // .truncate(true)
-            .create(true)
-            .open(path)
-            .unwrap();
-
-        let needs_headers = std::io::Seek::seek(&mut file, std::io::SeekFrom::End(0)).unwrap() == 0;
-
-        let mut writer = csv::WriterBuilder::new()
-            .delimiter(b'|')
-            .has_headers(needs_headers)
-            .from_writer(file);
-
-        for x in animals.iter() {
-            let animal_record = Animal {
-                id: x.0.to_bits(),
-
-                hour: time.hours,
-                day: time.days,
-
-                is_herbivorous: matches!(x.4, Diet::Herbivorous),
-
-                health: x.1.hp,
-                size: x.2.size,
-                energy: x.3.energy,
-                production_efficiency: x.3.production_efficiency,
-                energy_needed_for_survival_per_mass_unit: x
-                    .3
-                    .energy_needed_for_survival_per_mass_unit,
-                energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
-                grow_by: x.3.grow_by,
-            };
-
-            writer
-                .serialize(&animal_record)
-                .unwrap_or_else(|_| panic!("Couldn't serialize object {:?}", animal_record));
-        }
-
-        writer
-            .flush()
-            .expect("Couldn't save new animal data to a file");
     }
 }
 

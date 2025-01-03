@@ -3,14 +3,13 @@ use crate::bella::{
     environment::Sun,
     inspector::choose_entity_observer,
     organism::{EnergyData, Health},
-    pause::PauseState,
     restart::SimState,
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
         BiomeType,
     },
-    time::{DayPassedEvent, HourPassedEvent},
+    time::HourPassedEvent,
 };
 use bevy::prelude::*;
 
@@ -34,11 +33,6 @@ impl Plugin for PlantPlugin {
                 )
                     .chain()
                     .run_if(on_event::<HourPassedEvent>),
-                // .run_if(in_state(SimState::Simulation).and(in_state(PauseState::Running))),
-            )
-            .add_systems(
-                Update,
-                (data_collection::save_plant_data,).run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -271,92 +265,19 @@ fn give_plant_energy_from_thermal_conductor_its_on(
         let entity = tile_layout.get_entity_for_position(plant_transform.translation.truncate());
 
         match entity {
-            Some(e) => {
-                for (tile_entity, mut thermal_conductor) in tiles.iter_mut() {
-                    if tile_entity != e {
-                        continue;
-                    }
-
+            Some(e) => match tiles.get_mut(e) {
+                Ok((_, mut thermal_conductor)) => {
                     let energy_taken = 1_000_000. * energy_data.production_efficiency;
                     if energy_taken < thermal_conductor.heat {
                         thermal_conductor.heat -= energy_taken;
                         energy_data.energy += energy_taken;
-                    }
+                    };
                 }
-            }
+                Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
+            },
             None => {
                 error!("No tile under this plant :(");
             }
         }
-    }
-}
-
-mod data_collection {
-    use super::*;
-    use crate::bella::{data_collection::DataCollectionDirectory, time::SimTime};
-
-    #[derive(Debug, serde::Serialize)]
-    pub struct Plant {
-        pub id: u64,
-        pub hour: u32,
-        pub day: u32,
-
-        pub health: f32,
-        pub size: f32,
-
-        pub energy: f32,
-        pub production_efficiency: f32,
-        pub energy_needed_for_survival_per_mass_unit: f32,
-        pub energy_needed_for_growth_per_mass_unit: f32,
-        pub grow_by: f32,
-    }
-
-    pub fn save_plant_data(
-        plants: Query<(Entity, &Health, &Size, &EnergyData), With<PlantMarker>>,
-        path: Res<DataCollectionDirectory>,
-        time: Res<SimTime>,
-    ) {
-        let path = path.0.join("plants.csv");
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(path.exists())
-            // .truncate(true)
-            .create(true)
-            .open(path)
-            .unwrap();
-
-        let needs_headers = std::io::Seek::seek(&mut file, std::io::SeekFrom::End(0)).unwrap() == 0;
-
-        let mut writer = csv::WriterBuilder::new()
-            .delimiter(b'|')
-            // .quote_style(csv::QuoteStyle::Always)
-            .has_headers(needs_headers)
-            .from_writer(file);
-
-        for x in plants.iter() {
-            let plant_record = Plant {
-                id: x.0.to_bits(),
-                hour: time.hours,
-                day: time.days,
-
-                health: x.1.hp,
-                size: x.2.size,
-                energy: x.3.energy,
-                production_efficiency: x.3.production_efficiency,
-                energy_needed_for_survival_per_mass_unit: x
-                    .3
-                    .energy_needed_for_survival_per_mass_unit,
-                energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
-                grow_by: x.3.grow_by,
-            };
-
-            writer
-                .serialize(&plant_record)
-                .unwrap_or_else(|_| panic!("Couldn't serialize object {:?}", plant_record));
-        }
-
-        writer
-            .flush()
-            .expect("Couldn't save new plant data to a file");
     }
 }
