@@ -2,7 +2,7 @@ pub mod gizmos;
 pub mod mobile;
 
 use self::mobile::Mobile;
-use super::{plant::PlantMarker, EnergyData, ReproductionState, Size};
+use super::{EnergyData, PlantMatter, ReproductionState, Size};
 use crate::bella::{
     config::SimConfig,
     inspector::choose_entity_observer,
@@ -241,9 +241,10 @@ pub fn choose_new_destination(
         ),
         With<AnimalMarker>,
     >,
-    plants: Query<(Entity, &Transform), With<PlantMarker>>,
+    plant_matter: Query<(Entity, &Transform), With<PlantMatter>>,
 ) {
-    let plants: Vec<_> = plants.iter().collect();
+    let plant_matter: Vec<_> = plant_matter.iter().collect();
+
     let (entities, mut mobiles, transforms, hunger_levels, sight_ranges, diets): (
         Vec<Entity>,
         Vec<Mut<Mobile>>,
@@ -261,21 +262,24 @@ pub fn choose_new_destination(
         match hunger_levels[i] {
             HungerLevel::Satiated(_) => continue,
             HungerLevel::Hungry(_) | HungerLevel::Starving => {
-                mobiles[i].destination = match diets[i] {
-                    Diet::Carnivorous => {
-                        utils::find_closest_animal(&entities, &transforms, sight_ranges[i], i)
-                    }
+                let distances = match diets[i] {
+                    Diet::Carnivorous => utils::find_closest_meat(&entities, &transforms, i),
                     Diet::Herbivorous => {
-                        utils::find_closest_plant(transforms[i], sight_ranges[i], &plants)
+                        utils::find_closest_plant_matter(transforms[i], &plant_matter)
                     }
                     Diet::Omnivore => {
-                        // TODO: fix that
-                        // let animal = utils::find_closest_animal(&entities, &transforms, sight_ranges[i], i)
-                        // let plant = utils::find_closest_plant(transforms[i], sight_ranges[i], &plants)
+                        let mut distances_meat =
+                            utils::find_closest_meat(&entities, &transforms, i);
+                        let mut distances_plant_matter =
+                            utils::find_closest_plant_matter(transforms[i], &plant_matter);
 
-                        utils::find_closest_animal(&entities, &transforms, sight_ranges[i], i)
+                        distances_meat.append(&mut distances_plant_matter);
+
+                        distances_meat
                     }
                 };
+
+                mobiles[i].destination = utils::get_closest_visible(distances, sight_ranges[i]);
             }
         }
     }
@@ -424,13 +428,12 @@ fn consume_energy_to_reproduce(
 mod utils {
     use super::*;
 
-    pub fn find_closest_animal(
+    pub fn find_closest_meat(
         animal_entities: &[Entity],
         animal_transforms: &[&Transform],
-        sight_range: &SightRange,
         i: usize,
-    ) -> Option<Destination> {
-        let distances_to_other_animals = animal_entities
+    ) -> Vec<(Entity, f32)> {
+        animal_entities
             .iter()
             .zip(animal_transforms)
             .enumerate()
@@ -440,37 +443,34 @@ mod utils {
                 let animal_pos = animal_transforms[i].translation.truncate();
 
                 (other_animal_entity, animal_pos.distance(other_aminal_pos))
-            });
-
-        get_closest_visible(distances_to_other_animals, sight_range)
+            })
+            .collect()
     }
 
-    pub fn find_closest_plant(
+    pub fn find_closest_plant_matter(
         animal_transform: &Transform,
-        sight_range: &SightRange,
         plants: &[(Entity, &Transform)],
-    ) -> Option<Destination> {
-        let distances_to_plants = plants.iter().map(|(plant_entity, &plant_transform)| {
-            let plant_pos = plant_transform.translation.truncate();
-            let animal_pos = animal_transform.translation.truncate();
+    ) -> Vec<(Entity, f32)> {
+        plants
+            .iter()
+            .map(|(plant_entity, &plant_transform)| {
+                let plant_pos = plant_transform.translation.truncate();
+                let animal_pos = animal_transform.translation.truncate();
 
-            (*plant_entity, animal_pos.distance(plant_pos))
-        });
-
-        get_closest_visible(distances_to_plants, sight_range)
+                (*plant_entity, animal_pos.distance(plant_pos))
+            })
+            .collect()
     }
 
-    fn get_closest_visible<I>(
-        positions_and_distances: I,
+    pub fn get_closest_visible(
+        positions_and_distances: Vec<(Entity, f32)>,
         sight_range: &SightRange,
-    ) -> Option<Destination>
-    where
-        I: Iterator<Item = (Entity, f32)>,
-    {
+    ) -> Option<Destination> {
         positions_and_distances
+            .iter()
             .filter(|(_, distance)| *distance < **sight_range)
             .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(entity, _)| Destination::Organism { entity })
+            .map(|(entity, _)| Destination::Organism { entity: *entity })
     }
 }
 

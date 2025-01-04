@@ -1,77 +1,129 @@
-use super::Health;
-use crate::bella::pause::PauseState;
+use super::{
+    animal::AnimalMarker, plant::PlantMarker, Energy, EnergyData, Health, Meat, PlantMatter,
+};
+use crate::bella::{config::SimConfig, pause::PauseState, time::HourPassedEvent};
 use bevy::prelude::*;
 
 pub struct CarcassPlugin;
 
 impl Plugin for CarcassPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<OrganismDiedEvent>()
-            .add_systems(Startup, prepare_assets)
-            // .add_systems(PostUpdate, transform_dead_organisms_into_carcasses);
+        app.register_type::<Carcass>().add_systems(Startup, prepare_assets)
+            .add_systems(
+                Update,
+                (decay_animal_carcasses, decay_plant_carcasses).run_if(on_event::<HourPassedEvent>),
+            )
+            .add_systems(
+                Update,
+                (
+                    destroy_empty_animal_carcasses,
+                    destroy_empty_plant_carcasses,
+                ),
+            )
             .add_systems(
                 PostUpdate,
-                despawn_dead_organisms.run_if(in_state(PauseState::Running)),
+                transform_dead_organisms_into_carcasses.run_if(in_state(PauseState::Running)),
             );
     }
 }
 
-#[derive(Component)]
-pub struct CarcassMarker;
+#[derive(Component, Reflect, Debug)]
+pub struct Carcass {
+    pub starting_energy: Energy,
+}
 
 #[derive(Resource)]
 pub struct CarcassAssets {
-    pub carcass: Handle<ColorMaterial>,
+    pub carcass: Handle<StandardMaterial>,
 }
 
-#[derive(Event)]
-pub struct OrganismDiedEvent {
-    entity: Entity,
-}
-
-fn prepare_assets(mut cmd: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn prepare_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     cmd.insert_resource(CarcassAssets {
         carcass: materials.add(Color::BLACK),
     });
 }
 
-fn despawn_dead_organisms(mut cmd: Commands, query: Query<(Entity, &Health)>) {
-    for (entity, health) in query.iter() {
-        if health.hp <= 0. {
-            cmd.entity(entity).despawn_recursive();
+fn transform_dead_organisms_into_carcasses(
+    mut cmd: Commands,
+    query: Query<(
+        Entity,
+        &Transform,
+        &Health,
+        &EnergyData,
+        &Mesh3d,
+        Option<&AnimalMarker>,
+        Option<&PlantMarker>,
+    )>,
+    assets: Res<CarcassAssets>,
+) {
+    for (old_entity, transform, health, energy_data, mesh, maybe_animal, maybe_plant) in
+        query.iter()
+    {
+        if health.hp <= 0.0 {
+            let new_entity = cmd
+                .spawn((
+                    Carcass {
+                        starting_energy: energy_data.energy, // TODO: make sure it's the correct energy (it should be StoredEnergy probably, yeah!)
+                    },
+                    mesh.clone(),
+                    MeshMaterial3d(assets.carcass.clone()),
+                    *transform,
+                ))
+                .id();
+
+            if maybe_animal.is_some() {
+                cmd.entity(new_entity).insert(Meat {
+                    current_energy: energy_data.energy,
+                });
+            }
+
+            if maybe_plant.is_some() {
+                cmd.entity(new_entity).insert(PlantMatter {
+                    current_energy: energy_data.energy,
+                });
+            }
+
+            cmd.entity(old_entity).despawn_recursive();
         }
     }
 }
 
-// TODO: for now we just remove organism in function above, don't spawn anything like carcass
-// fn transform_dead_organisms_into_carcasses(
-//     mut cmd: Commands,
-//     mut meshes: ResMut<Assets<Mesh>>,
-//     mut er_organism_died: EventReader<OrganismDiedEvent>,
-//     query: Query<&Transform>,
-//     assets: Res<CarcassAssets>,
-// ) {
-//     for event in er_organism_died.read() {
-//         let transform = query
-//             .get(event.entity)
-//             .expect("Entity supposed to be transformed into carcass not found!");
+fn decay_animal_carcasses(mut carcasses: Query<(&Carcass, &mut Meat)>, config: Res<SimConfig>) {
+    for (carcass, mut meat) in carcasses.iter_mut() {
+        meat.current_energy -= (carcass.starting_energy * config.organism.carcass_energy_decay)
+            .min(meat.current_energy);
+    }
+}
 
-//         let triangle_size = 5.;
-//         let mesh_handle = Mesh2dHandle(meshes.add(Triangle2d::new(
-//             Vec2::new(0., 0.),
-//             Vec2::new(triangle_size, 0.),
-//             Vec2::new(triangle_size / 2., triangle_size * 3.0f32.sqrt() / 2.),
-//         )));
+fn decay_plant_carcasses(
+    mut carcasses: Query<(&Carcass, &mut PlantMatter)>,
+    config: Res<SimConfig>,
+) {
+    for (carcass, mut plant_matter) in carcasses.iter_mut() {
+        plant_matter.current_energy -= (carcass.starting_energy
+            * config.organism.carcass_energy_decay)
+            .min(plant_matter.current_energy);
+    }
+}
 
-//         cmd.spawn((
-//             CarcassMarker,
-//             MaterialMesh2dBundle {
-//                 mesh: mesh_handle.clone(),
-//                 material: assets.carcass.clone(),
-//                 transform: Transform::from_translation(transform.translation),
-//                 ..default()
-//             },
-//         ));
-//         cmd.entity(event.entity).despawn_recursive();
-//     }
-// }
+fn destroy_empty_animal_carcasses(
+    mut commands: Commands,
+    carcasses: Query<(Entity, &Meat), With<Carcass>>,
+) {
+    for (entity, meat) in carcasses.iter() {
+        if meat.current_energy <= 0.0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+fn destroy_empty_plant_carcasses(
+    mut commands: Commands,
+    carcasses: Query<(Entity, &PlantMatter), With<Carcass>>,
+) {
+    for (entity, plant_matter) in carcasses.iter() {
+        if plant_matter.current_energy <= 0.0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}

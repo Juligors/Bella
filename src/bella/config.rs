@@ -85,7 +85,10 @@ pub struct SimConfig {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OrganismConfig {}
+pub struct OrganismConfig {
+    /// percentage of energy lost by carcass every hour
+    pub carcass_energy_decay: f32,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct AnimalConfig {

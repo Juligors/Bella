@@ -43,13 +43,11 @@ pub struct PlantMarker;
 #[derive(Resource)]
 pub struct PlantAssets {
     alive: Handle<StandardMaterial>,
-    dead: Handle<StandardMaterial>,
 }
 
 fn prepare_plant_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let plant_assets = PlantAssets {
         alive: materials.add(Color::srgb(0.0, 1.0, 0.0)),
-        dead: materials.add(Color::srgb(0.0, 0.0, 0.0)),
     };
 
     commands.insert_resource(plant_assets);

@@ -18,17 +18,16 @@ impl Plugin for OrganismPlugin {
             .register_type::<Size>()
             .register_type::<EnergyData>()
             .register_type::<ReproductionState>()
+            .register_type::<Meat>()
+            .register_type::<PlantMatter>()
             .add_systems(
                 Update,
-                (
-                    kill_organisms_with_health_below_zero,
-                    kill_organisms_with_energy_below_zero,
-                    make_ready_to_reproduce_if_possible,
-                )
-                    .run_if(in_state(PauseState::Running)),
+                (make_ready_to_reproduce_if_possible,).run_if(in_state(PauseState::Running)),
             );
     }
 }
+
+type Energy = f32;
 
 #[derive(Component, Reflect, Debug)]
 pub struct Health {
@@ -77,24 +76,14 @@ pub enum ReproductionState {
     WaitingToReproduce(i8),
 }
 
-// TODO: rewrite it with events
-fn kill_organisms_with_health_below_zero(mut life_states: Query<&mut Health>) {
-    // for mut life_state in life_states.iter_mut() {
-    //     if let LifeState::Alive { hp } = life_state.as_mut() {
-    //         if *hp <= 0. {
-    //             *life_state = LifeState::Dead;
-    //         }
-    //     }
-    // }
+#[derive(Component, Reflect, Debug)]
+pub struct Meat {
+    pub current_energy: Energy,
 }
 
-// TODO: rewrite it with events
-fn kill_organisms_with_energy_below_zero(mut query: Query<(&EnergyData, &mut Health)>) {
-    // for (energy_data, mut life_state) in query.iter_mut() {
-    //     if energy_data.energy < 0. {
-    //         *life_state = LifeState::Dead;
-    //     }
-    // }
+#[derive(Component, Reflect, Debug)]
+pub struct PlantMatter {
+    pub current_energy: Energy,
 }
 
 fn make_ready_to_reproduce_if_possible(mut query: Query<&mut ReproductionState>) {
