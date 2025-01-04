@@ -55,6 +55,13 @@ fn load_config(mut cmd: Commands) {
         .try_deserialize::<EnvironmentConfig>()
         .expect("Can't deserialize environment config to config struct!");
 
+    let data_collection_config = Config::builder()
+        .add_source(config::File::with_name("config/data_collection.toml"))
+        .build()
+        .expect("Can't read data collection configuration!")
+        .try_deserialize::<DataCollectionConfig>()
+        .expect("Can't deserialize data collection config to config struct!");
+
     cmd.insert_resource(SimConfig {
         organism: organism_config,
         animal: animal_config,
@@ -62,6 +69,7 @@ fn load_config(mut cmd: Commands) {
         terrain: terrain_config,
         time: time_config,
         environment: environment_config,
+        data_collection: data_collection_config,
     });
 }
 
@@ -73,6 +81,7 @@ pub struct SimConfig {
     pub terrain: TerrainConfig,
     pub time: TimeConfig,
     pub environment: EnvironmentConfig,
+    pub data_collection: DataCollectionConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,4 +139,11 @@ pub struct EnvironmentConfig {
     pub sun_energy_output: f32,
     pub sun_day_energy_ratio: f32,
     pub sun_night_energy_ratio: f32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DataCollectionConfig {
+    pub directory: String,
+    pub plants_filename: String,
+    pub animals_filename: String,
 }

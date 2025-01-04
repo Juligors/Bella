@@ -1,0 +1,3 @@
+directory = "data"
+plants_filename = "plants.msgpack"
+animals_filename = "animals.msgpack"
