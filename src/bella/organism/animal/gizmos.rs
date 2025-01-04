@@ -64,7 +64,10 @@ fn draw_gizmo_to_animal_destination(
             Destination::Place { position } => position.extend(start.z),
             Destination::Organism { entity } => match organisms.get(*entity) {
                 Ok(transform) => transform.translation,
-                Err(_) => continue,
+                Err(_) => {
+                    error!("Entity doesn't exist despite Destination pointing to it (should we do something about it?)");
+                    continue;
+                }
             },
         };
         let color = get_color_for_diet(diet);
@@ -82,7 +85,7 @@ fn draw_gizmo_of_animal_sight_range(
         let radius = **sight_range;
         let color = get_color_for_diet(diet);
 
-        gizmos.circle(isometry, radius, color).resolution(64);
+        gizmos.circle(isometry, radius, color).resolution(32);
     }
 }
 
