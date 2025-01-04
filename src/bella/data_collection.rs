@@ -22,7 +22,7 @@ impl Plugin for DataCollectionPlugin {
         app.add_systems(Startup, (initialize_data_collection_directory,))
             .add_systems(
                 Update,
-                (save_plant_data,).run_if(on_event::<HourPassedEvent>),
+                (save_plant_data, save_animal_data).run_if(on_event::<HourPassedEvent>),
             );
     }
 }
