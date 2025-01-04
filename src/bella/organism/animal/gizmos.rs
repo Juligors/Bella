@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 
-use crate::bella::{inspector::EguiFocusState, organism::plant::PlantMarker, restart::SimState};
+use crate::bella::{
+    inspector::{ChosenEntity, EguiFocusState},
+    organism::plant::PlantMarker,
+    restart::SimState,
+};
 
 use super::{
     mobile::{Destination, Mobile},
@@ -25,6 +29,13 @@ impl Plugin for AnimalGizmosPlugin {
                 )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(AnimalGizmosOverlayState::Visible)),
+            )
+            .add_systems(
+                Update,
+                (
+                    draw_gizmo_to_animal_destination_for_chosen_animal,
+                    draw_gizmo_of_animal_sight_range_for_chosen_animal,
+                ),
             );
     }
 }
@@ -52,7 +63,7 @@ fn change_overlay_state_based_on_keyboard_input(
 fn draw_gizmo_to_animal_destination(
     mut gizmos: Gizmos,
     mobiles: Query<(&Transform, &Mobile, &Diet)>,
-    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>,
+    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
 ) {
     for (transform, mobile, diet) in mobiles.iter() {
         if mobile.destination.is_none() {
@@ -75,12 +86,61 @@ fn draw_gizmo_to_animal_destination(
         gizmos.line(start, end, color);
     }
 }
+fn draw_gizmo_to_animal_destination_for_chosen_animal(
+    mut gizmos: Gizmos,
+    mobiles: Query<(&Transform, &Mobile, &Diet)>,
+    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
+    chosen_entity: Res<ChosenEntity>,
+) {
+    if chosen_entity.entity.is_none() {
+        return;
+    }
+
+    if let Ok((transform, mobile, diet)) = mobiles.get(chosen_entity.entity.unwrap()) {
+        if mobile.destination.is_none() {
+            return;
+        }
+
+        let start = transform.translation;
+        let end = match mobile.destination.as_ref().unwrap() {
+            Destination::Place { position } => position.extend(start.z),
+            Destination::Organism { entity } => match organisms.get(*entity) {
+                Ok(transform) => transform.translation,
+                Err(_) => {
+                    error!("Entity doesn't exist despite Destination pointing to it (should we do something about it?)");
+                    return;
+                }
+            },
+        };
+        let color = get_color_for_diet(diet);
+
+        gizmos.line(start, end, color);
+    }
+}
 
 fn draw_gizmo_of_animal_sight_range(
     mut gizmos: Gizmos,
     animals: Query<(&Transform, &SightRange, &Diet), With<AnimalMarker>>,
 ) {
     for (transform, sight_range, diet) in animals.iter() {
+        let isometry = Isometry3d::from_translation(transform.translation);
+        let radius = **sight_range;
+        let color = get_color_for_diet(diet);
+
+        gizmos.circle(isometry, radius, color).resolution(32);
+    }
+}
+
+fn draw_gizmo_of_animal_sight_range_for_chosen_animal(
+    mut gizmos: Gizmos,
+    animals: Query<(&Transform, &SightRange, &Diet), With<AnimalMarker>>,
+    chosen_entity: Res<ChosenEntity>,
+) {
+    if chosen_entity.entity.is_none() {
+        return;
+    }
+
+    if let Ok((transform, sight_range, diet)) = animals.get(chosen_entity.entity.unwrap()) {
         let isometry = Isometry3d::from_translation(transform.translation);
         let radius = **sight_range;
         let color = get_color_for_diet(diet);

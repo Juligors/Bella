@@ -24,6 +24,7 @@ impl Plugin for MobilePlugin {
     }
 }
 
+// TODO: to powinna być część zwierząt i tyle
 #[derive(Component, Reflect, Debug)]
 pub struct Mobile {
     pub speed: f32,

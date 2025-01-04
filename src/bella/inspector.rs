@@ -52,7 +52,7 @@ pub enum EguiFocusState {
 
 #[derive(Resource)]
 pub struct ChosenEntity {
-    entity: Option<Entity>,
+    pub entity: Option<Entity>,
 }
 
 fn setup_egui(mut egui_context: Single<&mut EguiContext, With<PrimaryWindow>>) {
