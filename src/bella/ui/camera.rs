@@ -23,22 +23,19 @@ impl Plugin for MyCameraPlugin {
 struct MyGameCameraMarker;
 
 fn spawn_camera_and_light(mut cmd: Commands, config: Res<SimConfig>) {
-    let projection = OrthographicProjection {
-        scale: 0.5,
-        near: -1_000_000.0,
-        far: 1_000_000.0,
-        viewport_origin: Vec2::new(0.5, 0.5),
-        scaling_mode: ScalingMode::WindowSize,
-        area: Rect::new(-1.0, -1.0, 1.0, 1.0),
-    };
-
     cmd.spawn((
         MyGameCameraMarker,
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 200.0)
             .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
-        Projection::from(projection.clone()),
-        projection,
+        Projection::from(OrthographicProjection {
+            scale: 75.0,
+            near: -1_000_000.0,
+            far: 1_000_000.0,
+            viewport_origin: Vec2::new(0.5, 0.5),
+            scaling_mode: ScalingMode::WindowSize,
+            area: Rect::new(-1.0, -1.0, 1.0, 1.0),
+        }),
     ));
 
     let light_x = config.terrain.map_width as f32 * config.terrain.tile_size / 2.0;
