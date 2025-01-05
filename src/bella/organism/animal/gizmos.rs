@@ -7,8 +7,7 @@ use crate::bella::{
 };
 
 use super::{
-    mobile::{Destination, Mobile},
-    AnimalMarker, Diet, SightRange,
+    mobile::{Destination, Mobile}, AnimalMarker, Attack, Diet, SightRange
 };
 
 pub struct AnimalGizmosPlugin;
@@ -35,6 +34,7 @@ impl Plugin for AnimalGizmosPlugin {
                 (
                     draw_gizmo_to_animal_destination_for_chosen_animal,
                     draw_gizmo_of_animal_sight_range_for_chosen_animal,
+                    draw_gizmo_of_animal_attack_range_for_chosen_animal,
                 ),
             );
     }
@@ -143,6 +143,24 @@ fn draw_gizmo_of_animal_sight_range_for_chosen_animal(
     if let Ok((transform, sight_range, diet)) = animals.get(chosen_entity.entity.unwrap()) {
         let isometry = Isometry3d::from_translation(transform.translation);
         let radius = **sight_range;
+        let color = get_color_for_diet(diet);
+
+        gizmos.circle(isometry, radius, color).resolution(32);
+    }
+}
+
+fn draw_gizmo_of_animal_attack_range_for_chosen_animal(
+    mut gizmos: Gizmos,
+    animals: Query<(&Transform, &Attack, &Diet), With<AnimalMarker>>,
+    chosen_entity: Res<ChosenEntity>,
+) {
+    if chosen_entity.entity.is_none() {
+        return;
+    }
+
+    if let Ok((transform, attack, diet)) = animals.get(chosen_entity.entity.unwrap()) {
+        let isometry = Isometry3d::from_translation(transform.translation);
+        let radius = attack.range;
         let color = get_color_for_diet(diet);
 
         gizmos.circle(isometry, radius, color).resolution(32);
