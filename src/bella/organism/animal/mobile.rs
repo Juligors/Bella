@@ -40,37 +40,19 @@ pub enum Destination {
 
 pub fn find_next_step_destination(
     query_organisms: Query<&Transform>,
-    mut query_mobiles: Query<(&mut Mobile, &Transform, &SightRange)>,
+    mut query_mobiles: Query<&mut Mobile>,
 ) {
-    let mut rng = rand::thread_rng();
-
-    for (mut mobile, transform, sight_range) in query_mobiles.iter_mut() {
-        match &mobile.destination {
-            // we already have a destination, make it move there
-            Some(destination) => {
-                mobile.next_step_destination = match &destination {
-                    Destination::Place { position } => Some(*position),
-                    Destination::Organism { entity } => match query_organisms.get(*entity) {
-                        Ok(other) => Some(other.translation.truncate()),
-                        Err(_) => None,
-                    },
-                }
-            }
-            // no destination, let's choose a random one
-            None => {
-                // TODO: this can go out of bounds
-                // TODO: magic number
-                let r = **sight_range;
-                let new_destination = Vec2::new(
-                    transform.translation.x + rng.gen_range(-r..r),
-                    transform.translation.y + rng.gen_range(-r..r),
-                );
-
-                mobile.destination = Some(Destination::Place {
-                    position: new_destination,
-                });
-
-                mobile.next_step_destination = Some(new_destination);
+    for mut mobile in query_mobiles.iter_mut() {
+        if let Some(destination) = &mobile.destination {
+            mobile.next_step_destination = match &destination {
+                Destination::Place { position } => Some(*position),
+                Destination::Organism { entity } => match query_organisms.get(*entity) {
+                    Ok(other) => Some(other.translation.truncate()),
+                    Err(_) => {
+                        mobile.destination = None;
+                        continue;
+                    }
+                },
             }
         }
     }
@@ -108,17 +90,12 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, tile_layout: R
     }
 }
 
+// TODO: attack should only damage animal. If it wants to eat it needs carcass (Meat/PlantMatter)
 fn attack(
-    mut query: Query<(
-        &Attack,
-        &mut Mobile,
-        &mut HungerLevel,
-        &mut EnergyData,
-        &Transform,
-    )>,
+    mut query: Query<(&Attack, &mut Mobile, &Transform)>,
     mut query_organisms: Query<(&mut Health, &Transform)>,
 ) {
-    for (attack, mut mobile, mut hunger_level, mut energy_data, transform) in query.iter_mut() {
+    for (attack, mut mobile, transform) in query.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
@@ -132,14 +109,7 @@ fn attack(
                         continue;
                     }
 
-                    // TODO: this should also give energy/hunger to the animal, probably with event
                     health.hp -= attack.damage;
-                    energy_data.energy += 100.;
-                    *hunger_level = match *hunger_level {
-                        HungerLevel::Satiated(v) => HungerLevel::Hungry((v + 1).clamp(0, 100)),
-                        HungerLevel::Hungry(v) => HungerLevel::Hungry((v + 1).clamp(0, 100)),
-                        HungerLevel::Starving => HungerLevel::Hungry(1),
-                    }
                 }
                 Err(_) => mobile.destination = None,
             },

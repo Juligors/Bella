@@ -19,6 +19,7 @@ impl Plugin for EnvironmentPlugin {
 pub struct Sun {
     day_time: u8,
     energy_output: f32,
+    energy_output_per_plant: f32,
     day_energy_ratio: f32,
     night_energy_ratio: f32,
 }
@@ -35,6 +36,10 @@ impl Sun {
         self.energy_output * surface_percentage * self.get_energy_ratio()
     }
 
+    pub fn get_energy_for_plant(&self) -> f32 {
+        self.energy_output_per_plant
+    }
+
     fn get_energy_ratio(&self) -> f32 {
         if self.is_day() {
             self.day_energy_ratio
@@ -48,6 +53,7 @@ fn create_sun(mut cmd: Commands, config: Res<SimConfig>) {
     cmd.insert_resource(Sun {
         day_time: config.environment.starting_hour,
         energy_output: config.environment.sun_energy_output,
+        energy_output_per_plant: config.environment.sun_energy_output_per_plant,
         day_energy_ratio: config.environment.sun_day_energy_ratio,
         night_energy_ratio: config.environment.sun_night_energy_ratio,
     });

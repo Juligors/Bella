@@ -88,6 +88,12 @@ pub struct SimConfig {
 pub struct OrganismConfig {
     /// percentage of energy lost by carcass every hour
     pub carcass_energy_decay: f32,
+
+    pub max_active_energy_dist: ContinuousDistribution,
+    pub starting_mass_dist: ContinuousDistribution,
+    pub energy_per_mass_unit_dist: ContinuousDistribution,
+    pub energy_consumption_per_mass_unit_dist: ContinuousDistribution,
+
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,8 +119,8 @@ pub struct AnimalConfig {
 pub struct PlantConfig {
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
-    pub size_dist: ContinuousDistribution,
     pub max_health_dist: ContinuousDistribution,
+    pub energy_efficiency_production_from_solar_dist: ContinuousDistribution,
     
     pub reproduction_range: f32,
     pub development_time: i8,
@@ -140,6 +146,7 @@ pub struct TimeConfig {
 pub struct EnvironmentConfig {
     pub starting_hour: u8,
     pub sun_energy_output: f32,
+    pub sun_energy_output_per_plant: f32,
     pub sun_day_energy_ratio: f32,
     pub sun_night_energy_ratio: f32,
 }

@@ -2,7 +2,7 @@ use crate::bella::{
     config::SimConfig,
     environment::Sun,
     inspector::choose_entity_observer,
-    organism::{EnergyData, Health},
+    organism::{EnergyDatav2, Health},
     restart::SimState,
     terrain::{
         thermal_conductor::ThermalConductor,
@@ -13,7 +13,7 @@ use crate::bella::{
 };
 use bevy::prelude::*;
 
-use super::{ReproductionState, Size};
+use super::{ReproductionState, Tissue};
 
 pub struct PlantPlugin;
 
@@ -25,11 +25,11 @@ impl Plugin for PlantPlugin {
             .add_systems(
                 Update,
                 (
-                    // produce_energy_from_solar,
-                    give_plant_energy_from_thermal_conductor_its_on,
-                    consume_energy_to_survive,
-                    consume_energy_to_grow,
-                    consume_energy_to_reproduce,
+                    produce_energy_from_solar,
+                    // give_plant_energy_from_thermal_conductor_its_on,
+                    // consume_energy_to_survive,
+                    // consume_energy_to_grow,
+                    // consume_energy_to_reproduce,
                 )
                     .chain()
                     .run_if(on_event::<HourPassedEvent>),
@@ -43,6 +43,11 @@ pub struct PlantMarker;
 #[derive(Resource)]
 pub struct PlantAssets {
     alive: Handle<StandardMaterial>,
+}
+
+#[derive(Component, Reflect, Debug)]
+pub struct PlantEnergyEfficiency {
+    pub production_from_solar: f32,
 }
 
 fn prepare_plant_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
@@ -73,23 +78,31 @@ fn spawn_plants(
             continue;
         }
 
-        let size = config.plant.size_dist.sample();
         let plant_count = config.plant.group_size_dist.sample();
 
         for _ in 0..plant_count {
             let max_hp = config.plant.max_health_dist.sample();
             let health = Health {
-                max: max_hp,
                 hp: max_hp / 2.0,
+                max_hp,
             };
 
-            let energy_data = EnergyData {
-                energy: 1000.,
-                production_efficiency: 0.01,
-                energy_needed_for_survival_per_mass_unit: 5.,
-                energy_needed_for_growth_per_mass_unit: 5.,
-                grow_by: 0.2,
+            let max_active_energy = config.organism.max_active_energy_dist.sample();
+            let energy_data = EnergyDatav2 {
+                active_energy: max_active_energy / 2.0,
+                max_active_energy,
             };
+
+            let tissue = Tissue {
+                mass: config.organism.starting_mass_dist.sample(),
+                energy_per_mass_unit: config.organism.energy_per_mass_unit_dist.sample(),
+                energy_consumption_per_mass_unit: config
+                    .organism
+                    .energy_consumption_per_mass_unit_dist
+                    .sample(),
+            };
+
+            let size = tissue.get_size();
 
             let position = tile_layout.get_random_position_in_tile(tile);
 
@@ -100,10 +113,10 @@ fn spawn_plants(
                     MeshMaterial3d(plant_assets.alive.clone()),
                     Transform::from_translation(position.extend(size))
                         .with_scale(Vec3::splat(size)),
-                    Size { size },
                     ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
-                    energy_data,
                     health,
+                    energy_data,
+                    tissue,
                 ))
                 .id();
 
@@ -121,25 +134,22 @@ fn despawn_plants(mut cmd: Commands, plants: Query<Entity, With<PlantMarker>>) {
 }
 
 fn produce_energy_from_solar(
-    mut query: Query<(&mut EnergyData, &Size), With<PlantMarker>>,
+    mut query: Query<(&mut EnergyDatav2, &PlantEnergyEfficiency), With<PlantMarker>>,
     sun: Res<Sun>,
-    config: Res<SimConfig>,
 ) {
-    for (mut energy_data, size) in query.iter_mut() {
-        let surface_percentage = size.real_surface() / config.terrain.tile_size.powi(2);
-        let energy_from_sun = sun.get_energy_part(surface_percentage);
-        let produced_energy = energy_from_sun * energy_data.production_efficiency;
-
-        energy_data.energy += produced_energy;
+    for (mut energy_data, energy_efficiency) in query.iter_mut() {
+        let produced_energy = sun.get_energy_for_plant() * energy_efficiency.production_from_solar;
+        energy_data.active_energy += produced_energy;
+        // TODO: should clamp this? or convert overflow directly to fat? Probably...
     }
 }
 
-fn consume_energy_to_survive(mut query: Query<(&mut EnergyData, &Size), With<PlantMarker>>) {
-    for (mut energy_data, size) in query.iter_mut() {
-        let energy_consumed_to_survive =
-            energy_data.energy_needed_for_survival_per_mass_unit * size.real_volume();
-
-        energy_data.energy -= energy_consumed_to_survive;
+fn consume_energy_to_survive(
+    mut query: Query<(&mut EnergyDatav2, &mut Tissue), With<PlantMarker>>,
+) {
+    for (mut energy_data, mut tissue) in query.iter_mut() {
+        let energy_to_survive = tissue.get_energy_consumption();
+        energy_data.consume_energy_with_tissue_if_needed(&mut tissue, energy_to_survive);
     }
 }
 
@@ -181,12 +191,13 @@ fn consume_energy_to_reproduce(
     mut query: Query<
         (
             &mut ReproductionState,
-            &mut EnergyData,
+            &mut EnergyDatav2,
             &mut Health,
             &Transform,
             &Mesh3d,
             &MeshMaterial3d<StandardMaterial>,
             &Size,
+            &PlantMatter,
         ),
         With<PlantMarker>,
     >,
@@ -202,6 +213,7 @@ fn consume_energy_to_reproduce(
         parent_mesh,
         parent_material,
         parent_size,
+        parent_plant_matter,
     ) in query.iter_mut()
     {
         // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
@@ -219,16 +231,17 @@ fn consume_energy_to_reproduce(
                     size: parent_size.size,
                 };
                 let health = Health {
-                    max: parent_health.max,
-                    hp: parent_health.max / 2.0,
+                    max_hp: parent_health.max_hp,
+                    hp: parent_health.max_hp / 2.0,
                 };
 
-                let energy_data = EnergyData {
-                    energy: 1000.,
-                    production_efficiency: 0.01,
-                    energy_needed_for_survival_per_mass_unit: 5.,
-                    energy_needed_for_growth_per_mass_unit: 5.,
-                    grow_by: 0.2,
+                let energy_data = EnergyDatav2 {
+                    max_active_energy: parent_energy_data.max_active_energy,
+                    active_energy: parent_energy_data.max_active_energy / 2.0,
+                };
+
+                let plant_matter = PlantMatter {
+                    stored_energy: parent_plant_matter.stored_energy,
                 };
 
                 let position = tile_layout.get_random_position_in_range(
@@ -242,6 +255,7 @@ fn consume_energy_to_reproduce(
                         Transform::from_translation(position.extend(size.size))
                             .with_scale(Vec3::splat(size.size)),
                         ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
+                        plant_matter,
                         parent_mesh.clone(),
                         parent_material.clone(),
                         health,
@@ -254,28 +268,28 @@ fn consume_energy_to_reproduce(
     }
 }
 
-fn give_plant_energy_from_thermal_conductor_its_on(
-    mut plants: Query<(&mut EnergyData, &Transform), With<PlantMarker>>,
-    mut tiles: Query<(Entity, &mut ThermalConductor)>,
-    tile_layout: Res<TileLayout>,
-) {
-    for (mut energy_data, plant_transform) in plants.iter_mut() {
-        let entity = tile_layout.get_entity_for_position(plant_transform.translation.truncate());
+// fn give_plant_energy_from_thermal_conductor_its_on(
+//     mut plants: Query<(&mut EnergyData, &Transform), With<PlantMarker>>,
+//     mut tiles: Query<(Entity, &mut ThermalConductor)>,
+//     tile_layout: Res<TileLayout>,
+// ) {
+//     for (mut energy_data, plant_transform) in plants.iter_mut() {
+//         let entity = tile_layout.get_entity_for_position(plant_transform.translation.truncate());
 
-        match entity {
-            Some(e) => match tiles.get_mut(e) {
-                Ok((_, mut thermal_conductor)) => {
-                    let energy_taken = 1_000_000. * energy_data.production_efficiency;
-                    if energy_taken < thermal_conductor.heat {
-                        thermal_conductor.heat -= energy_taken;
-                        energy_data.energy += energy_taken;
-                    };
-                }
-                Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
-            },
-            None => {
-                error!("No tile under this plant :(");
-            }
-        }
-    }
-}
+//         match entity {
+//             Some(e) => match tiles.get_mut(e) {
+//                 Ok((_, mut thermal_conductor)) => {
+//                     let energy_taken = 1_000_000. * energy_data.production_efficiency;
+//                     if energy_taken < thermal_conductor.heat {
+//                         thermal_conductor.heat -= energy_taken;
+//                         energy_data.energy += energy_taken;
+//                     };
+//                 }
+//                 Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
+//             },
+//             None => {
+//                 error!("No tile under this plant :(");
+//             }
+//         }
+//     }
+// }

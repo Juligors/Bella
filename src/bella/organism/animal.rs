@@ -2,7 +2,7 @@ pub mod gizmos;
 pub mod mobile;
 
 use self::mobile::Mobile;
-use super::{EnergyData, PlantMatter, ReproductionState, Size};
+use super::{EnergyData, Meat, PlantMatter, ReproductionState, Size};
 use crate::bella::{
     config::SimConfig,
     inspector::choose_entity_observer,
@@ -125,7 +125,7 @@ fn spawn_animals(
 
             let max_hp = config.animal.max_health_dist.sample();
             let health = Health {
-                max: max_hp,
+                max_hp,
                 hp: max_hp / 2.0,
             };
             let diet = match config.animal.diet_dist.sample() {
@@ -156,6 +156,9 @@ fn spawn_animals(
                     },
                     Size { size },
                     ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
+                    Meat {
+                        stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
+                    },
                     health,
                     energy_data,
                     diet,
@@ -241,8 +244,11 @@ pub fn choose_new_destination(
         ),
         With<AnimalMarker>,
     >,
+    meat: Query<(Entity, &Transform), With<Meat>>,
     plant_matter: Query<(Entity, &Transform), With<PlantMatter>>,
+    tile_layout: Res<TileLayout>,
 ) {
+    let meat: Vec<_> = meat.iter().collect();
     let plant_matter: Vec<_> = plant_matter.iter().collect();
 
     let (entities, mut mobiles, transforms, hunger_levels, sight_ranges, diets): (
@@ -259,17 +265,21 @@ pub fn choose_new_destination(
             continue;
         }
 
+        let mut should_wander_around = false;
+
         match hunger_levels[i] {
-            HungerLevel::Satiated(_) => continue,
+            HungerLevel::Satiated(_) => should_wander_around = true,
             HungerLevel::Hungry(_) | HungerLevel::Starving => {
                 let distances = match diets[i] {
-                    Diet::Carnivorous => utils::find_closest_meat(&entities, &transforms, i),
+                    Diet::Carnivorous => {
+                        utils::find_closest_meat(entities[i], transforms[i], &meat)
+                    }
                     Diet::Herbivorous => {
                         utils::find_closest_plant_matter(transforms[i], &plant_matter)
                     }
                     Diet::Omnivore => {
                         let mut distances_meat =
-                            utils::find_closest_meat(&entities, &transforms, i);
+                            utils::find_closest_meat(entities[i], transforms[i], &meat);
                         let mut distances_plant_matter =
                             utils::find_closest_plant_matter(transforms[i], &plant_matter);
 
@@ -279,8 +289,26 @@ pub fn choose_new_destination(
                     }
                 };
 
-                mobiles[i].destination = utils::get_closest_visible(distances, sight_ranges[i]);
+                let destination = utils::get_closest_visible(distances, sight_ranges[i]);
+                if destination.is_some() {
+                    mobiles[i].destination = destination;
+                } else {
+                    should_wander_around = true;
+                }
             }
+        }
+
+        if should_wander_around {
+            let new_destination_position = tile_layout.get_random_position_in_range(
+                transforms[i].translation.truncate(),
+                **sight_ranges[i],
+            );
+
+            mobiles[i].destination = Some(Destination::Place {
+                position: new_destination_position,
+            });
+
+            mobiles[i].next_step_destination = Some(new_destination_position);
         }
     }
 }
@@ -370,8 +398,8 @@ fn consume_energy_to_reproduce(
                     size: parent_size.size,
                 };
                 let health = Health {
-                    max: parent_health.max,
-                    hp: parent_health.max / 2.0,
+                    max_hp: parent_health.max_hp,
+                    hp: parent_health.max_hp / 2.0,
                 };
                 let mobile = Mobile {
                     speed: parent_mobile.speed,
@@ -405,6 +433,9 @@ fn consume_energy_to_reproduce(
                             .with_scale(Vec3::splat(size.size)),
                         HungerLevel::Hungry(100), // FIXME: magic numbetruct
                         ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
+                        Meat {
+                            stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
+                        },
                         parent_mesh.clone(),
                         parent_material.clone(),
                         attack,
@@ -428,30 +459,47 @@ fn consume_energy_to_reproduce(
 mod utils {
     use super::*;
 
-    pub fn find_closest_meat(
-        animal_entities: &[Entity],
-        animal_transforms: &[&Transform],
-        i: usize,
-    ) -> Vec<(Entity, f32)> {
-        animal_entities
-            .iter()
-            .zip(animal_transforms)
-            .enumerate()
-            .filter(|(j, _)| i != *j)
-            .map(|(_, (&other_animal_entity, &other_animal_transform))| {
-                let other_aminal_pos = other_animal_transform.translation.truncate();
-                let animal_pos = animal_transforms[i].translation.truncate();
+    // pub fn find_closest_meat(
+    //     animal_entities: &[Entity],
+    //     animal_transforms: &[&Transform],
+    //     i: usize,
+    // ) -> Vec<(Entity, f32)> {
+    //     animal_entities
+    //         .iter()
+    //         .zip(animal_transforms)
+    //         .enumerate()
+    //         .filter(|(j, _)| i != *j)
+    //         .map(|(_, (&other_animal_entity, &other_animal_transform))| {
+    //             let other_aminal_pos = other_animal_transform.translation.truncate();
+    //             let animal_pos = animal_transforms[i].translation.truncate();
 
-                (other_animal_entity, animal_pos.distance(other_aminal_pos))
+    //             (other_animal_entity, animal_pos.distance(other_aminal_pos))
+    //         })
+    //         .collect()
+    // }
+
+    pub fn find_closest_meat(
+        animal_entity: Entity,
+        animal_transform: &Transform,
+        meats: &[(Entity, &Transform)],
+    ) -> Vec<(Entity, f32)> {
+        meats
+            .iter()
+            .filter(|(meat_entity, _)| *meat_entity != animal_entity)
+            .map(|(meat_entity, &meat_transform)| {
+                let meat_pos = meat_transform.translation.truncate();
+                let animal_pos = animal_transform.translation.truncate();
+
+                (*meat_entity, animal_pos.distance(meat_pos))
             })
             .collect()
     }
 
     pub fn find_closest_plant_matter(
         animal_transform: &Transform,
-        plants: &[(Entity, &Transform)],
+        plant_matters: &[(Entity, &Transform)],
     ) -> Vec<(Entity, f32)> {
-        plants
+        plant_matters
             .iter()
             .map(|(plant_entity, &plant_transform)| {
                 let plant_pos = plant_transform.translation.truncate();

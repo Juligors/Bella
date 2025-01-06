@@ -1,4 +1,5 @@
 starting_hour = 0
 sun_energy_output = 10000000
+sun_energy_output_per_plant = 1000
 sun_day_energy_ratio = 1.0
 sun_night_energy_ratio = 0.2
