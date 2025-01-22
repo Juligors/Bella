@@ -1,8 +1,6 @@
-use std::time::Duration;
-
+use super::{config::SimConfig, pause::PauseState, restart::SimState};
 use bevy::prelude::*;
-
-use super::{config::SimConfig, pause::PauseState};
+use std::time::Duration;
 
 pub struct TimePlugin;
 
@@ -14,6 +12,7 @@ impl Plugin for TimePlugin {
             .add_event::<HourPassedEvent>()
             .add_event::<DayPassedEvent>()
             .insert_resource(SimTime { days: 0, hours: 0 })
+            .add_systems(OnExit(SimState::Simulation), reset_timers)
             .add_systems(
                 Startup,
                 (init_hourly_timer, init_daily_timer, setup_timer_ui),
@@ -35,17 +34,34 @@ impl Plugin for TimePlugin {
     }
 }
 
-///////////////////// hourly /////////////////////
-
-#[derive(Event)]
-pub struct HourPassedEvent;
+#[derive(Resource, Reflect, Deref, DerefMut)]
+pub struct DailyTimer(Timer);
 
 #[derive(Resource, Reflect, Deref, DerefMut)]
 pub struct HourlyTimer(Timer);
 
-fn init_hourly_timer(mut cmd: Commands, config: Res<SimConfig>) {
-    cmd.insert_resource(HourlyTimer(Timer::from_seconds(
+#[derive(Event)]
+pub struct HourPassedEvent;
+
+#[derive(Event)]
+pub struct DayPassedEvent;
+
+#[derive(Resource, Reflect)]
+pub struct SimTime {
+    pub days: u32,
+    pub hours: u32,
+}
+
+fn init_hourly_timer(mut commands: Commands, config: Res<SimConfig>) {
+    commands.insert_resource(HourlyTimer(Timer::from_seconds(
         config.time.hour_length_in_frames,
+        TimerMode::Repeating,
+    )));
+}
+
+fn init_daily_timer(mut commands: Commands, config: Res<SimConfig>) {
+    commands.insert_resource(DailyTimer(Timer::from_seconds(
+        24. * config.time.hour_length_in_frames,
         TimerMode::Repeating,
     )));
 }
@@ -59,21 +75,6 @@ fn send_hour_passed_event(
     }
 }
 
-///////////////////// daily /////////////////////
-
-#[derive(Event)]
-pub struct DayPassedEvent;
-
-#[derive(Resource, Reflect, Deref, DerefMut)]
-pub struct DailyTimer(Timer);
-
-fn init_daily_timer(mut cmd: Commands, config: Res<SimConfig>) {
-    cmd.insert_resource(DailyTimer(Timer::from_seconds(
-        24. * config.time.hour_length_in_frames,
-        TimerMode::Repeating,
-    )));
-}
-
 fn send_day_passed_event(
     mut ew_day_passed: EventWriter<DayPassedEvent>,
     mut timer: ResMut<DailyTimer>,
@@ -81,14 +82,6 @@ fn send_day_passed_event(
     if timer.tick(Duration::from_secs(1)).just_finished() {
         ew_day_passed.send(DayPassedEvent);
     }
-}
-
-///////////////////// time passed /////////////////////
-
-#[derive(Resource, Reflect)]
-pub struct SimTime {
-    pub days: u32,
-    pub hours: u32,
 }
 
 fn update_simulation_time(mut time_passed: ResMut<SimTime>) {
@@ -100,16 +93,26 @@ fn update_simulation_time(mut time_passed: ResMut<SimTime>) {
     }
 }
 
+fn reset_timers(
+    mut hourly_timer: ResMut<HourlyTimer>,
+    mut daily_timer: ResMut<DailyTimer>,
+    mut sim_time: ResMut<SimTime>,
+) {
+    hourly_timer.reset();
+    daily_timer.reset();
+    *sim_time = SimTime { days: 0, hours: 0 };
+}
+
 ///////////////////// timer ui /////////////////////
 
 #[derive(Component)]
 pub struct TimerUiTextMarker;
 
-fn setup_timer_ui(mut cmd: Commands) {
+fn setup_timer_ui(mut commands: Commands) {
     let initial_hour = 0;
     let initial_day = 0;
 
-    cmd.spawn((
+    commands.spawn((
         TimerUiTextMarker,
         Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
         Node {
