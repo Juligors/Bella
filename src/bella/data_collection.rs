@@ -20,7 +20,7 @@ impl Plugin for DataCollectionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (initialize_data_collection_directory,))
             .add_systems(
-                Update,
+                PostUpdate,
                 (save_plant_data).run_if(on_event::<HourPassedEvent>),
                 // (save_plant_data, save_animal_data).run_if(on_event::<HourPassedEvent>),
             );

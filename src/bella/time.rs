@@ -18,7 +18,7 @@ impl Plugin for TimePlugin {
                 (init_hourly_timer, init_daily_timer, setup_timer_ui),
             )
             .add_systems(
-                Update,
+                PreUpdate,
                 (
                     update_simulation_time.run_if(on_event::<HourPassedEvent>),
                     update_timer_ui,
