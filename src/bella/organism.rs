@@ -5,8 +5,7 @@ pub mod plant;
 
 use std::time::Duration;
 
-// use self::{animal::AnimalPlugin, plant::PlantPlugin};
-use self::plant::PlantPlugin;
+use self::{animal::AnimalPlugin, plant::PlantPlugin};
 use super::time::HourPassedEvent;
 use bevy::prelude::*;
 use carcass::CarcassPlugin;
@@ -16,14 +15,13 @@ pub struct OrganismPlugin;
 
 impl Plugin for OrganismPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((PlantPlugin, CarcassPlugin, GenePlugin))
+        app.add_plugins((GenePlugin, PlantPlugin, AnimalPlugin, CarcassPlugin))
             .register_type::<Health>()
             .register_type::<Age>()
             .register_type::<SexualMaturity>()
             .register_type::<EnergyDatav3>()
             .register_type::<OrganismEnergyEfficiency>()
             .add_event::<KillOrganismEvent>()
-            .add_event::<ReproduceEvent>()
             .add_systems(
                 Update,
                 (
@@ -82,6 +80,7 @@ pub struct EnergyDatav3 {
     pub energy_per_mass_unit_gene: UnsignedFloatGene,
 }
 
+#[derive(Reflect, Debug, Clone)]
 pub enum HungerLevel {
     Satiated,
     Hungry,
@@ -118,7 +117,7 @@ impl EnergyDatav3 {
     /// TODO: right now it works for both animals and plants, but plants don't have hunger...
     pub fn get_hunger_level(&self) -> HungerLevel {
         let active_energy_percentage = self.active_energy / self.max_active_energy_gene.phenotype();
-        if active_energy_percentage > 0.5 {
+        if active_energy_percentage > 0.75 {
             HungerLevel::Satiated
         } else {
             HungerLevel::Hungry
@@ -299,12 +298,6 @@ impl SexualMaturity {
 pub enum SexualMaturityLevel {
     Young { left_to_mature_timer: Timer },
     Adult { reproduction_cooldown_timer: Timer },
-}
-
-#[derive(Event)]
-pub struct ReproduceEvent {
-    pub parent1: Entity,
-    pub parent2: Entity,
 }
 
 #[derive(Component)]

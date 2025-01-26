@@ -15,3 +15,7 @@ group_size_dist:
   type: 'range'
   min: 4
   max: 8
+
+energy_to_survive_per_mass_unit_gene_config:
+  multiplier: 15.0
+  offset: 0.3

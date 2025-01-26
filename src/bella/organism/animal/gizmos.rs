@@ -7,7 +7,8 @@ use crate::bella::{
 };
 
 use super::{
-    mobile::{Destination, Mobile}, AnimalMarker, Attack, Diet, SightRange
+    mobile::{Destination, Mobile},
+    AnimalMarker, Attack, Diet, SightRange,
 };
 
 pub struct AnimalGizmosPlugin;
@@ -62,10 +63,10 @@ fn change_overlay_state_based_on_keyboard_input(
 
 fn draw_gizmo_to_animal_destination(
     mut gizmos: Gizmos,
-    mobiles: Query<(&Transform, &Mobile, &Diet)>,
+    mut mobiles: Query<(&Transform, &mut Mobile, &Diet)>,
     organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
 ) {
-    for (transform, mobile, diet) in mobiles.iter() {
+    for (transform, mut mobile, diet) in mobiles.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
@@ -76,7 +77,8 @@ fn draw_gizmo_to_animal_destination(
             Destination::Organism { entity } => match organisms.get(*entity) {
                 Ok(transform) => transform.translation,
                 Err(_) => {
-                    error!("Entity doesn't exist despite Destination pointing to it (should we do something about it?)");
+                    debug!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
+                    mobile.destination = None;
                     continue;
                 }
             },
@@ -88,7 +90,7 @@ fn draw_gizmo_to_animal_destination(
 }
 fn draw_gizmo_to_animal_destination_for_chosen_animal(
     mut gizmos: Gizmos,
-    mobiles: Query<(&Transform, &Mobile, &Diet)>,
+    mut mobiles: Query<(&Transform, &mut Mobile, &Diet)>,
     organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
     chosen_entity: Res<ChosenEntity>,
 ) {
@@ -96,7 +98,7 @@ fn draw_gizmo_to_animal_destination_for_chosen_animal(
         return;
     }
 
-    if let Ok((transform, mobile, diet)) = mobiles.get(chosen_entity.entity.unwrap()) {
+    if let Ok((transform, mut mobile, diet)) = mobiles.get_mut(chosen_entity.entity.unwrap()) {
         if mobile.destination.is_none() {
             return;
         }
@@ -107,7 +109,8 @@ fn draw_gizmo_to_animal_destination_for_chosen_animal(
             Destination::Organism { entity } => match organisms.get(*entity) {
                 Ok(transform) => transform.translation,
                 Err(_) => {
-                    error!("Entity doesn't exist despite Destination pointing to it (should we do something about it?)");
+                    debug!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
+                    mobile.destination = None;
                     return;
                 }
             },

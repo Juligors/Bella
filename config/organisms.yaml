@@ -6,10 +6,6 @@ max_active_energy_gene_config:
   multiplier: 1000.0
   offset: 0.0
 
-energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 15.0
-  offset: 0.3
-
 reproduction_energy_cost_gene_config:
   multiplier: 200.0
   offset: 0.0

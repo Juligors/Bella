@@ -1,13 +1,11 @@
-use bevy::prelude::*;
-use rand::Rng;
-
-use super::{Attack, HungerLevel, SightRange};
+use super::{AnimalMarker, Attack};
 use crate::bella::{
-    organism::{EnergyData, Health},
+    organism::{carcass::Carcass, plant::PlantMarker, EnergyDatav3, Health},
     pause::PauseState,
     restart::SimState,
     terrain::tile::TileLayout,
 };
+use bevy::prelude::*;
 
 pub struct MobilePlugin;
 
@@ -17,7 +15,11 @@ impl Plugin for MobilePlugin {
             .register_type::<Destination>()
             .add_systems(
                 Update,
-                ((find_next_step_destination, make_step).chain(), attack)
+                (
+                    (find_next_step_destination, make_step).chain(),
+                    attack,
+                    eat_matter,
+                )
                     .run_if(in_state(SimState::Simulation))
                     .run_if(in_state(PauseState::Running)),
             );
@@ -90,28 +92,67 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, tile_layout: R
     }
 }
 
-// TODO: attack should only damage animal. If it wants to eat it needs carcass (Meat/PlantMatter)
 fn attack(
-    mut query: Query<(&Attack, &mut Mobile, &Transform)>,
-    mut query_organisms: Query<(&mut Health, &Transform)>,
+    mut query_self: Query<(&Attack, &Mobile, &Transform)>,
+    mut query_other_organisms: Query<
+        (&mut Health, &Transform),
+        Or<(With<PlantMarker>, With<AnimalMarker>)>,
+    >,
 ) {
-    for (attack, mut mobile, transform) in query.iter_mut() {
+    for (attack, mobile, transform) in query_self.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
 
         match mobile.destination.as_ref().unwrap() {
             Destination::Place { position: _ } => continue,
-            Destination::Organism { entity: target } => match query_organisms.get_mut(*target) {
-                Ok((mut health, other_transform)) => {
+            Destination::Organism { entity: target } => {
+                match query_other_organisms.get_mut(*target) {
+                    Ok((mut health, other_transform)) => {
+                        let distance = other_transform.translation.distance(transform.translation);
+                        if distance > attack.range {
+                            continue;
+                        }
+
+                        health.hp -= attack.damage;
+                    }
+                    Err(_) => {
+                        // This means that destination organism isn't Plant/Animal, so just ignore it
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn eat_matter(
+    mut query: Query<(&Attack, &Mobile, &Transform, &mut EnergyDatav3)>,
+    mut query_matter: Query<(&mut Carcass, &Transform)>,
+) {
+    for (attack, mobile, transform, mut energy_data) in query.iter_mut() {
+        if mobile.destination.is_none() {
+            continue;
+        }
+
+        match mobile.destination.as_ref().unwrap() {
+            Destination::Place { position: _ } => continue,
+            Destination::Organism { entity: target } => match query_matter.get_mut(*target) {
+                Ok((mut carcass, other_transform)) => {
                     let distance = other_transform.translation.distance(transform.translation);
                     if distance > attack.range {
                         continue;
                     }
 
-                    health.hp -= attack.damage;
+                    let mut eaten_mass = attack.damage / 5.0;
+                    if eaten_mass > carcass.mass {
+                        eaten_mass = carcass.mass;
+                    }
+                    carcass.mass -= eaten_mass;
+                    energy_data.store_energy(eaten_mass * carcass.energy_per_mass_unit);
                 }
-                Err(_) => mobile.destination = None,
+                Err(_) => {
+                    // This means that destination organism isn't PlantMatter/AnimalMatter, so just ignore it
+                }
             },
         }
     }

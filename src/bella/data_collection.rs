@@ -1,6 +1,7 @@
 use super::{
     config::SimConfig,
     organism::{
+        animal::{AnimalMarker, Diet},
         plant::{PlantEnergyEfficiency, PlantMarker},
         Energy, EnergyDatav3, Health, OrganismEnergyEfficiency,
     },
@@ -21,8 +22,7 @@ impl Plugin for DataCollectionPlugin {
         app.add_systems(Startup, (initialize_data_collection_directory,))
             .add_systems(
                 PostUpdate,
-                (save_plant_data).run_if(on_event::<HourPassedEvent>),
-                // (save_plant_data, save_animal_data).run_if(on_event::<HourPassedEvent>),
+                (save_plant_data, save_animal_data).run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -111,56 +111,58 @@ pub fn save_plant_data(
     );
 }
 
-// #[derive(Debug, Serialize)]
-// pub struct Animal {
-//     pub id: u64,
-//     pub hour: u32,
-//     pub day: u32,
+#[derive(Debug, Serialize)]
+pub struct Animal {
+    pub id: u64,
+    pub hour: u32,
+    pub day: u32,
 
-//     pub is_herbivorous: bool,
+    pub diet: String,
+    // pub health: f32,
+    // pub size: f32,
 
-//     pub health: f32,
-//     pub size: f32,
+    // pub energy: f32,
+    // pub production_efficiency: f32,
+    // pub energy_needed_for_survival_per_mass_unit: f32,
+    // pub energy_needed_for_growth_per_mass_unit: f32,
+    // pub grow_by: f32,
+}
 
-//     pub energy: f32,
-//     pub production_efficiency: f32,
-//     pub energy_needed_for_survival_per_mass_unit: f32,
-//     pub energy_needed_for_growth_per_mass_unit: f32,
-//     pub grow_by: f32,
-// }
+pub fn save_animal_data(
+    animals: Query<(Entity, &Health, &EnergyDatav3, &Diet), With<AnimalMarker>>,
+    directory_path: Res<DirectoryPath>,
+    time: Res<SimTime>,
+    config: Res<SimConfig>,
+) {
+    let animals: Vec<_> = animals
+        .iter()
+        .map(|x| Animal {
+            id: x.0.to_bits(),
+            hour: time.hours,
+            day: time.days,
 
-// // pub fn save_animal_data(
-// //     animals: Query<(Entity, &Health, &Size, &EnergyData, &Diet), With<AnimalMarker>>,
-// //     directory_path: Res<DirectoryPath>,
-// //     time: Res<SimTime>,
-// //     config: Res<SimConfig>,
-// // ) {
-// //     let animals: Vec<_> = animals
-// //         .iter()
-// //         .map(|x| Animal {
-// //             id: x.0.to_bits(),
+            diet: match x.3 {
+                Diet::Carnivorous => "c",
+                Diet::Herbivorous => "h",
+                Diet::Omnivore => "o",
+            }
+            .to_string(),
+            // health: x.1.hp,
+            // size: x.2.size,
+            // energy: x.3.energy,
+            // production_efficiency: x.3.production_efficiency,
+            // energy_needed_for_survival_per_mass_unit: x.3.energy_needed_for_survival_per_mass_unit,
+            // energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
+            // grow_by: x.3.grow_by,
+        })
+        .collect();
 
-// //             hour: time.hours,
-// //             day: time.days,
-
-// //             is_herbivorous: matches!(x.4, Diet::Herbivorous),
-
-// //             health: x.1.hp,
-// //             size: x.2.size,
-// //             energy: x.3.energy,
-// //             production_efficiency: x.3.production_efficiency,
-// //             energy_needed_for_survival_per_mass_unit: x.3.energy_needed_for_survival_per_mass_unit,
-// //             energy_needed_for_growth_per_mass_unit: x.3.energy_needed_for_growth_per_mass_unit,
-// //             grow_by: x.3.grow_by,
-// //         })
-// //         .collect();
-
-// //     save_data(
-// //         &animals,
-// //         &directory_path,
-// //         &config.data_collection.animals_filename,
-// //     );
-// // }
+    save_data(
+        &animals,
+        &directory_path,
+        &config.data_collection.animals_filename,
+    );
+}
 
 const BUFFER_CAPACITY: usize = 1024 * 1024;
 

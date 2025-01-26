@@ -2,7 +2,11 @@ pub mod gizmos;
 pub mod mobile;
 
 use self::mobile::Mobile;
-use super::{EnergyData, Meat, PlantMatter, ReproductionState, Size};
+use super::{
+    gene::UnsignedFloatGene, plant::PlantMatterMarker, Age, EnergyDatav3, HungerLevel,
+    OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker, 
+    SexualMaturity,
+};
 use crate::bella::{
     config::SimConfig,
     inspector::choose_entity_observer,
@@ -26,24 +30,23 @@ pub struct AnimalPlugin;
 impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((MobilePlugin, AnimalGizmosPlugin))
-            .register_type::<HungerLevel>()
             .register_type::<Diet>()
             .register_type::<SightRange>()
             .register_type::<Attack>()
+            .add_event::<ReproduceAnimalsEvent>()
             .add_systems(OnEnter(SimState::LoadAssets), prepare_animal_assets)
             .add_systems(OnEnter(SimState::OrganismGeneration), spawn_animals)
-            .add_systems(OnExit(SimState::Simulation), despawn_animals)
+            .add_systems(OnExit(SimState::Simulation), despawn_all_animals)
             .add_systems(
                 Update,
                 (
-                    connect_animal_with_medium_its_on,
                     choose_new_destination,
-                    decrease_satiation.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_grow.run_if(on_event::<HourPassedEvent>),
-                    consume_energy_to_reproduce.run_if(on_event::<HourPassedEvent>),
+                    send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy,
+                    reproduce,
+                    // connect_animal_with_medium_its_on,
                 )
-                    .run_if(in_state(SimState::Simulation))
-                    .run_if(in_state(PauseState::Running)),
+                    .chain()
+                    .run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -51,11 +54,39 @@ impl Plugin for AnimalPlugin {
 #[derive(Component)]
 pub struct AnimalMarker;
 
-#[derive(Component, Reflect, Debug)]
-pub enum HungerLevel {
-    Satiated(u32),
-    Hungry(u32),
-    Starving,
+#[derive(Component)]
+pub struct AnimalMatterMarker;
+
+#[derive(Bundle)]
+pub struct AnimalBundle {
+    organism_bundle: OrganismBundle,
+    marker: AnimalMarker,
+    matter_marker: AnimalMatterMarker,
+    animal_energy_efficiency: AnimalEnergyEfficiency,
+    reproduction_range: ReproductionRange,
+    mobile: Mobile,
+    attack: Attack,
+    sight_range: SightRange,
+    diet: Diet,
+}
+
+#[derive(Event)]
+pub struct ReproduceAnimalsEvent {
+    pub parent1: Entity,
+    pub parent2: Entity,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct AnimalEnergyEfficiency {
+    // pub production_from_solar_gene: UnsignedFloatGene,
+}
+
+impl AnimalEnergyEfficiency {
+    pub fn new() -> Self {
+        Self {
+            // production_from_solar_gene: production_from_solar_gene.into(),
+        }
+    }
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -65,10 +96,10 @@ pub enum Diet {
     Omnivore,
 }
 
-#[derive(Component, Reflect, Debug, Deref, DerefMut)]
+#[derive(Component, Reflect, Debug, Clone, Deref, DerefMut)]
 pub struct SightRange(f32);
 
-#[derive(Component, Reflect, Debug)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub struct Attack {
     pub range: f32,
     pub damage: f32,
@@ -79,6 +110,17 @@ pub struct AnimalAssets {
     pub carnivorous: Handle<StandardMaterial>,
     pub herbivorous: Handle<StandardMaterial>,
     pub omnivore: Handle<StandardMaterial>,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct ReproductionRange {
+    gene: UnsignedFloatGene,
+}
+
+impl ReproductionRange {
+    pub fn new(gene: impl Into<UnsignedFloatGene>) -> Self {
+        Self { gene: gene.into() }
+    }
 }
 
 pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
@@ -111,58 +153,74 @@ fn spawn_animals(
             continue;
         }
 
-        let size = config.animal.size_dist.sample();
         let animal_count = config.animal.group_size_dist.sample();
 
         for _ in 0..animal_count {
-            let energy_data = EnergyData {
-                energy: 10_000.,                               // FIXME: magic number
-                production_efficiency: 0.01,                   // FIXME: magic number
-                energy_needed_for_survival_per_mass_unit: 0.1, // FIXME: magic number
-                energy_needed_for_growth_per_mass_unit: 5.,    // FIXME: magic number
-                grow_by: 0.2,                                  // FIXME: magic number
-            };
+            let health = Health::new(config.organism.max_health_gene_config.into());
+            let starting_age = config.organism.starting_age_dist.sample();
+            let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
+            let sexual_maturity = SexualMaturity::new(
+                config.organism.maturity_age_gene_config.into(),
+                config.organism.reproduction_cooldown_gene_config.into(),
+                starting_age,
+            );
+            let energy_data = EnergyDatav3::new(
+                config.organism.max_active_energy_gene_config.into(),
+                config.organism.max_active_energy_gene_config.into(),
+                config.organism.starting_mass_dist.sample(),
+            );
+            let organism_energy_efficiency = OrganismEnergyEfficiency::new(
+                config
+                    .animal
+                    .energy_to_survive_per_mass_unit_gene_config
+                    .into(),
+                config.organism.reproduction_energy_cost_gene_config.into(),
+            );
 
-            let max_hp = config.animal.max_health_dist.sample();
-            let health = Health {
-                max_hp,
-                hp: max_hp / 2.0,
-            };
             let diet = match config.animal.diet_dist.sample() {
                 0 => Diet::Herbivorous,
                 1 => Diet::Carnivorous,
                 _ => Diet::Omnivore,
             };
+            let animal_energy_efficiency = AnimalEnergyEfficiency::new();
+            let reproduction_range =
+                ReproductionRange::new(config.plant.pollination_range_gene_config);
+            let mobile = Mobile {
+                speed: config.animal.speed_dist.sample(),
+                destination: None,
+                next_step_destination: None,
+            };
+            let sight_range = SightRange(config.animal.sight_range_dist.sample());
+            let attack = Attack {
+                range: config.animal.attack_range_dist.sample(),
+                damage: config.animal.attack_damage_dist.sample(),
+            };
 
+            let size = energy_data.get_size();
             let position = tile_layout.get_random_position_in_tile(tile);
 
             let entity = commands
-                .spawn((
-                    AnimalMarker,
-                    Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(get_animal_asset(&animal_assets, &diet)),
-                    Transform::from_translation(position.extend(size))
-                        .with_scale(Vec3::splat(size)),
-                    Mobile {
-                        speed: config.animal.speed_dist.sample(),
-                        destination: None,
-                        next_step_destination: None,
+                .spawn(AnimalBundle {
+                    organism_bundle: OrganismBundle {
+                        mesh: Mesh3d(mesh_handle.clone()),
+                        material: MeshMaterial3d(get_animal_asset(&animal_assets, &diet)),
+                        transform: Transform::from_translation(position.extend(size / 2.0))
+                            .with_scale(Vec3::splat(size)),
+                        health,
+                        age,
+                        sexual_maturity,
+                        energy_data,
+                        organism_energy_efficiency,
                     },
-                    HungerLevel::Hungry(100), // FIXME: magic number
-                    SightRange(config.animal.sight_range_dist.sample()),
-                    Attack {
-                        range: config.animal.attack_range_dist.sample(),
-                        damage: config.animal.attack_damage_dist.sample(),
-                    },
-                    Size { size },
-                    ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
-                    Meat {
-                        stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
-                    },
-                    health,
-                    energy_data,
+                    marker: AnimalMarker,
+                    matter_marker: AnimalMatterMarker,
+                    animal_energy_efficiency,
+                    reproduction_range,
+                    mobile,
+                    attack,
+                    sight_range,
                     diet,
-                ))
+                })
                 .id();
 
             choose_entity_observer.watch_entity(entity);
@@ -172,63 +230,9 @@ fn spawn_animals(
     commands.spawn(choose_entity_observer);
 }
 
-fn despawn_animals(mut commands: Commands, animals: Query<Entity, With<AnimalMarker>>) {
+fn despawn_all_animals(mut commands: Commands, animals: Query<Entity, With<AnimalMarker>>) {
     for animal_entity in animals.iter() {
         commands.entity(animal_entity).despawn_recursive();
-    }
-}
-
-fn decrease_satiation(mut hunger_levels: Query<(&mut HungerLevel, &mut Health)>) {
-    for (mut hunger_level, mut health) in hunger_levels.iter_mut() {
-        *hunger_level = match *hunger_level {
-            HungerLevel::Satiated(level) => {
-                if level > 1 {
-                    HungerLevel::Satiated(level - 1) // FIXME: magic number
-                } else {
-                    HungerLevel::Hungry(100) // FIXME: magic number
-                }
-            }
-            HungerLevel::Hungry(level) => {
-                if level > 1 {
-                    HungerLevel::Hungry(level - 1) // FIXME: magic number
-                } else {
-                    HungerLevel::Starving
-                }
-            }
-            HungerLevel::Starving => {
-                health.hp -= 10.; // FIXME: magic number
-                HungerLevel::Starving
-            }
-        }
-    }
-}
-
-// TODO: this doesn't do much, but this logic should be used later on
-fn connect_animal_with_medium_its_on(
-    creature_transforms: Query<&Transform, With<AnimalMarker>>,
-    tiles: Query<(Entity, &ThermalConductor)>,
-    tile_layout: Res<TileLayout>,
-) {
-    for creature_transform in creature_transforms.iter() {
-        let creature_pos = creature_transform.translation.truncate();
-        let entity = tile_layout.get_entity_for_position(creature_pos);
-
-        match entity {
-            Some(e) => {
-                // for (tile_entity, _medium) in tiles.iter() {
-                //     if tile_entity != e {
-                //         continue;
-                //     }
-                // }
-                match tiles.get(e) {
-                    Ok(_) => continue,
-                    Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
-                }
-            }
-            None => {
-                error!("No tile under this creature, pos: {}", creature_pos);
-            }
-        }
     }
 }
 
@@ -238,24 +242,24 @@ pub fn choose_new_destination(
             Entity,
             &mut Mobile,
             &Transform,
-            &HungerLevel,
+            &EnergyDatav3,
             &SightRange,
             &Diet,
         ),
         With<AnimalMarker>,
     >,
-    meat: Query<(Entity, &Transform), With<Meat>>,
-    plant_matter: Query<(Entity, &Transform), With<PlantMatter>>,
+    meat: Query<(Entity, &Transform), With<AnimalMatterMarker>>,
+    plant_matter: Query<(Entity, &Transform), With<PlantMatterMarker>>,
     tile_layout: Res<TileLayout>,
 ) {
     let meat: Vec<_> = meat.iter().collect();
     let plant_matter: Vec<_> = plant_matter.iter().collect();
 
-    let (entities, mut mobiles, transforms, hunger_levels, sight_ranges, diets): (
+    let (entities, mut mobiles, transforms, energy_datas, sight_ranges, diets): (
         Vec<Entity>,
         Vec<Mut<Mobile>>,
         Vec<&Transform>,
-        Vec<&HungerLevel>,
+        Vec<&EnergyDatav3>,
         Vec<&SightRange>,
         Vec<&Diet>,
     ) = multiunzip(animals.iter_mut());
@@ -267,9 +271,9 @@ pub fn choose_new_destination(
 
         let mut should_wander_around = false;
 
-        match hunger_levels[i] {
-            HungerLevel::Satiated(_) => should_wander_around = true,
-            HungerLevel::Hungry(_) | HungerLevel::Starving => {
+        match energy_datas[i].get_hunger_level() {
+            HungerLevel::Satiated => should_wander_around = true,
+            HungerLevel::Hungry => {
                 let distances = match diets[i] {
                     Diet::Carnivorous => {
                         utils::find_closest_meat(entities[i], transforms[i], &meat)
@@ -301,7 +305,7 @@ pub fn choose_new_destination(
         if should_wander_around {
             let new_destination_position = tile_layout.get_random_position_in_range(
                 transforms[i].translation.truncate(),
-                **sight_ranges[i],
+                **sight_ranges[i] / 20.0, // TODO: magic number for showcase
             );
 
             mobiles[i].destination = Some(Destination::Place {
@@ -313,148 +317,333 @@ pub fn choose_new_destination(
     }
 }
 
-fn consume_energy_to_grow(
-    mut query: Query<
+// TODO: it's almost exactly the same as in plants, merge them into organism? (With<ReadyToReproduceMarker>, Or<With<PlantMarker>, With<AnimalMarker>>) or something like that
+fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
+    mut reproduction_ew: EventWriter<ReproduceAnimalsEvent>,
+    mut commands: Commands,
+    mut animals_ready_to_reproduce: Query<
         (
-            &mut EnergyData,
-            &mut Size,
-            &mut Transform,
-            &mut ReproductionState,
+            Entity,
+            &Transform,
+            &ReproductionRange,
+            &mut SexualMaturity,
+            // &mut EnergyDatav3,
+            // &OrganismEnergyEfficiency,
         ),
-        With<AnimalMarker>,
+        (With<ReadyToReproduceMarker>, With<AnimalMarker>),
     >,
 ) {
-    for (mut energy_data, mut size, mut transform, mut reproduction_state) in query.iter_mut() {
-        match *reproduction_state {
-            ReproductionState::ReadyToReproduce => continue,
-            ReproductionState::WaitingToReproduce(_) => continue,
-            ReproductionState::Developing(time) => {
-                let energy_consumed_to_grow =
-                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_volume();
+    let mut combinations = animals_ready_to_reproduce.iter_combinations_mut();
 
-                if energy_data.energy < energy_consumed_to_grow {
-                    continue;
-                }
-
-                *reproduction_state = ReproductionState::Developing(time - 1);
-                energy_data.energy -= energy_consumed_to_grow;
-                size.size += energy_data.grow_by;
-
-                *transform = transform.with_scale(Vec3::splat(size.size));
+    while let Some(
+        [(
+            entity1,
+            transform1,
+            range1,
+            mut sexual_maturity1,
+            // mut energy_data1,
+            // organism_energy_efficiency1,
+        ), (
+            entity2,
+            transform2,
+            range2,
+            mut sexual_maturity2,
+            // mut energy_data2,
+            // organism_energy_efficiency2,
+        )],
+    ) = combinations.fetch_next()
+    {
+        let distance = transform1.translation.distance(transform2.translation);
+        if distance <= range1.gene.phenotype() && distance <= range2.gene.phenotype() {
+            // TODO: it's a bug fix to ensure one plant get's to have multiple children at the same time
+            // (this loop iterates over one plant multiple times, it doesn't know that marker gets removed)
+            // honestly at this point marker could be removed, but it helps with O(n^2) complexity
+            // could get rid of it and in this function just manually filter only plants ready to reproduce and then iter over their combinations
+            if !sexual_maturity1.is_ready_to_reproduce()
+                || !sexual_maturity2.is_ready_to_reproduce()
+            {
+                continue;
             }
+            reproduction_ew.send(ReproduceAnimalsEvent {
+                parent1: entity1,
+                parent2: entity2,
+            });
+
+            // remove marker
+            commands.entity(entity1).remove::<ReadyToReproduceMarker>();
+            commands.entity(entity2).remove::<ReadyToReproduceMarker>();
+
+            // reset reproduction cooldowns
+            sexual_maturity1.reset_reproduction_cooldown();
+            sexual_maturity2.reset_reproduction_cooldown();
+
+            // consume energy for reproduction and  kill organisms if they didn't have enough energy
+            // let energy_needed1 = organism_energy_efficiency1
+            //     .reproduction_energy_cost_gene
+            //     .phenotype();
+            // if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
+            //     kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
+            // }
+            // trace!("Energy consumed for reproduction: {}", energy_needed1);
+
+            // let energy_needed2 = organism_energy_efficiency2
+            //     .reproduction_energy_cost_gene
+            //     .phenotype();
+            // if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
+            //     kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
+            // }
+            // trace!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
 
-fn consume_energy_to_reproduce(
+fn reproduce(
     mut commands: Commands,
-    mut query: Query<
-        (
-            &mut ReproductionState,
-            &mut EnergyData,
-            &mut Health,
-            &Transform,
-            &Diet,
-            &Mesh3d,
-            &MeshMaterial3d<StandardMaterial>,
-            &Size,
-            &Attack,
-            &SightRange,
-            &Mobile,
-        ),
-        With<AnimalMarker>,
-    >,
-    config: Res<SimConfig>,
+    mut event_reader: EventReader<ReproduceAnimalsEvent>,
+    animal_assets: Res<AnimalAssets>,
     tile_layout: Res<TileLayout>,
+    config: Res<SimConfig>,
+    query: Query<(
+        &Mesh3d,
+        &MeshMaterial3d<StandardMaterial>,
+        &Transform,
+        &Health,
+        &SexualMaturity,
+        &EnergyDatav3,
+        &OrganismEnergyEfficiency,
+        &AnimalEnergyEfficiency,
+        &ReproductionRange,
+        &Age,
+        &Mobile,
+        &Attack,
+        &SightRange,
+        &Diet,
+    )>,
 ) {
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
-    for (
-        mut parent_life_cycle_state,
-        mut parent_energy_data,
-        mut parent_health,
-        parent_transform,
-        parent_diet,
-        parent_mesh,
-        parent_material,
-        parent_size,
-        parent_attack,
-        parent_sight_range,
-        parent_mobile,
-    ) in query.iter_mut()
-    {
-        // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
-        match *parent_life_cycle_state {
-            ReproductionState::Developing(_) => continue,
-            ReproductionState::WaitingToReproduce(cooldown) => {
-                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
-            }
-            ReproductionState::ReadyToReproduce => {
-                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(
-                    config.plant.waiting_for_reproduction_time,
-                );
+    for event in event_reader.read() {
+        let parent1 = query
+            .get(event.parent1)
+            .expect("Failed to fetch parent from query during reproduction");
+        let parent2 = query
+            .get(event.parent2)
+            .expect("Failed to fetch parent from query during reproduction");
 
-                let size = Size {
-                    size: parent_size.size,
-                };
-                let health = Health {
-                    max_hp: parent_health.max_hp,
-                    hp: parent_health.max_hp / 2.0,
-                };
-                let mobile = Mobile {
-                    speed: parent_mobile.speed,
-                    destination: None,
-                    next_step_destination: None,
-                };
+        // crossing parent organism genes
 
-                let energy_data = EnergyData {
-                    energy: 1000.,
-                    production_efficiency: 0.01,
-                    energy_needed_for_survival_per_mass_unit: 5.,
-                    energy_needed_for_growth_per_mass_unit: 5.,
-                    grow_by: 0.2,
-                };
-                let attack = Attack {
-                    damage: parent_attack.damage,
-                    range: parent_attack.range,
-                };
-                let sight_range = SightRange(parent_sight_range.0);
-                let diet = (parent_diet).clone();
+        let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
+        let starting_age = 0;
+        let age = Age::new(
+            starting_age,
+            parent1
+                .9
+                .age_penalty_gene
+                .mixed_with(&parent2.9.age_penalty_gene),
+        );
+        let sexual_maturity = SexualMaturity::new(
+            parent1
+                .4
+                .maturity_age_gene
+                .mixed_with(&parent2.4.maturity_age_gene),
+            parent1
+                .4
+                .reproduction_cooldown_gene
+                .mixed_with(&parent2.4.reproduction_cooldown_gene),
+            starting_age,
+        );
+        let energy_data = EnergyDatav3::new(
+            parent1
+                .5
+                .max_active_energy_gene
+                .mixed_with(&parent2.5.max_active_energy_gene),
+            parent1
+                .5
+                .energy_per_mass_unit_gene
+                .mixed_with(&parent2.5.energy_per_mass_unit_gene),
+            config.organism.starting_mass_dist.sample(),
+        );
+        let organism_energy_efficiency = OrganismEnergyEfficiency::new(
+            parent1
+                .6
+                .energy_consumption_to_survive_per_mass_unit_gene
+                .mixed_with(&parent2.6.energy_consumption_to_survive_per_mass_unit_gene),
+            parent1
+                .6
+                .reproduction_energy_cost_gene
+                .mixed_with(&parent2.6.reproduction_energy_cost_gene),
+        );
 
-                let position = tile_layout.get_random_position_in_range(
-                    parent_transform.translation.truncate(),
-                    config.animal.reproduction_range,
-                );
+        // crossing parent plant genes
+        let animal_energy_efficiency = AnimalEnergyEfficiency::new();
+        let reproduction_range = ReproductionRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
+        // TODO: All to genes!
+        let mobile = Mobile {
+            speed: parent1.10.speed,
+            destination: None,
+            next_step_destination: None,
+        };
+        let attack = Attack {
+            range: parent1.11.range,
+            damage: parent1.11.damage,
+        };
+        let sight_range = SightRange(parent1.12 .0);
+        let diet = parent1.13.clone();
 
-                let entity = commands
-                    .spawn((
-                        AnimalMarker,
-                        Transform::from_translation(position.extend(size.size))
-                            .with_scale(Vec3::splat(size.size)),
-                        HungerLevel::Hungry(100), // FIXME: magic numbetruct
-                        ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
-                        Meat {
-                            stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
-                        },
-                        parent_mesh.clone(),
-                        parent_material.clone(),
-                        attack,
-                        sight_range,
-                        diet,
-                        health,
-                        mobile,
-                        size,
-                        energy_data,
-                    ))
-                    .id();
+        // other setup
+        let middle = (parent1.2.translation + parent2.2.translation) / 2.0;
+        let new_plant_position = tile_layout
+            .get_random_position_in_ring(
+                middle.truncate(),
+                config.organism.offspring_spawn_range,
+                config.organism.offspring_spawn_range / 2.0,
+            )
+            .extend(energy_data.get_size() / 2.0);
 
-                choose_entity_observer.watch_entity(entity);
-            }
-        }
+        let new_size = energy_data.get_size();
+        let mut transform =
+            Transform::from_translation(new_plant_position).with_scale(Vec3::splat(new_size));
+        transform.translation.z = new_size / 2.0;
+
+        let entity = commands
+            .spawn(AnimalBundle {
+                organism_bundle: OrganismBundle {
+                    mesh: parent1.0.clone(),
+                    material: MeshMaterial3d(get_animal_asset(&animal_assets, &diet)),
+                    transform,
+
+                    health,
+                    age,
+                    sexual_maturity,
+                    energy_data,
+                    organism_energy_efficiency,
+                },
+                marker: AnimalMarker,
+                matter_marker: AnimalMatterMarker,
+                animal_energy_efficiency,
+                reproduction_range,
+                mobile,
+                attack,
+                sight_range,
+                diet,
+            })
+            .id();
+
+        choose_entity_observer.watch_entity(entity);
     }
 
     commands.spawn(choose_entity_observer);
 }
+
+// fn consume_energy_to_reproduce(
+//     mut commands: Commands,
+//     mut query: Query<
+//         (
+//             &mut ReproductionState,
+//             &mut EnergyData,
+//             &mut Health,
+//             &Transform,
+//             &Diet,
+//             &Mesh3d,
+//             &MeshMaterial3d<StandardMaterial>,
+//             &Size,
+//             &Attack,
+//             &SightRange,
+//             &Mobile,
+//         ),
+//         With<AnimalMarker>,
+//     >,
+//     config: Res<SimConfig>,
+//     tile_layout: Res<TileLayout>,
+// ) {
+//     let mut choose_entity_observer = Observer::new(choose_entity_observer);
+
+//     for (
+//         mut parent_life_cycle_state,
+//         mut parent_energy_data,
+//         mut parent_health,
+//         parent_transform,
+//         parent_diet,
+//         parent_mesh,
+//         parent_material,
+//         parent_size,
+//         parent_attack,
+//         parent_sight_range,
+//         parent_mobile,
+//     ) in query.iter_mut()
+//     {
+//         // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
+//         match *parent_life_cycle_state {
+//             ReproductionState::Developing(_) => continue,
+//             ReproductionState::WaitingToReproduce(cooldown) => {
+//                 *parent_life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
+//             }
+//             ReproductionState::ReadyToReproduce => {
+//                 *parent_life_cycle_state = ReproductionState::WaitingToReproduce(
+//                     config.plant.waiting_for_reproduction_time,
+//                 );
+
+//                 let size = Size {
+//                     size: parent_size.size,
+//                 };
+//                 let health = Health {
+//                     max_hp: parent_health.max_hp,
+//                     hp: parent_health.max_hp / 2.0,
+//                 };
+//                 let mobile = Mobile {
+//                     speed: parent_mobile.speed,
+//                     destination: None,
+//                     next_step_destination: None,
+//                 };
+
+//                 let energy_data = EnergyData {
+//                     energy: 1000.,
+//                     production_efficiency: 0.01,
+//                     energy_needed_for_survival_per_mass_unit: 5.,
+//                     energy_needed_for_growth_per_mass_unit: 5.,
+//                     grow_by: 0.2,
+//                 };
+//                 let attack = Attack {
+//                     damage: parent_attack.damage,
+//                     range: parent_attack.range,
+//                 };
+//                 let sight_range = SightRange(parent_sight_range.0);
+//                 let diet = (parent_diet).clone();
+
+//                 let position = tile_layout.get_random_position_in_range(
+//                     parent_transform.translation.truncate(),
+//                     config.animal.reproduction_range,
+//                 );
+
+//                 let entity = commands
+//                     .spawn((
+//                         AnimalMarker,
+//                         Transform::from_translation(position.extend(size.size))
+//                             .with_scale(Vec3::splat(size.size)),
+//                         HungerLevel::Hungry(100), // FIXME: magic numbetruct
+//                         ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
+//                         Meat {
+//                             stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
+//                         },
+//                         parent_mesh.clone(),
+//                         parent_material.clone(),
+//                         attack,
+//                         sight_range,
+//                         diet,
+//                         health,
+//                         mobile,
+//                         size,
+//                         energy_data,
+//                     ))
+//                     .id();
+
+//                 choose_entity_observer.watch_entity(entity);
+//             }
+//         }
+//     }
+
+//     commands.spawn(choose_entity_observer);
+// }
 
 mod utils {
     use super::*;
@@ -529,3 +718,32 @@ fn get_animal_asset(assets: &AnimalAssets, diet: &Diet) -> Handle<StandardMateri
         Diet::Omnivore => assets.omnivore.clone(),
     }
 }
+
+// TODO: this doesn't do much, but this logic should be used later on
+// fn connect_animal_with_medium_its_on(
+//     creature_transforms: Query<&Transform, With<AnimalMarker>>,
+//     tiles: Query<(Entity, &ThermalConductor)>,
+//     tile_layout: Res<TileLayout>,
+// ) {
+//     for creature_transform in creature_transforms.iter() {
+//         let creature_pos = creature_transform.translation.truncate();
+//         let entity = tile_layout.get_entity_for_position(creature_pos);
+
+//         match entity {
+//             Some(e) => {
+//                 // for (tile_entity, _medium) in tiles.iter() {
+//                 //     if tile_entity != e {
+//                 //         continue;
+//                 //     }
+//                 // }
+//                 match tiles.get(e) {
+//                     Ok(_) => continue,
+//                     Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
+//                 }
+//             }
+//             None => {
+//                 error!("No tile under this creature, pos: {}", creature_pos);
+//             }
+//         }
+//     }
+// }

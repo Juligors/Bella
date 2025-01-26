@@ -1,5 +1,7 @@
 use super::{
-    animal::AnimalMarker, plant::PlantMarker, Energy, EnergyDatav3, Health, KillOrganismEvent,
+    animal::{AnimalBundle, AnimalMarker, AnimalMatterMarker},
+    plant::{PlantBundle, PlantMarker, PlantMatterMarker},
+    Energy, EnergyDatav3, Health, KillOrganismEvent,
 };
 use crate::bella::{config::SimConfig, pause::PauseState, time::HourPassedEvent};
 use bevy::prelude::*;
@@ -37,8 +39,8 @@ pub struct CarcassAssets {
     pub carcass: Handle<StandardMaterial>,
 }
 
-fn prepare_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-    cmd.insert_resource(CarcassAssets {
+fn prepare_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+    commands.insert_resource(CarcassAssets {
         carcass: materials.add(Color::BLACK),
     });
 }
@@ -55,7 +57,7 @@ fn check_if_organisms_should_die(
 }
 
 fn transform_dead_organisms_into_carcasses(
-    mut cmd: Commands,
+    mut commands: Commands,
     mut event_reader: EventReader<KillOrganismEvent>,
     query: Query<(
         Entity,
@@ -71,28 +73,27 @@ fn transform_dead_organisms_into_carcasses(
         if let Ok((old_entity, transform, energy_data, mesh, maybe_animal, maybe_plant)) =
             query.get(event.entity)
         {
-            let new_entity = cmd
-                .spawn((
-                    Carcass {
-                        mass: energy_data.mass,
-                        starting_mass: energy_data.mass,
-                        energy_per_mass_unit: energy_data.energy_per_mass_unit_gene.phenotype(),
-                    },
-                    mesh.clone(),
-                    MeshMaterial3d(assets.carcass.clone()),
-                    *transform,
-                ))
-                .id();
+            let mut entity_commands = commands.entity(old_entity);
+            if maybe_animal.is_some() {
+                entity_commands.remove::<AnimalBundle>();
+                entity_commands.insert(AnimalMatterMarker);
+            }
 
-            // if maybe_animal.is_some() {
-            //     cmd.entity(new_entity).insert(AnimalMarker);
-            // }
+            if maybe_plant.is_some() {
+                entity_commands.remove::<PlantBundle>();
+                entity_commands.insert(PlantMatterMarker);
+            }
 
-            // if maybe_plant.is_some() {
-            //     cmd.entity(new_entity).insert(PlantMarker);
-            // }
-
-            cmd.entity(old_entity).despawn_recursive();
+            entity_commands.insert((
+                mesh.clone(),
+                MeshMaterial3d(assets.carcass.clone()),
+                *transform,
+                Carcass {
+                    mass: energy_data.mass,
+                    starting_mass: energy_data.mass,
+                    energy_per_mass_unit: energy_data.energy_per_mass_unit_gene.phenotype(),
+                },
+            ));
         };
     }
 }

@@ -1,7 +1,7 @@
 use super::{
     gene::{Allele, AlleleType, Gene, UnsignedFloatGene},
     Age, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker,
-    ReproduceEvent, SexualMaturity,
+    SexualMaturity,
 };
 use crate::bella::{
     config::SimConfig,
@@ -24,6 +24,7 @@ impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<PlantEnergyEfficiency>()
             .register_type::<PollinationRange>()
+            .add_event::<ReproducePlantsEvent>()
             .add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
             .add_systems(OnEnter(SimState::OrganismGeneration), spawn_plants)
             .add_systems(OnExit(SimState::Simulation), despawn_plants)
@@ -44,12 +45,22 @@ impl Plugin for PlantPlugin {
 #[derive(Component)]
 pub struct PlantMarker;
 
+#[derive(Component)]
+pub struct PlantMatterMarker;
+
 #[derive(Bundle)]
 pub struct PlantBundle {
     organism_bundle: OrganismBundle,
     marker: PlantMarker,
+    matter_marker: PlantMatterMarker,
     plant_energy_efficiency: PlantEnergyEfficiency,
     pollination_range: PollinationRange,
+}
+
+#[derive(Event)]
+pub struct ReproducePlantsEvent {
+    pub parent1: Entity,
+    pub parent2: Entity,
 }
 
 #[derive(Resource)]
@@ -127,7 +138,7 @@ fn spawn_plants(
             );
             let organism_energy_efficiency = OrganismEnergyEfficiency::new(
                 config
-                    .organism
+                    .plant
                     .energy_to_survive_per_mass_unit_gene_config
                     .into(),
                 config.organism.reproduction_energy_cost_gene_config.into(),
@@ -140,8 +151,6 @@ fn spawn_plants(
             );
             let pollination_range =
                 PollinationRange::new(config.plant.pollination_range_gene_config);
-
-            // let reproduction_cooldown = ReproductionCooldown(config.plant.development_time);
 
             let size = energy_data.get_size();
             let position = tile_layout.get_random_position_in_tile(tile);
@@ -160,6 +169,7 @@ fn spawn_plants(
                         organism_energy_efficiency,
                     },
                     marker: PlantMarker,
+                    matter_marker: PlantMatterMarker,
                     plant_energy_efficiency,
                     pollination_range,
                 })
@@ -209,8 +219,7 @@ fn produce_energy_from_solar(
 }
 
 fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
-    mut reproduction_ew: EventWriter<ReproduceEvent>,
-    mut kill_organism_ew: EventWriter<KillOrganismEvent>,
+    mut reproduction_ew: EventWriter<ReproducePlantsEvent>,
     mut commands: Commands,
     mut plants_ready_to_reproduce: Query<
         (
@@ -218,10 +227,10 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             &Transform,
             &PollinationRange,
             &mut SexualMaturity,
-            &mut EnergyDatav3,
-            &OrganismEnergyEfficiency,
+            // &mut EnergyDatav3,
+            // &OrganismEnergyEfficiency,
         ),
-        With<ReadyToReproduceMarker>,
+        (With<ReadyToReproduceMarker>, With<PlantMarker>),
     >,
 ) {
     let mut combinations = plants_ready_to_reproduce.iter_combinations_mut();
@@ -232,15 +241,15 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             transform1,
             range1,
             mut sexual_maturity1,
-            mut energy_data1,
-            organism_energy_efficiency1,
+            // mut energy_data1,
+            // organism_energy_efficiency1,
         ), (
             entity2,
             transform2,
             range2,
             mut sexual_maturity2,
-            mut energy_data2,
-            organism_energy_efficiency2,
+            // mut energy_data2,
+            // organism_energy_efficiency2,
         )],
     ) = combinations.fetch_next()
     {
@@ -255,7 +264,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             {
                 continue;
             }
-            reproduction_ew.send(ReproduceEvent {
+            reproduction_ew.send(ReproducePlantsEvent {
                 parent1: entity1,
                 parent2: entity2,
             });
@@ -290,7 +299,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
 
 fn reproduce(
     mut commands: Commands,
-    mut event_reader: EventReader<ReproduceEvent>,
+    mut event_reader: EventReader<ReproducePlantsEvent>,
     plant_assets: Res<PlantAssets>,
     tile_layout: Res<TileLayout>,
     config: Res<SimConfig>,
@@ -399,6 +408,7 @@ fn reproduce(
                     organism_energy_efficiency,
                 },
                 marker: PlantMarker,
+                matter_marker: PlantMatterMarker,
                 plant_energy_efficiency,
                 pollination_range,
             })

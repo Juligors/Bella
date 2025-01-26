@@ -92,7 +92,6 @@ pub struct OrganismConfig {
     pub max_active_energy_gene_config: UnsignedFloatGeneConfig,
     pub age_penalty_gene_config: UnsignedFloatGeneConfig,
 
-    pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
     pub reproduction_energy_cost_gene_config: UnsignedFloatGeneConfig,
 
     pub maturity_age_gene_config: UnsignedIntGeneConfig,
@@ -123,12 +122,18 @@ pub struct AnimalConfig {
     // pub development_time: i8,
     // pub waiting_for_reproduction_time: i8,
     pub carnivores_to_herbivores_ratio: f32,
+
+
+    // NEW
+    pub reproduction_range_gene_config: UnsignedFloatGeneConfig,
+    pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PlantConfig {
     pub energy_production_from_solar_efficiency_gene_config: UnsignedFloatGeneConfig,
     pub pollination_range_gene_config: UnsignedFloatGeneConfig,
+    pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
 
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,

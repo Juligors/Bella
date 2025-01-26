@@ -1,6 +1,6 @@
 use super::{
-    // organism::{animal::AnimalMarker, plant::PlantMarker},
     organism::{
+        animal::AnimalMarker,
         gene::{Allele, Gene, UnsignedFloatGene, UnsignedIntGene},
         plant::PlantMarker,
     },
@@ -189,9 +189,9 @@ fn entities_ui(world: &mut World) {
 
                 ui.separator();
 
-                // ui.collapsing("Animals", |ui| {
-                //     ui_for_world_entities_filtered::<With<AnimalMarker>>(world, ui, false);
-                // });
+                ui.collapsing("Animals", |ui| {
+                    ui_for_world_entities_filtered::<With<AnimalMarker>>(world, ui, false);
+                });
 
                 ui.separator();
 
