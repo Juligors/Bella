@@ -90,11 +90,14 @@ pub struct SimConfig {
 pub struct OrganismConfig {
     pub max_health_gene_config: UnsignedFloatGeneConfig,
     pub max_active_energy_gene_config: UnsignedFloatGeneConfig,
+    pub age_penalty_gene_config: UnsignedFloatGeneConfig,
 
     pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
     pub reproduction_energy_cost_gene_config: UnsignedFloatGeneConfig,
 
     pub maturity_age_gene_config: UnsignedIntGeneConfig,
+    // TODO: this is for now to differenciate starting timers
+    pub starting_maturity_dist: DiscreteDistribution,
     pub reproduction_cooldown_gene_config: UnsignedIntGeneConfig,
 
     pub starting_mass_dist: ContinuousDistribution,
@@ -206,20 +209,20 @@ impl BooleanDistribution {
 #[serde(rename_all = "lowercase")]
 pub enum DiscreteDistribution {
     Range {
-        min: i32,
-        max: i32,
+        min: u32,
+        max: u32,
     },
     Choice {
-        choices: Vec<i32>,
+        choices: Vec<u32>,
     },
     WeightedChoice {
-        choices: Vec<i32>,
+        choices: Vec<u32>,
         weights: Vec<f32>,
     },
 }
 
 impl DiscreteDistribution {
-    pub fn sample(&self) -> i32 {
+    pub fn sample(&self) -> u32 {
         RNG.with(|rng| {
             let mut rng = rng.borrow_mut();
 

@@ -1,4 +1,6 @@
-use super::{animal::AnimalMarker, plant::PlantMarker, Energy, EnergyDatav3, KillOrganismEvent};
+use super::{
+    animal::AnimalMarker, plant::PlantMarker, Energy, EnergyDatav3, Health, KillOrganismEvent,
+};
 use crate::bella::{config::SimConfig, pause::PauseState, time::HourPassedEvent};
 use bevy::prelude::*;
 
@@ -8,6 +10,10 @@ impl Plugin for CarcassPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Carcass>()
             .add_systems(Startup, prepare_assets)
+            .add_systems(
+                Update,
+                check_if_organisms_should_die.run_if(in_state(PauseState::Running)),
+            )
             .add_systems(
                 Update,
                 (decay_and_destoy_carcasses_if_needed).run_if(on_event::<HourPassedEvent>),
@@ -35,6 +41,17 @@ fn prepare_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMateri
     cmd.insert_resource(CarcassAssets {
         carcass: materials.add(Color::BLACK),
     });
+}
+
+fn check_if_organisms_should_die(
+    query: Query<(Entity, &Health)>,
+    mut ew: EventWriter<KillOrganismEvent>,
+) {
+    for (entity, health) in query.iter() {
+        if health.hp <= 0.0 {
+            ew.send(KillOrganismEvent { entity });
+        }
+    }
 }
 
 fn transform_dead_organisms_into_carcasses(

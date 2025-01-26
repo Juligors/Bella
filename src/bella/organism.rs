@@ -128,21 +128,29 @@ impl EnergyDatav3 {
     /// Store energy, first into active energy, and if there is not enough space left, increase to mass
     pub fn store_energy(&mut self, energy: Energy) {
         let free_active_energy_space = self.max_active_energy_gene.phenotype() - self.active_energy;
-        trace!("Free: {}, energy: {}", free_active_energy_space, energy);
         if free_active_energy_space >= energy {
-            trace!("Stored {} energy directly to active energy", energy);
             self.active_energy += energy;
         } else {
             self.active_energy = self.max_active_energy_gene.phenotype();
             let energy_left_to_store = energy - free_active_energy_space;
             let new_mass = self.get_mass_equivalent_of_energy(energy_left_to_store);
             self.mass += new_mass;
-            trace!(
-                "Added {} energy to active and the rest ({}) to mass: {}",
-                free_active_energy_space,
-                energy_left_to_store,
-                new_mass
-            );
+        }
+    }
+
+    pub fn consume_from_active_energy_and_dmg_if_not_enough(
+        &mut self,
+        mut energy_to_consume: Energy,
+    ) -> Energy {
+        if self.active_energy >= energy_to_consume {
+            self.active_energy -= energy_to_consume;
+
+            0.0
+        } else {
+            energy_to_consume -= self.active_energy;
+            self.active_energy = 0.0;
+
+            energy_to_consume
         }
     }
 
@@ -154,9 +162,15 @@ impl EnergyDatav3 {
             Ok(())
         } else {
             energy_to_consume -= self.active_energy;
-            self.active_energy = 0.0;
 
-            self.try_to_consume_energy_directly_from_mass(energy_to_consume)
+            match self.try_to_consume_energy_directly_from_mass(energy_to_consume) {
+                Ok(_) => {
+                    self.active_energy = 0.0;
+
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
         }
     }
 
@@ -168,6 +182,7 @@ impl EnergyDatav3 {
 
         if self.mass > mass_to_remove {
             self.mass -= mass_to_remove;
+
             Ok(())
         } else {
             Err(())
@@ -197,7 +212,20 @@ impl OrganismEnergyEfficiency {
 pub struct Age {
     pub value: u32,
     // TODO: to raczej nie powinno być takie ogólne, tylko osobne dla każdego komponentu, który osłabiany jest z wiekiem
-    // pub age_penalty: f32,
+    pub age_penalty_gene: UnsignedFloatGene,
+}
+
+impl Age {
+    pub fn new(age_value: u32, age_penalty_gene: UnsignedFloatGene) -> Self {
+        Self {
+            value: age_value,
+            age_penalty_gene,
+        }
+    }
+
+    pub fn get_age_penalty(&self) -> f32 {
+        self.age_penalty_gene.phenotype() * (self.value as f32).powf(1.0 / 4.0)
+    }
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -210,6 +238,23 @@ pub struct SexualMaturity {
 }
 
 impl SexualMaturity {
+    pub fn new(
+        maturity_age_gene: UnsignedIntGene,
+        reproduction_cooldown_gene: UnsignedIntGene,
+        starting_timer_value: u32
+    ) -> Self {
+        Self {
+            level: SexualMaturityLevel::Young {
+                left_to_mature_timer: Timer::new(
+                    Duration::from_secs(starting_timer_value as u64),
+                    TimerMode::Once,
+                ),
+            },
+            reproduction_cooldown_gene,
+            maturity_age_gene,
+        }
+    }
+
     pub fn reset_reproduction_cooldown(&mut self) {
         if let SexualMaturityLevel::Adult {
             reproduction_cooldown_timer,
@@ -220,30 +265,23 @@ impl SexualMaturity {
             panic!("Trying to reset reproduction cooldown for not Adult");
         }
     }
+
+    pub fn is_ready_to_reproduce(&self) -> bool {
+        if let SexualMaturityLevel::Adult {
+            reproduction_cooldown_timer,
+        } = &self.level
+        {
+            return reproduction_cooldown_timer.finished();
+        }
+
+        false
+    }
 }
 
 #[derive(Reflect, Debug, Clone)]
 pub enum SexualMaturityLevel {
     Young { left_to_mature_timer: Timer },
     Adult { reproduction_cooldown_timer: Timer },
-}
-
-impl SexualMaturity {
-    pub fn new(
-        maturity_age_gene: UnsignedIntGene,
-        reproduction_cooldown_gene: UnsignedIntGene,
-    ) -> Self {
-        Self {
-            level: SexualMaturityLevel::Young {
-                left_to_mature_timer: Timer::new(
-                    Duration::from_secs(maturity_age_gene.phenotype() as u64),
-                    TimerMode::Once,
-                ),
-            },
-            reproduction_cooldown_gene,
-            maturity_age_gene,
-        }
-    }
 }
 
 #[derive(Event)]
@@ -307,24 +345,43 @@ fn decrease_reproduction_cooldown_timer_and_add_ready_to_reproduce_marker(
 }
 
 fn consume_energy_to_survive(
-    mut query: Query<(Entity, &mut EnergyDatav3, &OrganismEnergyEfficiency)>,
-    mut event_writer: EventWriter<KillOrganismEvent>,
+    mut query: Query<(
+        Entity,
+        &mut EnergyDatav3,
+        &OrganismEnergyEfficiency,
+        &Age,
+        &mut Health,
+    )>,
 ) {
-    for (entity, mut energy_data, energy_efficiency) in query.iter_mut() {
+    for (entity, mut energy_data, energy_efficiency, age, mut health) in query.iter_mut() {
         let energy_to_survive = energy_data.mass
             * energy_efficiency
                 .energy_consumption_to_survive_per_mass_unit_gene
                 .phenotype()
-                // TODO: should i be like that? Linear should be enough
-                .powi(2);
+            * age.get_age_penalty();
 
-        trace!("Consumed to survive: {}", energy_to_survive);
+        trace!(
+            "Trying to consume {} energy to survive, active: {}",
+            energy_to_survive,
+            energy_data.active_energy
+        );
 
-        energy_data
-            .try_to_consume_energy(energy_to_survive)
-            .unwrap_or_else(|_| {
-                event_writer.send(KillOrganismEvent { entity });
-            });
+        let energy_left_to_consume =
+            energy_data.consume_from_active_energy_and_dmg_if_not_enough(energy_to_survive);
+        if energy_left_to_consume == 0.0 {
+            debug!(
+                "Had enough active energy to survive, energy left: {}",
+                energy_data.active_energy
+            );
+        } else {
+            debug!(
+                "Didn't have enough energy, still needs to consume {} energy",
+                energy_left_to_consume
+            );
+            let dmg = energy_left_to_consume / 10.0;
+            health.hp -= dmg;
+            debug!("Damaged by {}, hp left: {}", dmg, health.hp);
+        }
     }
 }
 

@@ -113,10 +113,11 @@ fn spawn_plants(
 
         for _ in 0..plant_count {
             let health = Health::new(config.organism.max_health_gene_config.into());
-            let age = Age { value: 0 };
+            let age = Age::new(0, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
                 config.organism.maturity_age_gene_config.into(),
                 config.organism.reproduction_cooldown_gene_config.into(),
+                config.organism.starting_maturity_dist.sample(),
             );
             let energy_data = EnergyDatav3::new(
                 config.organism.max_active_energy_gene_config.into(),
@@ -183,8 +184,12 @@ fn produce_energy_from_solar(
     for (mut energy_data, energy_efficiency) in query.iter_mut() {
         let produced_energy =
             sun.get_energy_for_plant() * energy_efficiency.production_from_solar_gene.phenotype();
-        trace!("Produces {} energy from solar", produced_energy);
         energy_data.store_energy(produced_energy);
+        trace!(
+            "Produced {} energy from solar, current energy (after taking active energy): {}",
+            produced_energy,
+            energy_data.get_stored_energy()
+        );
     }
 }
 
@@ -226,6 +231,15 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
     {
         let distance = transform1.translation.distance(transform2.translation);
         if distance <= range1.gene.phenotype() && distance <= range2.gene.phenotype() {
+            // TODO: it's a bug fix to ensure one plant get's to have multiple children at the same time
+            // (this loop iterates over one plant multiple times, it doesn't know that marker gets removed)
+            // honestly at this point marker could be removed, but it helps with O(n^2) complexity
+            // could get rid of it and in this function just manually filter only plants ready to reproduce and then iter over their combinations
+            if !sexual_maturity1.is_ready_to_reproduce()
+                || !sexual_maturity2.is_ready_to_reproduce()
+            {
+                continue;
+            }
             reproduction_ew.send(ReproduceEvent {
                 parent1: entity1,
                 parent2: entity2,
@@ -275,6 +289,7 @@ fn reproduce(
         &OrganismEnergyEfficiency,
         &PlantEnergyEfficiency,
         &PollinationRange,
+        &Age,
     )>,
 ) {
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
@@ -290,7 +305,13 @@ fn reproduce(
         // crossing parent organism genes
 
         let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
-        let age = Age { value: 0 };
+        let age = Age::new(
+            0,
+            parent1
+                .9
+                .age_penalty_gene
+                .mixed_with(&parent2.9.age_penalty_gene),
+        );
         let sexual_maturity = SexualMaturity::new(
             parent1
                 .4
@@ -300,6 +321,7 @@ fn reproduce(
                 .4
                 .reproduction_cooldown_gene
                 .mixed_with(&parent2.4.reproduction_cooldown_gene),
+            config.organism.starting_maturity_dist.sample(),
         );
         let energy_data = EnergyDatav3::new(
             parent1

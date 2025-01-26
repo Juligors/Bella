@@ -7,16 +7,25 @@ max_active_energy_gene_config:
   offset: 0.0
 
 energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 4.0
+  multiplier: 1.0
   offset: 0.3
 
 reproduction_energy_cost_gene_config:
   multiplier: 500.0
   offset: 0.0
 
+age_penalty_gene_config:
+  multiplier: 1.0
+  offset: 0.5
+
 maturity_age_gene_config:
   max_value: 12
   min_value: 1
+starting_maturity_dist:
+  type: 'range'
+  min: 0
+  max: 6
+
 
 reproduction_cooldown_gene_config:
   max_value: 12
