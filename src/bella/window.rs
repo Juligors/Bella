@@ -38,7 +38,7 @@ impl Plugin for MyWindowPlugin {
                         present_mode: PresentMode::AutoNoVsync,
                         window_theme: Some(WindowTheme::Dark),
                         window_level: WindowLevel::AlwaysOnTop,
-                        position: WindowPosition::At((75, 100).into()),
+                        position: WindowPosition::At((75, 50).into()),
                         ..default()
                     }),
                     ..default()
