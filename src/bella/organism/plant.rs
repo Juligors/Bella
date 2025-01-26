@@ -269,21 +269,21 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             sexual_maturity2.reset_reproduction_cooldown();
 
             // consume energy for reproduction and  kill organisms if they didn't have enough energy
-            let energy_needed1 = organism_energy_efficiency1
-                .reproduction_energy_cost_gene
-                .phenotype();
-            if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
-                kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
-            }
-            trace!("Energy consumed for reproduction: {}", energy_needed1);
+            // let energy_needed1 = organism_energy_efficiency1
+            //     .reproduction_energy_cost_gene
+            //     .phenotype();
+            // if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
+            //     kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
+            // }
+            // trace!("Energy consumed for reproduction: {}", energy_needed1);
 
-            let energy_needed2 = organism_energy_efficiency2
-                .reproduction_energy_cost_gene
-                .phenotype();
-            if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
-                kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
-            }
-            trace!("Energy consumed for reproduction: {}", energy_needed2);
+            // let energy_needed2 = organism_energy_efficiency2
+            //     .reproduction_energy_cost_gene
+            //     .phenotype();
+            // if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
+            //     kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
+            // }
+            // trace!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
@@ -320,7 +320,7 @@ fn reproduce(
         // crossing parent organism genes
 
         let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
-        let starting_age = config.organism.starting_age_dist.sample();
+        let starting_age = 0;
         let age = Age::new(
             starting_age,
             parent1
@@ -371,9 +371,10 @@ fn reproduce(
         let pollination_range = PollinationRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
 
         // other setup
+        let middle = (parent1.2.translation + parent2.2.translation) / 2.0;
         let new_plant_position = tile_layout
             .get_random_position_in_ring(
-                parent1.2.translation.truncate(),
+                middle.truncate(),
                 config.organism.offspring_spawn_range,
                 config.organism.offspring_spawn_range / 2.0,
             )
