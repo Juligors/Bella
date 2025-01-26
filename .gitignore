@@ -9,3 +9,6 @@
 
 # default directory for collected data
 /data
+
+# logs directory
+/logs
