@@ -84,13 +84,13 @@ fn transform_dead_organisms_into_carcasses(
                 ))
                 .id();
 
-            if maybe_animal.is_some() {
-                cmd.entity(new_entity).insert(AnimalMarker);
-            }
+            // if maybe_animal.is_some() {
+            //     cmd.entity(new_entity).insert(AnimalMarker);
+            // }
 
-            if maybe_plant.is_some() {
-                cmd.entity(new_entity).insert(PlantMarker);
-            }
+            // if maybe_plant.is_some() {
+            //     cmd.entity(new_entity).insert(PlantMarker);
+            // }
 
             cmd.entity(old_entity).despawn_recursive();
         };
