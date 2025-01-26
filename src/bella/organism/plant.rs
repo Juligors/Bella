@@ -204,10 +204,8 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
         With<ReadyToReproduceMarker>,
     >,
 ) {
-    let _span1 = info_span!("Whole function").entered();
     let mut combinations = plants_ready_to_reproduce.iter_combinations_mut();
 
-    let _span2 = info_span!("While loop").entered();
     while let Some(
         [(
             entity1,
@@ -226,7 +224,6 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
         )],
     ) = combinations.fetch_next()
     {
-        let _span2 = info_span!("Inside while").entered();
         let distance = transform1.translation.distance(transform2.translation);
         if distance <= range1.gene.phenotype() && distance <= range2.gene.phenotype() {
             reproduction_ew.send(ReproduceEvent {
