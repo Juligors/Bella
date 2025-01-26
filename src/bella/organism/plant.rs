@@ -1,8 +1,13 @@
+use super::{
+    gene::{Allele, AlleleType, Gene, UnsignedFloatGene},
+    Age, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker,
+    ReproduceEvent, SexualMaturity,
+};
 use crate::bella::{
     config::SimConfig,
     environment::Sun,
     inspector::choose_entity_observer,
-    organism::{EnergyDatav2, Health},
+    organism::{EnergyDatav3, Health},
     restart::SimState,
     terrain::{
         thermal_conductor::ThermalConductor,
@@ -13,23 +18,22 @@ use crate::bella::{
 };
 use bevy::prelude::*;
 
-use super::{ReproductionState, Tissue};
-
 pub struct PlantPlugin;
 
 impl Plugin for PlantPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
+        app.register_type::<PlantEnergyEfficiency>()
+            .register_type::<PollinationRange>()
+            .add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
             .add_systems(OnEnter(SimState::OrganismGeneration), spawn_plants)
             .add_systems(OnExit(SimState::Simulation), despawn_plants)
             .add_systems(
                 Update,
                 (
                     produce_energy_from_solar,
+                    send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy,
+                    reproduce,
                     // give_plant_energy_from_thermal_conductor_its_on,
-                    // consume_energy_to_survive,
-                    // consume_energy_to_grow,
-                    // consume_energy_to_reproduce,
                 )
                     .chain()
                     .run_if(on_event::<HourPassedEvent>),
@@ -40,14 +44,41 @@ impl Plugin for PlantPlugin {
 #[derive(Component)]
 pub struct PlantMarker;
 
+#[derive(Bundle)]
+pub struct PlantBundle {
+    organism_bundle: OrganismBundle,
+    marker: PlantMarker,
+    plant_energy_efficiency: PlantEnergyEfficiency,
+    pollination_range: PollinationRange,
+}
+
 #[derive(Resource)]
 pub struct PlantAssets {
     alive: Handle<StandardMaterial>,
 }
 
-#[derive(Component, Reflect, Debug)]
+#[derive(Component, Reflect, Debug, Clone)]
 pub struct PlantEnergyEfficiency {
-    pub production_from_solar: f32,
+    pub production_from_solar_gene: UnsignedFloatGene,
+}
+
+impl PlantEnergyEfficiency {
+    pub fn new(production_from_solar_gene: impl Into<UnsignedFloatGene>) -> Self {
+        Self {
+            production_from_solar_gene: production_from_solar_gene.into(),
+        }
+    }
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct PollinationRange {
+    gene: UnsignedFloatGene,
+}
+
+impl PollinationRange {
+    pub fn new(gene: impl Into<UnsignedFloatGene>) -> Self {
+        Self { gene: gene.into() }
+    }
 }
 
 fn prepare_plant_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
@@ -81,43 +112,55 @@ fn spawn_plants(
         let plant_count = config.plant.group_size_dist.sample();
 
         for _ in 0..plant_count {
-            let max_hp = config.plant.max_health_dist.sample();
-            let health = Health {
-                hp: max_hp / 2.0,
-                max_hp,
-            };
-
-            let max_active_energy = config.organism.max_active_energy_dist.sample();
-            let energy_data = EnergyDatav2 {
-                active_energy: max_active_energy / 2.0,
-                max_active_energy,
-            };
-
-            let tissue = Tissue {
-                mass: config.organism.starting_mass_dist.sample(),
-                energy_per_mass_unit: config.organism.energy_per_mass_unit_dist.sample(),
-                energy_consumption_per_mass_unit: config
+            let health = Health::new(config.organism.max_health_gene_config.into());
+            let age = Age { value: 0 };
+            let sexual_maturity = SexualMaturity::new(
+                config.organism.maturity_age_gene_config.into(),
+                config.organism.reproduction_cooldown_gene_config.into(),
+            );
+            let energy_data = EnergyDatav3::new(
+                config.organism.max_active_energy_gene_config.into(),
+                config.organism.max_active_energy_gene_config.into(),
+                config.organism.starting_mass_dist.sample(),
+            );
+            let organism_energy_efficiency = OrganismEnergyEfficiency::new(
+                config
                     .organism
-                    .energy_consumption_per_mass_unit_dist
-                    .sample(),
-            };
+                    .energy_to_survive_per_mass_unit_gene_config
+                    .into(),
+                config.organism.reproduction_energy_cost_gene_config.into(),
+            );
 
-            let size = tissue.get_size();
+            let plant_energy_efficiency = PlantEnergyEfficiency::new(
+                config
+                    .plant
+                    .energy_production_from_solar_efficiency_gene_config,
+            );
+            let pollination_range =
+                PollinationRange::new(config.plant.pollination_range_gene_config);
 
+            // let reproduction_cooldown = ReproductionCooldown(config.plant.development_time);
+
+            let size = energy_data.get_size();
             let position = tile_layout.get_random_position_in_tile(tile);
 
             let entity = commands
-                .spawn((
-                    PlantMarker,
-                    Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(plant_assets.alive.clone()),
-                    Transform::from_translation(position.extend(size))
-                        .with_scale(Vec3::splat(size)),
-                    ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
-                    health,
-                    energy_data,
-                    tissue,
-                ))
+                .spawn(PlantBundle {
+                    organism_bundle: OrganismBundle {
+                        mesh: Mesh3d(mesh_handle.clone()),
+                        material: MeshMaterial3d(plant_assets.alive.clone()),
+                        transform: Transform::from_translation(position.extend(size / 2.0))
+                            .with_scale(Vec3::splat(size)),
+                        health,
+                        age,
+                        sexual_maturity,
+                        energy_data,
+                        organism_energy_efficiency,
+                    },
+                    marker: PlantMarker,
+                    plant_energy_efficiency,
+                    pollination_range,
+                })
                 .id();
 
             choose_entity_observer.watch_entity(entity);
@@ -127,145 +170,203 @@ fn spawn_plants(
     commands.spawn(choose_entity_observer);
 }
 
-fn despawn_plants(mut cmd: Commands, plants: Query<Entity, With<PlantMarker>>) {
+fn despawn_plants(mut commands: Commands, plants: Query<Entity, With<PlantMarker>>) {
     for plant_entity in plants.iter() {
-        cmd.entity(plant_entity).despawn_recursive();
+        commands.entity(plant_entity).despawn_recursive();
     }
 }
 
 fn produce_energy_from_solar(
-    mut query: Query<(&mut EnergyDatav2, &PlantEnergyEfficiency), With<PlantMarker>>,
+    mut query: Query<(&mut EnergyDatav3, &PlantEnergyEfficiency), With<PlantMarker>>,
     sun: Res<Sun>,
 ) {
     for (mut energy_data, energy_efficiency) in query.iter_mut() {
-        let produced_energy = sun.get_energy_for_plant() * energy_efficiency.production_from_solar;
-        energy_data.active_energy += produced_energy;
-        // TODO: should clamp this? or convert overflow directly to fat? Probably...
+        let produced_energy =
+            sun.get_energy_for_plant() * energy_efficiency.production_from_solar_gene.phenotype();
+        debug!("Produces {} energy from solar", produced_energy);
+        energy_data.store_energy(produced_energy);
     }
 }
 
-fn consume_energy_to_survive(
-    mut query: Query<(&mut EnergyDatav2, &mut Tissue), With<PlantMarker>>,
-) {
-    for (mut energy_data, mut tissue) in query.iter_mut() {
-        let energy_to_survive = tissue.get_energy_consumption();
-        energy_data.consume_energy_with_tissue_if_needed(&mut tissue, energy_to_survive);
-    }
-}
-
-fn consume_energy_to_grow(
-    mut query: Query<
+fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
+    mut reproduction_ew: EventWriter<ReproduceEvent>,
+    mut kill_organism_ew: EventWriter<KillOrganismEvent>,
+    mut commands: Commands,
+    mut plants_ready_to_reproduce: Query<
         (
-            &mut EnergyData,
-            &mut Size,
-            &mut Transform,
-            &mut ReproductionState,
+            Entity,
+            &Transform,
+            &PollinationRange,
+            &mut SexualMaturity,
+            &mut EnergyDatav3,
+            &OrganismEnergyEfficiency,
         ),
-        With<PlantMarker>,
+        With<ReadyToReproduceMarker>,
     >,
 ) {
-    for (mut energy_data, mut size, mut transform, mut reproduction_state) in query.iter_mut() {
-        match *reproduction_state {
-            ReproductionState::ReadyToReproduce => continue,
-            ReproductionState::WaitingToReproduce(_) => continue,
-            ReproductionState::Developing(time) => {
-                let energy_consumed_to_grow =
-                    energy_data.energy_needed_for_growth_per_mass_unit * size.real_volume();
+    let _span1 = info_span!("Whole function").entered();
+    let mut combinations = plants_ready_to_reproduce.iter_combinations_mut();
 
-                if energy_data.energy < energy_consumed_to_grow {
-                    continue;
-                }
+    let _span2 = info_span!("While loop").entered();
+    while let Some(
+        [(
+            entity1,
+            transform1,
+            range1,
+            mut sexual_maturity1,
+            mut energy_data1,
+            organism_energy_efficiency1,
+        ), (
+            entity2,
+            transform2,
+            range2,
+            mut sexual_maturity2,
+            mut energy_data2,
+            organism_energy_efficiency2,
+        )],
+    ) = combinations.fetch_next()
+    {
+        let _span2 = info_span!("Inside while").entered();
+        let distance = transform1.translation.distance(transform2.translation);
+        if distance <= range1.gene.phenotype() && distance <= range2.gene.phenotype() {
+            reproduction_ew.send(ReproduceEvent {
+                parent1: entity1,
+                parent2: entity2,
+            });
 
-                *reproduction_state = ReproductionState::Developing(time - 1);
-                energy_data.energy -= energy_consumed_to_grow;
-                size.size += energy_data.grow_by;
+            // remove marker
+            commands.entity(entity1).remove::<ReadyToReproduceMarker>();
+            commands.entity(entity2).remove::<ReadyToReproduceMarker>();
 
-                *transform = transform.with_scale(Vec3::splat(size.size));
+            // reset reproduction cooldowns
+            sexual_maturity1.reset_reproduction_cooldown();
+            sexual_maturity2.reset_reproduction_cooldown();
+
+            // consume energy for reproduction and  kill organisms if they didn't have enough energy
+            let energy_needed1 = organism_energy_efficiency1
+                .reproduction_energy_cost_gene
+                .phenotype();
+            if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
+                kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
             }
+            debug!("Energy consumed for reproduction: {}", energy_needed1);
+
+            let energy_needed2 = organism_energy_efficiency2
+                .reproduction_energy_cost_gene
+                .phenotype();
+            if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
+                kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
+            }
+            debug!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
 
-fn consume_energy_to_reproduce(
+fn reproduce(
     mut commands: Commands,
-    mut query: Query<
-        (
-            &mut ReproductionState,
-            &mut EnergyDatav2,
-            &mut Health,
-            &Transform,
-            &Mesh3d,
-            &MeshMaterial3d<StandardMaterial>,
-            &Size,
-            &PlantMatter,
-        ),
-        With<PlantMarker>,
-    >,
+    mut event_reader: EventReader<ReproduceEvent>,
+    plant_assets: Res<PlantAssets>,
     tile_layout: Res<TileLayout>,
     config: Res<SimConfig>,
+    query: Query<(
+        &Mesh3d,
+        &MeshMaterial3d<StandardMaterial>,
+        &Transform,
+        &Health,
+        &SexualMaturity,
+        &EnergyDatav3,
+        &OrganismEnergyEfficiency,
+        &PlantEnergyEfficiency,
+        &PollinationRange,
+    )>,
 ) {
-    // TODO: more data should be inherited from parent/parents
-    for (
-        mut parent_life_cycle_state,
-        mut parent_energy_data,
-        mut parent_health,
-        parent_transform,
-        parent_mesh,
-        parent_material,
-        parent_size,
-        parent_plant_matter,
-    ) in query.iter_mut()
-    {
-        // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
-        match *parent_life_cycle_state {
-            ReproductionState::Developing(_) => continue,
-            ReproductionState::WaitingToReproduce(cooldown) => {
-                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
-            }
-            ReproductionState::ReadyToReproduce => {
-                *parent_life_cycle_state = ReproductionState::WaitingToReproduce(
-                    config.plant.waiting_for_reproduction_time,
-                );
+    let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
-                let size = Size {
-                    size: parent_size.size,
-                };
-                let health = Health {
-                    max_hp: parent_health.max_hp,
-                    hp: parent_health.max_hp / 2.0,
-                };
+    for event in event_reader.read() {
+        let parent1 = query
+            .get(event.parent1)
+            .expect("Failed to fetch parent from query during reproduction");
+        let parent2 = query
+            .get(event.parent2)
+            .expect("Failed to fetch parent from query during reproduction");
 
-                let energy_data = EnergyDatav2 {
-                    max_active_energy: parent_energy_data.max_active_energy,
-                    active_energy: parent_energy_data.max_active_energy / 2.0,
-                };
+        // crossing parent organism genes
 
-                let plant_matter = PlantMatter {
-                    stored_energy: parent_plant_matter.stored_energy,
-                };
+        let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
+        let age = Age { value: 0 };
+        let sexual_maturity = SexualMaturity::new(
+            parent1
+                .4
+                .maturity_age_gene
+                .mixed_with(&parent2.4.maturity_age_gene),
+            parent1
+                .4
+                .reproduction_cooldown_gene
+                .mixed_with(&parent2.4.reproduction_cooldown_gene),
+        );
+        let energy_data = EnergyDatav3::new(
+            parent1
+                .5
+                .max_active_energy_gene
+                .mixed_with(&parent2.5.max_active_energy_gene),
+            parent1
+                .5
+                .energy_per_mass_unit_gene
+                .mixed_with(&parent2.5.energy_per_mass_unit_gene),
+            config.organism.starting_mass_dist.sample(),
+        );
+        let organism_energy_efficiency = OrganismEnergyEfficiency::new(
+            parent1
+                .6
+                .energy_consumption_to_survive_per_mass_unit_gene
+                .mixed_with(&parent2.6.energy_consumption_to_survive_per_mass_unit_gene),
+            parent1
+                .6
+                .reproduction_energy_cost_gene
+                .mixed_with(&parent2.6.reproduction_energy_cost_gene),
+        );
 
-                let position = tile_layout.get_random_position_in_range(
-                    parent_transform.translation.truncate(),
-                    config.plant.reproduction_range,
-                );
+        // crossing parent plant genes
+        let plant_energy_efficiency = PlantEnergyEfficiency::new(
+            parent1
+                .7
+                .production_from_solar_gene
+                .mixed_with(&parent2.7.production_from_solar_gene),
+        );
+        let pollination_range = PollinationRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
 
-                commands
-                    .spawn((
-                        PlantMarker,
-                        Transform::from_translation(position.extend(size.size))
-                            .with_scale(Vec3::splat(size.size)),
-                        ReproductionState::Developing(config.plant.development_time), // TODO: probably need to fix that?
-                        plant_matter,
-                        parent_mesh.clone(),
-                        parent_material.clone(),
-                        health,
-                        size,
-                        energy_data,
-                    ))
-                    .observe(choose_entity_observer);
-            }
-        }
+        // other setup
+        let new_plant_position = tile_layout
+            .get_random_position_in_ring(
+                parent1.2.translation.truncate(),
+                config.organism.offspring_spawn_range,
+                config.organism.offspring_spawn_range / 2.0,
+            )
+            .extend(energy_data.get_size() / 2.0);
+
+        let entity = commands
+            .spawn(PlantBundle {
+                organism_bundle: OrganismBundle {
+                    mesh: parent1.0.clone(),
+                    material: MeshMaterial3d(plant_assets.alive.clone()),
+                    transform: Transform::from_translation(new_plant_position),
+
+                    health,
+                    age,
+                    sexual_maturity,
+                    energy_data,
+                    organism_energy_efficiency,
+                },
+                marker: PlantMarker,
+                plant_energy_efficiency,
+                pollination_range,
+            })
+            .id();
+
+        choose_entity_observer.watch_entity(entity);
     }
+
+    commands.spawn(choose_entity_observer);
 }
 
 // fn give_plant_energy_from_thermal_conductor_its_on(

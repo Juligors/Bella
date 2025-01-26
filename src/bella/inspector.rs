@@ -1,10 +1,19 @@
 use super::{
-    organism::{animal::AnimalMarker, plant::PlantMarker},
+    // organism::{animal::AnimalMarker, plant::PlantMarker},
+    organism::{
+        gene::{Allele, Gene, UnsignedFloatGene, UnsignedIntGene},
+        plant::PlantMarker,
+    },
     terrain::{tile::TileLayout, TerrainMarker},
     time::{DailyTimer, HourlyTimer, SimTime},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_egui::{egui, EguiContext, EguiPlugin, EguiSet};
+use bevy_egui::egui::{text::LayoutJob, Color32, TextFormat};
+use bevy_egui::{
+    egui::{self},
+    EguiContext, EguiPlugin, EguiSet,
+};
+use bevy_inspector_egui::inspector_egui_impls::{InspectorEguiImpl, InspectorPrimitive};
 use bevy_inspector_egui::{
     bevy_inspector::{ui_for_entity, ui_for_resource, ui_for_world_entities_filtered},
     DefaultInspectorConfigPlugin,
@@ -18,6 +27,11 @@ impl Plugin for InspectorPlugin {
             .init_state::<EguiFocusState>()
             .init_state::<EguiVisibleState>()
             .insert_resource(ChosenEntity { entity: None })
+            // for custom UI for Genes
+            .register_type_data::<UnsignedFloatGene, InspectorEguiImpl>()
+            .register_type_data::<UnsignedIntGene, InspectorEguiImpl>()
+            .register_type_data::<Gene, InspectorEguiImpl>()
+            .register_type_data::<Allele, InspectorEguiImpl>()
             .add_systems(Startup, setup_egui)
             .add_systems(
                 Update,
@@ -80,6 +94,7 @@ fn chosen_entity_ui(world: &mut World) {
         egui::Window::new("Chosen entity")
             .default_open(true)
             .default_pos((0.0, 70.0))
+            .default_width(700.0)
             .show(egui_context.get_mut(), |ui| {
                 if ui.button("Clear chosen entity").clicked() {
                     world.resource_mut::<ChosenEntity>().entity = None;
@@ -87,9 +102,12 @@ fn chosen_entity_ui(world: &mut World) {
 
                 ui.separator();
 
-                egui::ScrollArea::both().show(ui, |ui| {
-                    ui_for_entity(world, entity, ui);
-                });
+                egui::ScrollArea::both()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.spacing_mut().item_spacing = egui::vec2(10.0, 10.0);
+                        ui_for_entity(world, entity, ui);
+                    });
             });
     }
 }
@@ -171,9 +189,9 @@ fn entities_ui(world: &mut World) {
 
                 ui.separator();
 
-                ui.collapsing("Animals", |ui| {
-                    ui_for_world_entities_filtered::<With<AnimalMarker>>(world, ui, false);
-                });
+                // ui.collapsing("Animals", |ui| {
+                //     ui_for_world_entities_filtered::<With<AnimalMarker>>(world, ui, false);
+                // });
 
                 ui.separator();
 
@@ -217,5 +235,222 @@ pub fn update_egui_focus_state(
         next_state.set(EguiFocusState::IsFocused);
     } else {
         next_state.set(EguiFocusState::IsNotFocused);
+    }
+}
+
+impl InspectorPrimitive for UnsignedFloatGene {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_egui::egui::Ui,
+        options: &dyn std::any::Any,
+        id: bevy_egui::egui::Id,
+        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) -> bool {
+        let mut changed = false;
+
+        ui.vertical(|ui| {
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Multiplier: ");
+                    changed |=
+                        env.ui_for_reflect_with_options(&mut self.multiplier, ui, id, options);
+                });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Offset: ");
+                    changed |= env.ui_for_reflect_with_options(&mut self.offset, ui, id, options);
+                });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Phenotype: ");
+                    changed |=
+                        env.ui_for_reflect_with_options(&mut self.phenotype(), ui, id, options);
+                });
+            });
+
+            changed |= env.ui_for_reflect_with_options(&mut self.gene, ui, id, options);
+        });
+
+        changed
+    }
+
+    fn ui_readonly(
+        &self,
+        ui: &mut bevy_egui::egui::Ui,
+        _: &dyn std::any::Any,
+        _: bevy_egui::egui::Id,
+        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) {
+        ui.add_enabled_ui(false, |ui| {
+            ui.label("Readonly UnsignedFloatGene UI, not implemented")
+                .changed();
+        });
+    }
+}
+
+impl InspectorPrimitive for UnsignedIntGene {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_egui::egui::Ui,
+        options: &dyn std::any::Any,
+        id: bevy_egui::egui::Id,
+        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) -> bool {
+        let mut changed = false;
+
+        ui.vertical(|ui| {
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Max_value: ");
+                    changed |=
+                        env.ui_for_reflect_with_options(&mut self.max_value, ui, id, options);
+                });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Min_value: ");
+                    changed |=
+                        env.ui_for_reflect_with_options(&mut self.min_value, ui, id, options);
+                });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Phenotype: ");
+                    changed |=
+                        env.ui_for_reflect_with_options(&mut self.phenotype(), ui, id, options);
+                });
+            });
+
+            changed |= env.ui_for_reflect_with_options(&mut self.gene, ui, id, options);
+        });
+
+        changed
+    }
+
+    fn ui_readonly(
+        &self,
+        ui: &mut bevy_egui::egui::Ui,
+        _: &dyn std::any::Any,
+        _: bevy_egui::egui::Id,
+        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) {
+        ui.add_enabled_ui(false, |ui| {
+            ui.label("Readonly UnsignedIntGene UI, not implemented")
+                .changed();
+        });
+    }
+}
+
+impl InspectorPrimitive for Gene {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_egui::egui::Ui,
+        _: &dyn std::any::Any,
+        id: bevy_egui::egui::Id,
+        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) -> bool {
+        let mut changed = false;
+
+        ui.group(|ui| {
+            ui.horizontal(|ui| {
+                ui.push_id(id.value().wrapping_add(100), |ui| {
+                    changed |= env.ui_for_reflect(&mut self.allele1, ui);
+                });
+                ui.push_id(id.value().wrapping_add(200), |ui| {
+                    changed |= env.ui_for_reflect(&mut self.allele2, ui);
+                });
+            });
+        });
+
+        changed
+    }
+
+    fn ui_readonly(
+        &self,
+        ui: &mut bevy_egui::egui::Ui,
+        _: &dyn std::any::Any,
+        _: bevy_egui::egui::Id,
+        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) {
+        ui.add_enabled_ui(false, |ui| {
+            ui.label("Readonly Gene UI, not implemented!").changed();
+        });
+    }
+}
+
+impl InspectorPrimitive for Allele {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_egui::egui::Ui,
+        options: &dyn std::any::Any,
+        id: bevy_egui::egui::Id,
+        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) -> bool {
+        let mut changed = false;
+
+        ui.vertical(|ui| {
+            ui.push_id(id.value(), |ui| {
+                changed |= env.ui_for_reflect(&mut self.allele_type, ui);
+            });
+
+            ui.horizontal(|ui| {
+                ui.group(|ui| {
+                    ui.vertical(|ui| {
+                        for byte in self.bytes.iter() {
+                            let mut job = LayoutJob::default();
+                            for bit in format!("{:0>8b}", byte).chars() {
+                                let color = if bit == '1' {
+                                    Color32::GREEN
+                                } else {
+                                    Color32::RED
+                                };
+                                job.append(
+                                    &bit.to_string(),
+                                    0.0,
+                                    TextFormat { color, ..default() },
+                                );
+                            }
+                            job.append("\n", 0.0, TextFormat::default());
+
+                            // make border invisible
+                            // let style = ui.style_mut();
+                            // style.visuals.widgets.noninteractive.bg_stroke = Stroke {
+                            //     color: Color32::TRANSPARENT,
+                            //     ..Default::default()
+                            // };
+                            ui.group(|ui| {
+                                changed |= ui.label(job).changed();
+                            });
+                        }
+                    });
+
+                    ui.push_id(id.value(), |ui| {
+                        ui.set_max_width(150.0);
+                        changed |=
+                            env.ui_for_reflect_with_options(&mut self.bytes, ui, id, options);
+                    });
+                });
+            });
+        });
+
+        changed
+    }
+
+    fn ui_readonly(
+        &self,
+        ui: &mut bevy_egui::egui::Ui,
+        _: &dyn std::any::Any,
+        _: bevy_egui::egui::Id,
+        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) {
+        ui.add_enabled_ui(false, |ui| {
+            ui.label("Readonly Allele UI, not implemented!").changed();
+        });
     }
 }

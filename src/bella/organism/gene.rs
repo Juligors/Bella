@@ -1,8 +1,8 @@
 use bevy::prelude::*;
-use bevy_egui::egui::{text::LayoutJob, Color32, TextFormat};
-use bevy_inspector_egui::inspector_egui_impls::{InspectorEguiImpl, InspectorPrimitive};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
+
+use crate::bella::config::{UnsignedFloatGeneConfig, UnsignedIntGeneConfig};
 
 thread_local! {
     static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
@@ -12,42 +12,96 @@ pub struct GenePlugin;
 
 impl Plugin for GenePlugin {
     fn build(&self, app: &mut App) {
-        app
-            // for custom UI
-            .register_type_data::<Gene, InspectorEguiImpl>()
-            .register_type_data::<Allele, InspectorEguiImpl>();
+        app.register_type::<UnsignedFloatGene>()
+            .register_type::<UnsignedIntGene>()
+            .register_type::<Gene>()
+            .register_type::<Allele>()
+            .register_type::<AlleleType>();
     }
 }
 
-// GeneInterpretation, Gene<T>
-
-// type ReproductionRangeGeneInterpretation = IntGeneInterpretation
-
-
 #[derive(Reflect, Debug, Clone)]
-pub struct GeneInterpretationPercentage{
-
+pub struct UnsignedFloatGene {
+    pub gene: Gene,
+    pub multiplier: f32,
+    pub offset: f32,
 }
 
-pub trait Interpretation<T> {
-    fn interpret(&self)  -> T;
+impl UnsignedFloatGene {
+    pub fn phenotype(&self) -> f32 {
+        self.multiplier * (self.gene.expression_level() + self.offset).clamp(0.0, 1.0)
+    }
+
+    pub fn mixed_with(&self, other: &Self) -> Self {
+        assert!(self.multiplier == other.multiplier);
+        assert!(self.offset == other.offset);
+
+        Self {
+            gene: self.gene.cross_with(&other.gene),
+            multiplier: self.multiplier,
+            offset: self.offset,
+        }
+    }
+}
+
+impl From<UnsignedFloatGeneConfig> for UnsignedFloatGene {
+    fn from(value: UnsignedFloatGeneConfig) -> Self {
+        assert!(value.multiplier > 0.0);
+        assert!(value.offset >= 0.0);
+
+        Self {
+            gene: Gene::new(0.5),
+            multiplier: value.multiplier,
+            offset: value.offset,
+        }
+    }
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub struct Gene<T> {
+pub struct UnsignedIntGene {
+    pub gene: Gene,
+    pub max_value: u32,
+    pub min_value: u32,
+}
+
+impl UnsignedIntGene {
+    pub fn phenotype(&self) -> u32 {
+        let diff = (self.max_value - self.min_value) as f32;
+        (self.gene.expression_level() * diff) as u32 + self.min_value
+    }
+
+    pub fn mixed_with(&self, other: &Self) -> Self {
+        assert!(self.max_value == other.max_value);
+        assert!(self.min_value == other.min_value);
+
+        Self {
+            gene: self.gene.cross_with(&other.gene),
+            max_value: self.max_value,
+            min_value: self.min_value,
+        }
+    }
+}
+
+impl From<UnsignedIntGeneConfig> for UnsignedIntGene {
+    fn from(value: UnsignedIntGeneConfig) -> Self {
+        assert!(value.max_value > value.min_value);
+
+        Self {
+            gene: Gene::new(0.5),
+            max_value: value.max_value,
+            min_value: value.min_value,
+        }
+    }
+}
+
+#[derive(Reflect, Debug, Clone)]
+pub struct Gene {
     pub allele1: Allele,
     pub allele2: Allele,
-    pub interpretation: T,
-    // gene_expression_multiplier: f32,
-    // offset: f32,
 }
 
 impl Gene {
-    pub fn new(
-        gene_expression_multiplier: f32,
-        offset: f32,
-        gene_starting_value_percentage: f32,
-    ) -> Self {
+    pub fn new(gene_starting_value_percentage: f32) -> Self {
         let byte_value = (gene_starting_value_percentage * 255.0) as u8;
 
         // TODO: right now it's always 1 Dominant and 1 Recessive. Is that ok? It honestly might be
@@ -60,13 +114,11 @@ impl Gene {
                 allele_type: AlleleType::Recessive,
                 bytes: vec![byte_value],
             },
-            gene_expression_multiplier,
-            offset,
         }
     }
 
-    pub fn phenotype(&self) -> f32 {
-        let gene_expression_level = if self.alleles_have_different_types() {
+    pub fn expression_level(&self) -> f32 {
+        if self.alleles_have_different_types() {
             if self.allele1.is_dominant() {
                 self.allele1.gene_expression_level()
             } else {
@@ -74,9 +126,7 @@ impl Gene {
             }
         } else {
             (self.allele1.gene_expression_level() + self.allele2.gene_expression_level()) / 2.0
-        };
-
-        self.gene_expression_multiplier * (gene_expression_level + self.offset).clamp(0.0, 1.0)
+        }
     }
 
     pub fn cross_with(&self, other: &Gene) -> Self {
@@ -95,15 +145,7 @@ impl Gene {
                 other.allele2.clone()
             };
 
-            assert!(self.gene_expression_multiplier == other.gene_expression_multiplier);
-            assert!(self.offset == other.offset);
-
-            Gene {
-                allele1,
-                allele2,
-                gene_expression_multiplier: self.gene_expression_multiplier,
-                offset: self.offset,
-            }
+            Gene { allele1, allele2 }
         })
     }
 
@@ -113,71 +155,13 @@ impl Gene {
     }
 }
 
-impl InspectorPrimitive for Gene {
-    fn ui(
-        &mut self,
-        ui: &mut bevy_egui::egui::Ui,
-        _: &dyn std::any::Any,
-        id: bevy_egui::egui::Id,
-        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
-    ) -> bool {
-        let mut changed = false;
-
-        ui.vertical(|ui| {
-            ui.group(|ui| {
-                ui.horizontal(|ui| {
-                    ui.push_id(id.value(), |ui| {
-                        ui.label("Gene expression multiplier: ");
-                        changed |= env.ui_for_reflect(&mut self.gene_expression_multiplier, ui);
-                    });
-                });
-
-                ui.separator();
-
-                ui.horizontal(|ui| {
-                    ui.push_id(id.value(), |ui| {
-                        ui.label("Phenotype: ");
-                        changed |= env.ui_for_reflect(&mut self.phenotype(), ui);
-                    });
-                });
-            });
-
-            ui.add_space(20.0);
-
-            ui.horizontal(|ui| {
-                ui.push_id(id.value() + 1, |ui| {
-                    changed |= env.ui_for_reflect(&mut self.allele1, ui);
-                });
-                ui.push_id(id.value() + 2, |ui| {
-                    changed |= env.ui_for_reflect(&mut self.allele2, ui);
-                });
-            });
-        });
-
-        changed
-    }
-
-    fn ui_readonly(
-        &self,
-        ui: &mut bevy_egui::egui::Ui,
-        _: &dyn std::any::Any,
-        _: bevy_egui::egui::Id,
-        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
-    ) {
-        ui.add_enabled_ui(false, |ui| {
-            ui.label("Readonly Genetic Information UI, not implemented")
-                .changed();
-        });
-    }
-}
-
 /// TODO: maska? tzn. "te bity muszą być ustawione na 1, bo jak nie gen nie działa i dajemy wartość 0 i zdychasz elo elo"
 /// Mutacja może mieć 2 rezultaty: brak efektu i jakiś efekt. Żeby to osiągnąć moglibyśmy mieć maskę, która "unieaktywnia niektóre obszary", reprezentowałaby ona "trash DNA" and "coding DNA".
 /// Poza tym jeśli jest efekt to może on być negatywny jak i pozytywny. To powinno zostać załatwione poprzez naturane działanie genów - albo zwiększamy albo zmiejszamy wartość. Można by pomyśleć o drugiej masce (oryginalny pomysł), która wyłącza cały gen, ale to jest raczej niepotrzebne. Ta nowa maska cześciowo spełnia jej rolę w jakimś tam sensie i chroni też przed negatywnymi efektami mutacji. Pomyśleć czy ona też powinna się zmieniać?
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Allele {
-    allele_type: AlleleType,
-    bytes: Vec<u8>,
+    pub allele_type: AlleleType,
+    pub bytes: Vec<u8>,
 }
 
 ///  TODO:
@@ -221,77 +205,6 @@ impl Allele {
 
     pub fn is_recessive(&self) -> bool {
         matches!(self.allele_type, AlleleType::Recessive)
-    }
-}
-
-impl InspectorPrimitive for Allele {
-    fn ui(
-        &mut self,
-        ui: &mut bevy_egui::egui::Ui,
-        options: &dyn std::any::Any,
-        id: bevy_egui::egui::Id,
-        mut env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
-    ) -> bool {
-        let mut changed = false;
-
-        ui.vertical(|ui| {
-            ui.push_id(id.value(), |ui| {
-                changed |= env.ui_for_reflect(&mut self.allele_type, ui);
-            });
-
-            ui.horizontal(|ui| {
-                ui.group(|ui| {
-                    ui.vertical(|ui| {
-                        for byte in self.bytes.iter() {
-                            let mut job = LayoutJob::default();
-                            for bit in format!("{:0>8b}", byte).chars() {
-                                let color = if bit == '1' {
-                                    Color32::GREEN
-                                } else {
-                                    Color32::RED
-                                };
-                                job.append(
-                                    &bit.to_string(),
-                                    0.0,
-                                    TextFormat { color, ..default() },
-                                );
-                            }
-                            job.append("\n", 0.0, TextFormat::default());
-
-                            // make border invisible
-                            // let style = ui.style_mut();
-                            // style.visuals.widgets.noninteractive.bg_stroke = Stroke {
-                            //     color: Color32::TRANSPARENT,
-                            //     ..Default::default()
-                            // };
-                            ui.group(|ui| {
-                                changed |= ui.label(job).changed();
-                            });
-                        }
-                    });
-
-                    ui.push_id(id.value(), |ui| {
-                        ui.set_max_width(150.0);
-                        changed |=
-                            env.ui_for_reflect_with_options(&mut self.bytes, ui, id, options);
-                    });
-                });
-            });
-        });
-
-        changed
-    }
-
-    fn ui_readonly(
-        &self,
-        ui: &mut bevy_egui::egui::Ui,
-        _: &dyn std::any::Any,
-        _: bevy_egui::egui::Id,
-        _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
-    ) {
-        ui.add_enabled_ui(false, |ui| {
-            ui.label("Readonly Gene UI, not implemented").changed();
-        });
     }
 }
 
