@@ -113,11 +113,12 @@ fn spawn_plants(
 
         for _ in 0..plant_count {
             let health = Health::new(config.organism.max_health_gene_config.into());
-            let age = Age::new(0, config.organism.age_penalty_gene_config.into());
+            let starting_age = config.organism.starting_age_dist.sample();
+            let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
                 config.organism.maturity_age_gene_config.into(),
                 config.organism.reproduction_cooldown_gene_config.into(),
-                config.organism.starting_maturity_dist.sample(),
+                starting_age,
             );
             let energy_data = EnergyDatav3::new(
                 config.organism.max_active_energy_gene_config.into(),
@@ -305,8 +306,9 @@ fn reproduce(
         // crossing parent organism genes
 
         let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
+        let starting_age = config.organism.starting_age_dist.sample();
         let age = Age::new(
-            0,
+            starting_age,
             parent1
                 .9
                 .age_penalty_gene
@@ -321,7 +323,7 @@ fn reproduce(
                 .4
                 .reproduction_cooldown_gene
                 .mixed_with(&parent2.4.reproduction_cooldown_gene),
-            config.organism.starting_maturity_dist.sample(),
+            starting_age,
         );
         let energy_data = EnergyDatav3::new(
             parent1

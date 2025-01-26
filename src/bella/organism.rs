@@ -241,12 +241,12 @@ impl SexualMaturity {
     pub fn new(
         maturity_age_gene: UnsignedIntGene,
         reproduction_cooldown_gene: UnsignedIntGene,
-        starting_timer_value: u32
+        starting_age: u32
     ) -> Self {
         Self {
             level: SexualMaturityLevel::Young {
                 left_to_mature_timer: Timer::new(
-                    Duration::from_secs(starting_timer_value as u64),
+                    Duration::from_secs(starting_age as u64),
                     TimerMode::Once,
                 ),
             },

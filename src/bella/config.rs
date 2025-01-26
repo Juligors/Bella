@@ -97,7 +97,7 @@ pub struct OrganismConfig {
 
     pub maturity_age_gene_config: UnsignedIntGeneConfig,
     // TODO: this is for now to differenciate starting timers
-    pub starting_maturity_dist: DiscreteDistribution,
+    pub starting_age_dist: DiscreteDistribution,
     pub reproduction_cooldown_gene_config: UnsignedIntGeneConfig,
 
     pub starting_mass_dist: ContinuousDistribution,
