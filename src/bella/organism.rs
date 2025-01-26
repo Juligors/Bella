@@ -241,17 +241,34 @@ impl SexualMaturity {
     pub fn new(
         maturity_age_gene: UnsignedIntGene,
         reproduction_cooldown_gene: UnsignedIntGene,
-        starting_age: u32
+        starting_age: u32,
     ) -> Self {
+        let maturity_age = maturity_age_gene.phenotype();
+        let reproduction_cooldown = reproduction_cooldown_gene.phenotype();
+
+        let level = if starting_age <= maturity_age {
+            let mut timer = Timer::new(Duration::from_secs(maturity_age as u64), TimerMode::Once);
+            timer.tick(Duration::from_secs(starting_age as u64));
+
+            SexualMaturityLevel::Young {
+                left_to_mature_timer: timer,
+            }
+        } else {
+            let mut timer = Timer::new(
+                Duration::from_secs(reproduction_cooldown as u64),
+                TimerMode::Once,
+            );
+            timer.tick(Duration::from_secs((starting_age - maturity_age) as u64));
+
+            SexualMaturityLevel::Adult {
+                reproduction_cooldown_timer: timer,
+            }
+        };
+
         Self {
-            level: SexualMaturityLevel::Young {
-                left_to_mature_timer: Timer::new(
-                    Duration::from_secs(starting_age as u64),
-                    TimerMode::Once,
-                ),
-            },
-            reproduction_cooldown_gene,
+            level,
             maturity_age_gene,
+            reproduction_cooldown_gene,
         }
     }
 
