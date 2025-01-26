@@ -29,7 +29,7 @@ fn spawn_camera_and_light(mut cmd: Commands, config: Res<SimConfig>) {
         Transform::from_xyz(0.0, 0.0, 200.0)
             .looking_to(Vec3::new(0.0, 0.3, -0.7), Vec3::new(0.0, 0.3, 0.7)),
         Projection::from(OrthographicProjection {
-            scale: 75.0,
+            scale: 10.0,
             near: -1_000_000.0,
             far: 1_000_000.0,
             viewport_origin: Vec2::new(0.5, 0.5),
