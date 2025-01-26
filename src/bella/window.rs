@@ -1,5 +1,5 @@
 use std::{fs::File, sync::Mutex};
-
+use std::env;
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
     log::{
@@ -21,6 +21,12 @@ pub struct MyWindowPlugin;
 
 impl Plugin for MyWindowPlugin {
     fn build(&self, app: &mut App) {
+        let program_args:Vec<_> = env::args().collect();
+        let mut logging_level = "info".to_string();
+        if program_args.len() > 1{
+            logging_level = program_args[1].clone();
+        }
+
         app.add_plugins((
             DefaultPlugins
                 .set(WindowPlugin {
@@ -50,7 +56,7 @@ impl Plugin for MyWindowPlugin {
                 })
                 .set(LogPlugin {
                     // filter: "info,wgpu_core=error,wgpu_hal=error,bevy_render=error,bevy_ecs=trace,bella=debug".into(),
-                    filter: "error,bella=debug,bevy_ecs=trace".into(),
+                    filter: format!("error,bella={},bevy_ecs=trace", logging_level),
                     level: log::Level::DEBUG,
                     // TODO(LOGS): might be cool to customize it to save to file, but would need to filter better and fix formatting issues
                     // custom_layer: custom_logger_layer,
