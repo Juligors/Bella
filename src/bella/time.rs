@@ -115,6 +115,7 @@ fn setup_timer_ui(mut commands: Commands) {
     commands.spawn((
         TimerUiTextMarker,
         Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
+        TextColor::BLACK,
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
