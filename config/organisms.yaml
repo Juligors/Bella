@@ -24,8 +24,8 @@ maturity_age_gene_config:
   min_value: 0
 starting_age_dist:
   type: 'range'
+  max: 24
   min: 0
-  max: 10
 
 reproduction_cooldown_gene_config:
   max_value: 18
