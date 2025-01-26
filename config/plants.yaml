@@ -1,0 +1,17 @@
+energy_production_from_solar_efficiency_gene_config:
+  multiplier: 1.0
+  offset: 0.0
+
+pollination_range_gene_config:
+  multiplier: 500.0
+  offset: 0.0
+
+
+group_spawn_on_grass_chance:
+  type: 'chance'
+  chance: 1.0
+
+group_size_dist:
+  type: 'range'
+  min: 2
+  max: 2

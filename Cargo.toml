@@ -14,7 +14,7 @@ bevy_egui = "0.31.1"
 
 rand = "0.8.5"
 itertools = "0.13.0"
-config = { version = "0.15.4", features = ["toml"] }
+config = { version = "0.15.4", features = ["yaml"] }
 noise = { version = "0.9.0", features = ["images"] }
 serde = { version = "1.0.217", features = ["derive"] }
 rand_distr = "0.4.3"
