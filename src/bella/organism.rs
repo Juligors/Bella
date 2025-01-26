@@ -128,18 +128,20 @@ impl EnergyDatav3 {
     /// Store energy, first into active energy, and if there is not enough space left, increase to mass
     pub fn store_energy(&mut self, energy: Energy) {
         let free_active_energy_space = self.max_active_energy_gene.phenotype() - self.active_energy;
-        debug!("Free: {}, energy: {}", free_active_energy_space, energy);
+        trace!("Free: {}, energy: {}", free_active_energy_space, energy);
         if free_active_energy_space >= energy {
-            debug!("Stored {} energy directly to active energy", energy);
+            trace!("Stored {} energy directly to active energy", energy);
             self.active_energy += energy;
         } else {
             self.active_energy = self.max_active_energy_gene.phenotype();
             let energy_left_to_store = energy - free_active_energy_space;
             let new_mass = self.get_mass_equivalent_of_energy(energy_left_to_store);
             self.mass += new_mass;
-            debug!(
+            trace!(
                 "Added {} energy to active and the rest ({}) to mass: {}",
-                free_active_energy_space, energy_left_to_store, new_mass
+                free_active_energy_space,
+                energy_left_to_store,
+                new_mass
             );
         }
     }
@@ -312,9 +314,11 @@ fn consume_energy_to_survive(
         let energy_to_survive = energy_data.mass
             * energy_efficiency
                 .energy_consumption_to_survive_per_mass_unit_gene
-                .phenotype();
+                .phenotype()
+                // TODO: should i be like that? Linear should be enough
+                .powi(2);
 
-        debug!("Consumed to survive: {}", energy_to_survive);
+        trace!("Consumed to survive: {}", energy_to_survive);
 
         energy_data
             .try_to_consume_energy(energy_to_survive)

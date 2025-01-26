@@ -183,7 +183,7 @@ fn produce_energy_from_solar(
     for (mut energy_data, energy_efficiency) in query.iter_mut() {
         let produced_energy =
             sun.get_energy_for_plant() * energy_efficiency.production_from_solar_gene.phenotype();
-        debug!("Produces {} energy from solar", produced_energy);
+        trace!("Produces {} energy from solar", produced_energy);
         energy_data.store_energy(produced_energy);
     }
 }
@@ -246,7 +246,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
                 kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
             }
-            debug!("Energy consumed for reproduction: {}", energy_needed1);
+            trace!("Energy consumed for reproduction: {}", energy_needed1);
 
             let energy_needed2 = organism_energy_efficiency2
                 .reproduction_energy_cost_gene
@@ -254,7 +254,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
                 kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
             }
-            debug!("Energy consumed for reproduction: {}", energy_needed2);
+            trace!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
@@ -341,12 +341,17 @@ fn reproduce(
             )
             .extend(energy_data.get_size() / 2.0);
 
+        let new_size = energy_data.get_size();
+        let mut transform =
+            Transform::from_translation(new_plant_position).with_scale(Vec3::splat(new_size));
+        transform.translation.z = new_size / 2.0;
+
         let entity = commands
             .spawn(PlantBundle {
                 organism_bundle: OrganismBundle {
                     mesh: parent1.0.clone(),
                     material: MeshMaterial3d(plant_assets.alive.clone()),
-                    transform: Transform::from_translation(new_plant_position),
+                    transform,
 
                     health,
                     age,
