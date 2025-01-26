@@ -1,6 +1,5 @@
 pub mod config;
 pub mod data_collection;
-pub mod distribution;
 pub mod environment;
 pub mod inspector;
 pub mod organism;
