@@ -55,7 +55,6 @@ fn create_sun(mut cmd: Commands, config: Res<SimConfig>) {
 }
 
 fn update_sun_with_time_passing(mut sun: ResMut<Sun>) {
-    // TODO: sun.day_time = (sun.day_time + 1) % 24;
-
-    sun.day_time = 12;
+    sun.day_time = (sun.day_time + 1) % 24;
+    // sun.day_time = 12;
 }

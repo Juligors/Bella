@@ -369,18 +369,18 @@ fn consume_energy_to_survive(
         let energy_left_to_consume =
             energy_data.consume_from_active_energy_and_dmg_if_not_enough(energy_to_survive);
         if energy_left_to_consume == 0.0 {
-            debug!(
+            trace!(
                 "Had enough active energy to survive, energy left: {}",
                 energy_data.active_energy
             );
         } else {
-            debug!(
+            trace!(
                 "Didn't have enough energy, still needs to consume {} energy",
                 energy_left_to_consume
             );
             let dmg = energy_left_to_consume / 10.0;
             health.hp -= dmg;
-            debug!("Damaged by {}, hp left: {}", dmg, health.hp);
+            trace!("Damaged by {}, hp left: {}", dmg, health.hp);
         }
     }
 }

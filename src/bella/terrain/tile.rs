@@ -156,23 +156,33 @@ impl TileLayout {
         })
     }
 
-    pub fn get_random_position_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec2 {
+    pub fn get_random_position_in_ring(
+        &self,
+        position: impl Into<Vec2>,
+        range: f32,
+        inner_range: f32,
+    ) -> Vec2 {
         let pos = position.into();
 
         RNG.with(|rng| {
             let mut rng = rng.borrow_mut();
 
-            let r: f32 = rng.gen_range(0.0..range);
+            let r: f32 = rng.gen_range(inner_range..range);
             let theta: f32 = rng.gen_range(0.0..1.0);
 
             let x_possibly_outside_bounds = pos.x + r * theta.cos();
             let y_possibly_outside_bounds = pos.y + r * theta.sin();
 
+            
             let x = x_possibly_outside_bounds.clamp(0.0, self.width);
             let y = y_possibly_outside_bounds.clamp(0.0, self.height);
-
+            
             Vec2::new(x, y)
         })
+    }
+
+    pub fn get_random_position_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec2 {
+        self.get_random_position_in_ring(position, range, 0.0)
     }
 
     pub fn generate_mesh(&self) -> Mesh {

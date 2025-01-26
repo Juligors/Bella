@@ -10,26 +10,27 @@ pub struct ThermalConductorPlugin;
 
 impl Plugin for ThermalConductorPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<ThermalConductor>().add_systems(
-            OnEnter(SimState::LoadAssets),
-            initialize_assets_map_temperature,
-        )
-        .add_systems(
-            Update,
-            update_tile_color_for_thermal
-                .run_if(in_state(TerrainOverlayState::Thermal))
-                .run_if(in_state(SimState::Simulation)),
-        )
-        .add_systems(
-            Update,
-            handle_select_input
-                .run_if(in_state(SimState::Simulation))
-                .run_if(in_state(TerrainOverlayState::Thermal)),
-        )
-        .add_systems(
-            Update,
-            accumulate_energy_from_solar.run_if(on_event::<HourPassedEvent>),
-        );
+        app.register_type::<ThermalConductor>()
+            .add_systems(
+                OnEnter(SimState::LoadAssets),
+                initialize_assets_map_temperature,
+            )
+            .add_systems(
+                Update,
+                update_tile_color_for_thermal
+                    .run_if(in_state(TerrainOverlayState::Thermal))
+                    .run_if(in_state(SimState::Simulation)),
+            )
+            .add_systems(
+                Update,
+                handle_select_input
+                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(TerrainOverlayState::Thermal)),
+            )
+            .add_systems(
+                Update,
+                accumulate_energy_from_solar.run_if(on_event::<HourPassedEvent>),
+            );
     }
 }
 
@@ -169,7 +170,7 @@ pub fn update_temperatures(
 
 fn accumulate_energy_from_solar(mut terrain: Query<&mut ThermalConductor>, sun: Res<Sun>) {
     for mut thermal_conductor in terrain.iter_mut() {
-        thermal_conductor.heat += sun.get_energy_part(0.001);
+        thermal_conductor.heat += sun.get_energy_part_for_tile();
 
         thermal_conductor.heat -= thermal_conductor.get_heat_lose();
 
@@ -255,7 +256,6 @@ fn handle_select_input(
     //     return;
     // };
 
-    
     // let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
     //     return;
     // };

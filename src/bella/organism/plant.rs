@@ -12,7 +12,7 @@ use crate::bella::{
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
-        BiomeType,
+        BiomeType, Nutrients,
     },
     time::HourPassedEvent,
 };
@@ -179,17 +179,31 @@ fn despawn_plants(mut commands: Commands, plants: Query<Entity, With<PlantMarker
 }
 
 fn produce_energy_from_solar(
-    mut query: Query<(&mut EnergyDatav3, &PlantEnergyEfficiency), With<PlantMarker>>,
+    mut query: Query<(&mut EnergyDatav3, &PlantEnergyEfficiency, &Transform), With<PlantMarker>>,
+    mut nutrients: Query<&mut Nutrients>,
+    tile_layout: Res<TileLayout>,
     sun: Res<Sun>,
 ) {
-    for (mut energy_data, energy_efficiency) in query.iter_mut() {
-        let produced_energy =
-            sun.get_energy_for_plant() * energy_efficiency.production_from_solar_gene.phenotype();
+    for (mut energy_data, energy_efficiency, transform) in query.iter_mut() {
+        let tile_entity = tile_layout
+            .get_entity_for_position(transform.translation.truncate())
+            .expect("Failed to get tile under the plant!");
+        let mut nutrients = nutrients
+            .get_mut(tile_entity)
+            .expect("Failed to get tile from query!");
+        let nutrients_value = nutrients.take_part_of_nutrients();
+        trace!("Taken {} nutrients", nutrients_value);
+
+        let produced_energy = sun.get_energy_for_plant()
+            * energy_efficiency.production_from_solar_gene.phenotype()
+            + nutrients_value;
+
         energy_data.store_energy(produced_energy);
+
         trace!(
-            "Produced {} energy from solar, current energy (after taking active energy): {}",
+            "Produced {} energy from solar, current active energy : {}",
             produced_energy,
-            energy_data.get_stored_energy()
+            energy_data.active_energy
         );
     }
 }

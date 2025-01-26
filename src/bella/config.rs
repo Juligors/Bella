@@ -142,6 +142,8 @@ pub struct TerrainConfig {
 
     pub thermal_overlay_update_cooldown: f32,
     pub biome_overlay_update_cooldown: f32,
+
+    pub nutrients_per_tile: f32,
 }
 
 #[derive(Debug, Deserialize)]

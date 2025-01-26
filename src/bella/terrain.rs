@@ -39,7 +39,7 @@ impl Plugin for TerrainPlugin {
             )
             .add_systems(
                 Update,
-                update_temperatures.run_if(on_event::<HourPassedEvent>),
+                (update_temperatures, reset_nutrients).run_if(on_event::<HourPassedEvent>),
             );
     }
 }
@@ -54,6 +54,47 @@ pub enum BiomeType {
     Dirt,
     Grass,
     Water,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct Nutrients {
+    value: f32,
+    base_value: f32,
+    this_time_count: u32,
+    last_time_count: u32,
+}
+
+impl Nutrients {
+    pub fn new(value: f32) -> Self {
+        Self {
+            value,
+            base_value: value,
+            this_time_count: 0,
+            last_time_count: 10,
+        }
+    }
+
+    pub fn restore_value(&mut self) {
+        self.value = self.base_value;
+
+        if self.this_time_count > 0 {
+            self.last_time_count = self.this_time_count;
+            self.this_time_count = 0;
+        }
+    }
+
+    pub fn take_part_of_nutrients(&mut self) -> f32 {
+        self.this_time_count += 1;
+
+        let mut value_to_give = self.base_value / self.last_time_count as f32;
+        if self.value < value_to_give {
+            value_to_give = self.value;
+        }
+
+        self.value -= value_to_give;
+
+        value_to_give
+    }
 }
 
 fn generate_terrain(
@@ -82,7 +123,7 @@ fn generate_terrain(
 
     let mesh = tile_layout.generate_mesh();
     let mesh_handle = meshes.add(mesh);
-    
+
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for row in 0..rows_count {
@@ -111,6 +152,12 @@ fn generate_terrain(
                 thermal_conductivity: k,
             };
 
+            let nutrients = match biome {
+                BiomeType::Dirt => Nutrients::new(config.terrain.nutrients_per_tile),
+                BiomeType::Sand => Nutrients::new(-config.terrain.nutrients_per_tile),
+                _ => Nutrients::new(f32::MIN),
+            };
+
             let transform = Transform::from_xyz(tile_position.x, tile_position.y, 0.)
                 .with_scale(Vec3::splat(config.terrain.tile_size));
 
@@ -124,9 +171,10 @@ fn generate_terrain(
                     tile,
                     biome,
                     thermal_conductor,
+                    nutrients,
                 ))
                 .id();
-                
+
             choose_entity_observer.watch_entity(entity);
 
             tile_layout.add_new_tile_to_last_row(entity);
@@ -176,5 +224,13 @@ fn update_tile_color_for_biome(
             .get(medium_type)
             .unwrap()
             .clone();
+    }
+}
+
+fn reset_nutrients(mut query: Query<&mut Nutrients>) {
+    for mut tile_nutrients in query.iter_mut() {
+        if tile_nutrients.value < tile_nutrients.base_value {
+            tile_nutrients.restore_value();
+        }
     }
 }
