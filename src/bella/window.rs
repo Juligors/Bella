@@ -1,5 +1,4 @@
-use std::{fs::File, sync::Mutex};
-use std::env;
+use bevy::winit::{UpdateMode, WinitSettings};
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
     log::{
@@ -16,14 +15,17 @@ use bevy::{
     utils::tracing::{self, level_filters::LevelFilter, Subscriber},
     window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
+use std::env;
+use std::time::Duration;
+use std::{fs::File, sync::Mutex};
 
 pub struct MyWindowPlugin;
 
 impl Plugin for MyWindowPlugin {
     fn build(&self, app: &mut App) {
-        let program_args:Vec<_> = env::args().collect();
+        let program_args: Vec<_> = env::args().collect();
         let mut logging_level = "info".to_string();
-        if program_args.len() > 1{
+        if program_args.len() > 1 {
             logging_level = program_args[1].clone();
         }
 
@@ -33,7 +35,7 @@ impl Plugin for MyWindowPlugin {
                     primary_window: Some(Window {
                         title: "Bella".into(),
                         resolution: (1400., 700.).into(),
-                        present_mode: PresentMode::AutoVsync,
+                        present_mode: PresentMode::AutoNoVsync,
                         window_theme: Some(WindowTheme::Dark),
                         window_level: WindowLevel::AlwaysOnTop,
                         position: WindowPosition::At((75, 100).into()),
@@ -56,8 +58,8 @@ impl Plugin for MyWindowPlugin {
                 })
                 .set(LogPlugin {
                     // filter: "info,wgpu_core=error,wgpu_hal=error,bevy_render=error,bevy_ecs=trace,bella=debug".into(),
-                    filter: format!("error,bella={},bevy_ecs=trace", logging_level),
-                    level: log::Level::DEBUG,
+                    filter: format!("wgpu=error,naga=warn,bella={}", logging_level),
+                    // level: log::Level::INFO,
                     // TODO(LOGS): might be cool to customize it to save to file, but would need to filter better and fix formatting issues
                     // custom_layer: custom_logger_layer,
                     ..Default::default()
@@ -65,10 +67,17 @@ impl Plugin for MyWindowPlugin {
             // TODO(LOGS)
             // .disable::<bevy::log::LogPlugin>()
             // .build(),
-            // bevy::diagnostic::LogDiagnosticsPlugin::default(),
-            // bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
+            bevy::diagnostic::LogDiagnosticsPlugin {
+                wait_duration: Duration::from_secs(5),
+                ..Default::default()
+            },
+            bevy::diagnostic::FrameTimeDiagnosticsPlugin,
         ))
         .insert_resource(ClearColor(Color::srgb(1.0, 1.0, 1.0)))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup_window_cursor_lock)
         .add_systems(Update, close_on_esc);
     }
