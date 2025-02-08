@@ -3,7 +3,7 @@ use super::{
     plant::{PlantBundle, PlantMarker, PlantMatterMarker},
     Energy, EnergyDatav3, Health, KillOrganismEvent,
 };
-use crate::bella::{config::SimConfig, pause::PauseState, time::HourPassedEvent};
+use crate::bella::{config::SimConfig, pause::PauseState, restart::SimState, time::HourPassedEvent};
 use bevy::prelude::*;
 
 pub struct CarcassPlugin;
@@ -12,6 +12,7 @@ impl Plugin for CarcassPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Carcass>()
             .add_systems(Startup, prepare_assets)
+            .add_systems(OnExit(SimState::Simulation), despawn_carcasses)
             .add_systems(
                 Update,
                 check_if_organisms_should_die.run_if(in_state(PauseState::Running)),
@@ -43,6 +44,12 @@ fn prepare_assets(mut commands: Commands, mut materials: ResMut<Assets<StandardM
     commands.insert_resource(CarcassAssets {
         carcass: materials.add(Color::BLACK),
     });
+}
+
+fn despawn_carcasses(mut commands: Commands, query: Query<Entity, With<Carcass>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 }
 
 fn check_if_organisms_should_die(
