@@ -20,7 +20,7 @@ size_dist:
 diet_dist:
   type: "weightedchoice"
   choices: [0, 1, 2]
-  weights: [0.33, 0.33, 0.33]
+  weights: [0.8, 0.1, 0.1]
 
 max_health_dist:
   type: "normal"
@@ -38,7 +38,7 @@ speed_dist:
 
 sight_range_dist:
   type: "normal"
-  mean: 2000.0
+  mean: 750.0
   std: 50.0
   min: 0.0
 
@@ -61,5 +61,5 @@ reproduction_range_gene_config:
   offset: 0.0
 
 energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 1.0
+  multiplier: 2.0
   offset: 0.3
