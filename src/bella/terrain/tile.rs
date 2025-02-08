@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, f32::consts::PI};
 
 use bevy::prelude::*;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
@@ -168,7 +168,7 @@ impl TileLayout {
             let mut rng = rng.borrow_mut();
 
             let r: f32 = rng.gen_range(inner_range..range);
-            let theta: f32 = rng.gen_range(0.0..1.0);
+            let theta: f32 = rng.gen_range(0.0..(2.0*PI));
 
             let x_possibly_outside_bounds = pos.x + r * theta.cos();
             let y_possibly_outside_bounds = pos.y + r * theta.sin();
@@ -176,7 +176,7 @@ impl TileLayout {
             
             let x = x_possibly_outside_bounds.clamp(0.0, self.width);
             let y = y_possibly_outside_bounds.clamp(0.0, self.height);
-            
+
             Vec2::new(x, y)
         })
     }
