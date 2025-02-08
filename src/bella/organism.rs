@@ -5,7 +5,7 @@ pub mod plant;
 
 use std::time::Duration;
 
-use self::{animal::AnimalPlugin, plant::PlantPlugin};
+use self::plant::PlantPlugin;
 use super::time::HourPassedEvent;
 use bevy::prelude::*;
 use carcass::CarcassPlugin;
@@ -15,7 +15,7 @@ pub struct OrganismPlugin;
 
 impl Plugin for OrganismPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((GenePlugin, PlantPlugin, AnimalPlugin, CarcassPlugin))
+        app.add_plugins((GenePlugin, PlantPlugin, CarcassPlugin))
             .register_type::<Health>()
             .register_type::<Age>()
             .register_type::<SexualMaturity>()
