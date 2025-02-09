@@ -75,7 +75,7 @@ pub struct UnsignedIntGene {
 
 impl UnsignedIntGene {
     pub fn new(gene: Gene, min_value: u32, max_value: u32) -> Self {
-        assert!(max_value >= min_value);
+        assert!(max_value >= min_value, "max: {}, min: {}", max_value, min_value);
 
         let diff = (max_value - min_value) as f32;
         let phenotype = (gene.expression_level() * diff) as u32 + min_value;
@@ -106,7 +106,7 @@ impl UnsignedIntGene {
 
 impl From<UnsignedIntGeneConfig> for UnsignedIntGene {
     fn from(value: UnsignedIntGeneConfig) -> Self {
-        UnsignedIntGene::new(Gene::new(0.5), value.max_value, value.min_value)
+        UnsignedIntGene::new(Gene::new(0.5), value.min_value, value.max_value)
     }
 }
 
