@@ -25,22 +25,34 @@ pub struct UnsignedFloatGene {
     pub gene: Gene,
     pub multiplier: f32,
     pub offset: f32,
+    phenotype: f32,
 }
 
 impl UnsignedFloatGene {
+    pub fn new(gene: Gene, multiplier: f32, offset: f32) -> Self {
+        let phenotype = multiplier * (gene.expression_level() + offset).clamp(0.0, 1.0);
+
+        Self {
+            gene,
+            multiplier,
+            offset,
+            phenotype,
+        }
+    }
+
     pub fn phenotype(&self) -> f32 {
-        self.multiplier * (self.gene.expression_level() + self.offset).clamp(0.0, 1.0)
+        self.phenotype
     }
 
     pub fn mixed_with(&self, other: &Self) -> Self {
         assert!(self.multiplier == other.multiplier);
         assert!(self.offset == other.offset);
 
-        Self {
-            gene: self.gene.cross_with(&other.gene),
-            multiplier: self.multiplier,
-            offset: self.offset,
-        }
+        UnsignedFloatGene::new(
+            self.gene.cross_with(&other.gene),
+            self.multiplier,
+            self.offset,
+        )
     }
 }
 
@@ -49,11 +61,7 @@ impl From<UnsignedFloatGeneConfig> for UnsignedFloatGene {
         assert!(value.multiplier > 0.0);
         assert!(value.offset >= 0.0);
 
-        Self {
-            gene: Gene::new(0.5),
-            multiplier: value.multiplier,
-            offset: value.offset,
-        }
+        Self::new(Gene::new(0.5), value.multiplier, value.offset)
     }
 }
 
@@ -62,35 +70,43 @@ pub struct UnsignedIntGene {
     pub gene: Gene,
     pub max_value: u32,
     pub min_value: u32,
+    phenotype: u32,
 }
 
 impl UnsignedIntGene {
+    pub fn new(gene: Gene, min_value: u32, max_value: u32) -> Self {
+        assert!(max_value >= min_value);
+
+        let diff = (max_value - min_value) as f32;
+        let phenotype = (gene.expression_level() * diff) as u32 + min_value;
+
+        Self {
+            gene,
+            min_value,
+            max_value,
+            phenotype,
+        }
+    }
+
     pub fn phenotype(&self) -> u32 {
-        let diff = (self.max_value - self.min_value) as f32;
-        (self.gene.expression_level() * diff) as u32 + self.min_value
+        self.phenotype
     }
 
     pub fn mixed_with(&self, other: &Self) -> Self {
         assert!(self.max_value == other.max_value);
         assert!(self.min_value == other.min_value);
 
-        Self {
-            gene: self.gene.cross_with(&other.gene),
-            max_value: self.max_value,
-            min_value: self.min_value,
-        }
+        Self::new(
+            self.gene.cross_with(&other.gene),
+            self.max_value,
+            self.min_value,
+        )
     }
 }
 
 impl From<UnsignedIntGeneConfig> for UnsignedIntGene {
     fn from(value: UnsignedIntGeneConfig) -> Self {
-        assert!(value.max_value > value.min_value);
-
-        Self {
-            gene: Gene::new(0.5),
-            max_value: value.max_value,
-            min_value: value.min_value,
-        }
+        UnsignedIntGene::new(Gene::new(0.5), value.max_value, value.min_value)
     }
 }
 
