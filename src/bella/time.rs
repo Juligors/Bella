@@ -38,13 +38,17 @@ pub struct DayTimer(Timer);
 
 #[derive(Resource, Reflect)]
 pub struct SimulationTime {
-    pub time_units_passed: u64,
-    pub time_units_per_day: u64,
+    time_units_passed: u64,
+    time_units_per_day: u64,
 }
 
 impl SimulationTime {
     pub fn reset(&mut self) {
         self.time_units_passed = 0;
+    }
+
+    pub fn time_units_this_day(&self) -> u64{
+        self.time_units_passed % self.time_units_per_day
     }
 
     pub fn days_passed(&self) -> u64 {
@@ -78,9 +82,11 @@ fn init_time(mut commands: Commands, config: Res<SimulationConfig>) {
 fn send_time_passed_events_if_needed(
     mut ev_time_unit_passed: EventWriter<TimeUnitPassedEvent>,
     mut timer: ResMut<TimeUnitTimer>,
+    mut simulation_time: ResMut<SimulationTime>,
 ) {
     if timer.tick(Duration::from_secs(1)).just_finished() {
         ev_time_unit_passed.send(TimeUnitPassedEvent);
+        simulation_time.time_units_passed += 1;
     }
 }
 
@@ -132,8 +138,8 @@ fn update_timer_ui(
 ) {
     let mut text = query.single_mut();
     text.0 = format!(
-        "Day:  {: >3}\nTime unit: {: >3}",
+        "Day:{:>2}\nTime unit:{: >2}",
         time_passed.days_passed(),
-        time_passed.time_units_passed
+        time_passed.time_units_this_day()
     );
 }

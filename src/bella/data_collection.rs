@@ -87,7 +87,7 @@ pub fn save_plant_data(
                 // plant_organism_efficiency,
             )| Plant {
                 id: entity.to_bits(),
-                time_unit: time.time_units_passed,
+                time_unit: time.time_units_this_day(),
                 day: time.days_passed(),
                 // health: health.hp,
 
@@ -138,7 +138,7 @@ pub fn save_animal_data(
         .iter()
         .map(|x| Animal {
             id: x.0.to_bits(),
-            time_unit: time.time_units_passed,
+            time_unit: time.time_units_this_day(),
             day: time.days_passed(),
 
             diet: match x.3 {
