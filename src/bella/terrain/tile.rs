@@ -8,6 +8,12 @@ thread_local! {
     static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
 }
 
+#[derive(Component, Reflect, Debug)]
+pub struct Tile {
+    pub col: u32,
+    pub row: u32,
+}
+
 #[derive(Resource, Reflect)]
 pub struct TileLayout {
     pub rows: u32,
@@ -220,10 +226,4 @@ impl TileLayout {
 
         // mesh
     }
-}
-
-#[derive(Component, Reflect, Debug)]
-pub struct Tile {
-    pub col: u32,
-    pub row: u32,
 }
