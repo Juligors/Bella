@@ -98,8 +98,8 @@ impl UnsignedIntGene {
 
         Self::new(
             self.gene.cross_with(&other.gene),
-            self.max_value,
             self.min_value,
+            self.max_value,
         )
     }
 }
