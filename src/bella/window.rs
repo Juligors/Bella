@@ -1,7 +1,6 @@
 use bevy::winit::{UpdateMode, WinitSettings};
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
-    log::LogPlugin,
     prelude::*,
     tasks::available_parallelism,
     window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
@@ -45,12 +44,13 @@ impl Plugin for MyWindowPlugin {
                         ..default()
                     },
                 })
-                .set(LogPlugin {
-                    filter: format!("wgpu=error,naga=warn,bella={}", logging_level),
-                    ..Default::default()
-                }),
-            // .disable::<bevy::log::LogPlugin>()
-            // .build(),
+                // .set(LogPlugin {
+                //     filter: format!("wgpu=error,naga=warn,bella={}", logging_level),
+                //     ..Default::default()
+                // }),
+                // NOTE: We disable LogPlugin because it causes memory leak
+                .disable::<bevy::log::LogPlugin>()
+                .build(),
             // bevy::diagnostic::LogDiagnosticsPlugin {
             //     wait_duration: std::time::Duration::from_secs(5),
             //     ..Default::default()
