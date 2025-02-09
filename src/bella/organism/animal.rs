@@ -4,21 +4,20 @@ pub mod mobile;
 use self::mobile::Mobile;
 use super::{
     gene::UnsignedFloatGene, plant::PlantMatterMarker, Age, EnergyDatav3, HungerLevel,
-    OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker, 
-    SexualMaturity,
+    OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker, SexualMaturity,
 };
 use crate::bella::{
-    config::SimConfig,
+    config::SimulationConfig,
     inspector::choose_entity_observer,
     organism::Health,
     pause::PauseState,
-    restart::SimState,
+    restart::SimulationState,
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
         BiomeType,
     },
-    time::HourPassedEvent,
+    time::TimeUnitPassedEvent,
 };
 use bevy::prelude::*;
 use gizmos::AnimalGizmosPlugin;
@@ -34,9 +33,9 @@ impl Plugin for AnimalPlugin {
             .register_type::<SightRange>()
             .register_type::<Attack>()
             .add_event::<ReproduceAnimalsEvent>()
-            .add_systems(OnEnter(SimState::LoadAssets), prepare_animal_assets)
-            .add_systems(OnEnter(SimState::OrganismGeneration), spawn_animals)
-            .add_systems(OnExit(SimState::Simulation), despawn_all_animals)
+            .add_systems(OnEnter(SimulationState::LoadAssets), prepare_animal_assets)
+            .add_systems(OnEnter(SimulationState::OrganismGeneration), spawn_animals)
+            .add_systems(OnExit(SimulationState::Simulation), despawn_all_animals)
             .add_systems(
                 Update,
                 (
@@ -46,7 +45,7 @@ impl Plugin for AnimalPlugin {
                     // connect_animal_with_medium_its_on,
                 )
                     .chain()
-                    .run_if(on_event::<HourPassedEvent>),
+                    .run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }
@@ -137,7 +136,7 @@ fn spawn_animals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     animal_assets: Res<AnimalAssets>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
     tiles: Query<(&BiomeType, &Tile)>,
     tile_layout: Res<TileLayout>,
 ) {
@@ -402,7 +401,7 @@ fn reproduce(
     mut event_reader: EventReader<ReproduceAnimalsEvent>,
     animal_assets: Res<AnimalAssets>,
     tile_layout: Res<TileLayout>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
     query: Query<(
         &Mesh3d,
         &MeshMaterial3d<StandardMaterial>,

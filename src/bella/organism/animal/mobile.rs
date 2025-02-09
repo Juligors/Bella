@@ -2,7 +2,7 @@ use super::{AnimalMarker, Attack};
 use crate::bella::{
     organism::{carcass::Carcass, plant::PlantMarker, EnergyDatav3, Health},
     pause::PauseState,
-    restart::SimState,
+    restart::SimulationState,
     terrain::tile::TileLayout,
 };
 use bevy::prelude::*;
@@ -20,7 +20,7 @@ impl Plugin for MobilePlugin {
                     attack,
                     eat_matter,
                 )
-                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(SimulationState::Simulation))
                     .run_if(in_state(PauseState::Running)),
             );
     }

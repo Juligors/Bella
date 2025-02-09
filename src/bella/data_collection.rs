@@ -1,11 +1,11 @@
 use super::{
-    config::SimConfig,
+    config::SimulationConfig,
     organism::{
         animal::{AnimalMarker, Diet},
         plant::{PlantEnergyEfficiency, PlantMarker},
         Energy, EnergyDatav3, Health, OrganismEnergyEfficiency,
     },
-    time::{HourPassedEvent, SimTime},
+    time::{SimulationTime, TimeUnitPassedEvent},
 };
 use bevy::prelude::*;
 use serde::Serialize;
@@ -22,7 +22,7 @@ impl Plugin for DataCollectionPlugin {
         app.add_systems(Startup, (initialize_data_collection_directory,))
             .add_systems(
                 PostUpdate,
-                (save_plant_data, save_animal_data).run_if(on_event::<HourPassedEvent>),
+                (save_plant_data, save_animal_data).run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }
@@ -30,7 +30,7 @@ impl Plugin for DataCollectionPlugin {
 #[derive(Resource, Deref)]
 pub struct DirectoryPath(pub PathBuf);
 
-fn initialize_data_collection_directory(mut cmd: Commands, config: Res<SimConfig>) {
+fn initialize_data_collection_directory(mut cmd: Commands, config: Res<SimulationConfig>) {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
@@ -47,8 +47,8 @@ fn initialize_data_collection_directory(mut cmd: Commands, config: Res<SimConfig
 #[derive(Debug, Serialize)]
 pub struct Plant {
     pub id: u64,
-    pub hour: u32,
-    pub day: u32,
+    pub time_unit: u64,
+    pub day: u64,
     // pub health: f32,
 
     // pub active_energy: Energy,
@@ -73,8 +73,8 @@ pub fn save_plant_data(
         With<PlantMarker>,
     >,
     directory_path: Res<DirectoryPath>,
-    time: Res<SimTime>,
-    config: Res<SimConfig>,
+    time: Res<SimulationTime>,
+    config: Res<SimulationConfig>,
 ) {
     let plants: Vec<_> = plants
         .iter()
@@ -87,8 +87,8 @@ pub fn save_plant_data(
                 // plant_organism_efficiency,
             )| Plant {
                 id: entity.to_bits(),
-                hour: time.hours,
-                day: time.days,
+                time_unit: time.time_units_passed,
+                day: time.days_passed(),
                 // health: health.hp,
 
                 // active_energy: energy_data.active_energy,
@@ -114,8 +114,8 @@ pub fn save_plant_data(
 #[derive(Debug, Serialize)]
 pub struct Animal {
     pub id: u64,
-    pub hour: u32,
-    pub day: u32,
+    pub time_unit: u64,
+    pub day: u64,
 
     pub diet: String,
     // pub health: f32,
@@ -131,15 +131,15 @@ pub struct Animal {
 pub fn save_animal_data(
     animals: Query<(Entity, &Health, &EnergyDatav3, &Diet), With<AnimalMarker>>,
     directory_path: Res<DirectoryPath>,
-    time: Res<SimTime>,
-    config: Res<SimConfig>,
+    time: Res<SimulationTime>,
+    config: Res<SimulationConfig>,
 ) {
     let animals: Vec<_> = animals
         .iter()
         .map(|x| Animal {
             id: x.0.to_bits(),
-            hour: time.hours,
-            day: time.days,
+            time_unit: time.time_units_passed,
+            day: time.days_passed(),
 
             diet: match x.3 {
                 Diet::Carnivorous => "c",

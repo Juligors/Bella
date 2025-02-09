@@ -3,7 +3,10 @@ use super::{
     plant::{PlantBundle, PlantMarker, PlantMatterMarker},
     Energy, EnergyDatav3, Health, KillOrganismEvent,
 };
-use crate::bella::{config::SimConfig, pause::PauseState, restart::SimState, time::HourPassedEvent};
+use crate::bella::{
+    config::SimulationConfig, pause::PauseState, restart::SimulationState,
+    time::TimeUnitPassedEvent,
+};
 use bevy::prelude::*;
 
 pub struct CarcassPlugin;
@@ -12,14 +15,14 @@ impl Plugin for CarcassPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Carcass>()
             .add_systems(Startup, prepare_assets)
-            .add_systems(OnExit(SimState::Simulation), despawn_carcasses)
+            .add_systems(OnExit(SimulationState::Simulation), despawn_carcasses)
             .add_systems(
                 Update,
                 check_if_organisms_should_die.run_if(in_state(PauseState::Running)),
             )
             .add_systems(
                 Update,
-                (decay_and_destoy_carcasses_if_needed).run_if(on_event::<HourPassedEvent>),
+                (decay_and_destoy_carcasses_if_needed).run_if(on_event::<TimeUnitPassedEvent>),
             )
             .add_systems(
                 PostUpdate,
@@ -108,7 +111,7 @@ fn transform_dead_organisms_into_carcasses(
 fn decay_and_destoy_carcasses_if_needed(
     mut commands: Commands,
     mut carcasses: Query<(Entity, &mut Carcass)>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
 ) {
     for (entity, mut carcass) in carcasses.iter_mut() {
         carcass.mass -= carcass.starting_mass * config.organism.carcass_mass_decay_percentage;

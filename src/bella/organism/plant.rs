@@ -4,17 +4,17 @@ use super::{
     SexualMaturity,
 };
 use crate::bella::{
-    config::SimConfig,
+    config::SimulationConfig,
     environment::Sun,
     inspector::choose_entity_observer,
     organism::{EnergyDatav3, Health},
-    restart::SimState,
+    restart::SimulationState,
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
         BiomeType, Nutrients,
     },
-    time::HourPassedEvent,
+    time::TimeUnitPassedEvent,
 };
 use bevy::prelude::*;
 
@@ -25,9 +25,9 @@ impl Plugin for PlantPlugin {
         app.register_type::<PlantEnergyEfficiency>()
             .register_type::<PollinationRange>()
             .add_event::<ReproducePlantsEvent>()
-            .add_systems(OnEnter(SimState::LoadAssets), prepare_plant_assets)
-            .add_systems(OnEnter(SimState::OrganismGeneration), spawn_plants)
-            .add_systems(OnExit(SimState::Simulation), despawn_plants)
+            .add_systems(OnEnter(SimulationState::LoadAssets), prepare_plant_assets)
+            .add_systems(OnEnter(SimulationState::OrganismGeneration), spawn_plants)
+            .add_systems(OnExit(SimulationState::Simulation), despawn_plants)
             .add_systems(
                 Update,
                 (
@@ -37,7 +37,7 @@ impl Plugin for PlantPlugin {
                     // give_plant_energy_from_thermal_conductor_its_on,
                 )
                     .chain()
-                    .run_if(on_event::<HourPassedEvent>),
+                    .run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }
@@ -104,7 +104,7 @@ fn spawn_plants(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
     tiles: Query<(&BiomeType, &Tile)>,
     tile_layout: Res<TileLayout>,
 ) {
@@ -302,7 +302,7 @@ fn reproduce(
     mut event_reader: EventReader<ReproducePlantsEvent>,
     plant_assets: Res<PlantAssets>,
     tile_layout: Res<TileLayout>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
     query: Query<(
         &Mesh3d,
         &MeshMaterial3d<StandardMaterial>,

@@ -6,30 +6,34 @@ pub struct RestartPlugin;
 
 impl Plugin for RestartPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<SimState>()
+        app.init_state::<SimulationState>()
             .add_systems(
-                OnEnter(SimState::LoadConfig),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::Menu),
+                OnEnter(SimulationState::LoadConfig),
+                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::Menu),
             )
             .add_systems(
-                OnEnter(SimState::Menu),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::LoadAssets),
+                OnEnter(SimulationState::Menu),
+                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::LoadAssets),
             )
             .add_systems(
-                OnEnter(SimState::LoadAssets),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::TerrainGeneration),
+                OnEnter(SimulationState::LoadAssets),
+                |mut ns: ResMut<NextState<SimulationState>>| {
+                    ns.set(SimulationState::TerrainGeneration)
+                },
             )
             .add_systems(
-                OnEnter(SimState::TerrainGeneration),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::OrganismGeneration),
+                OnEnter(SimulationState::TerrainGeneration),
+                |mut ns: ResMut<NextState<SimulationState>>| {
+                    ns.set(SimulationState::OrganismGeneration)
+                },
             )
             .add_systems(
-                OnEnter(SimState::OrganismGeneration),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::PreSimulation),
+                OnEnter(SimulationState::OrganismGeneration),
+                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::PreSimulation),
             )
             .add_systems(
-                OnEnter(SimState::PreSimulation),
-                |mut ns: ResMut<NextState<SimState>>| ns.set(SimState::Simulation),
+                OnEnter(SimulationState::PreSimulation),
+                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::Simulation),
             )
             .add_systems(
                 Update,
@@ -40,7 +44,7 @@ impl Plugin for RestartPlugin {
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum SimState {
+pub enum SimulationState {
     #[default]
     LoadConfig,
     Menu,
@@ -52,11 +56,12 @@ pub enum SimState {
 }
 
 fn restart_simulation_based_on_keyboard_input(
-    current_state: Res<State<SimState>>,
-    mut next_state: ResMut<NextState<SimState>>,
+    current_state: Res<State<SimulationState>>,
+    mut next_state: ResMut<NextState<SimulationState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::KeyR) && **current_state == SimState::Simulation {
-        next_state.set(SimState::LoadConfig)
+    if keyboard_input.just_pressed(KeyCode::KeyR) && **current_state == SimulationState::Simulation
+    {
+        next_state.set(SimulationState::LoadConfig)
     }
 }

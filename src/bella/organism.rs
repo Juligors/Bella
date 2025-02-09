@@ -6,7 +6,7 @@ pub mod plant;
 use std::time::Duration;
 
 use self::plant::PlantPlugin;
-use super::time::HourPassedEvent;
+use super::time::TimeUnitPassedEvent;
 use bevy::prelude::*;
 use carcass::CarcassPlugin;
 use gene::{GenePlugin, UnsignedFloatGene, UnsignedIntGene};
@@ -31,7 +31,7 @@ impl Plugin for OrganismPlugin {
                     consume_energy_to_survive,
                     adjust_size,
                 )
-                    .run_if(on_event::<HourPassedEvent>),
+                    .run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }

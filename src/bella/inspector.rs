@@ -5,7 +5,7 @@ use super::{
         plant::PlantMarker,
     },
     terrain::{tile::TileLayout, TerrainMarker},
-    time::{DailyTimer, HourlyTimer, SimTime},
+    time::{DayTimer, TimeUnitTimer, SimulationTime},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::egui::{text::LayoutJob, Color32, TextFormat};
@@ -150,19 +150,19 @@ fn resources_ui(world: &mut World) {
 
                 ui.collapsing("Time", |ui| {
                     ui.push_id(0, |ui| {
-                        ui_for_resource::<DailyTimer>(world, ui);
+                        ui_for_resource::<DayTimer>(world, ui);
                     });
 
                     ui.separator();
 
                     ui.push_id(1, |ui| {
-                        ui_for_resource::<HourlyTimer>(world, ui);
+                        ui_for_resource::<TimeUnitTimer>(world, ui);
                     });
 
                     ui.separator();
 
                     ui.push_id(2, |ui| {
-                        ui_for_resource::<SimTime>(world, ui);
+                        ui_for_resource::<SimulationTime>(world, ui);
                     });
                 });
             });

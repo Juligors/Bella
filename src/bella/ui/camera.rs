@@ -4,7 +4,7 @@ use bevy::{
     render::camera::ScalingMode,
 };
 
-use crate::bella::{config::SimConfig, inspector::EguiFocusState};
+use crate::bella::{config::SimulationConfig, inspector::EguiFocusState};
 
 pub struct MyCameraPlugin;
 
@@ -22,7 +22,7 @@ impl Plugin for MyCameraPlugin {
 #[derive(Component)]
 struct MyGameCameraMarker;
 
-fn spawn_camera_and_light(mut cmd: Commands, config: Res<SimConfig>) {
+fn spawn_camera_and_light(mut cmd: Commands, config: Res<SimulationConfig>) {
     cmd.spawn((
         MyGameCameraMarker,
         Camera3d::default(),

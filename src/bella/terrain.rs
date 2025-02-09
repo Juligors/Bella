@@ -6,8 +6,8 @@ use self::thermal_conductor::{
     init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
     ThermalConductorPlugin,
 };
-use super::{inspector::choose_entity_observer, restart::SimState, time::HourPassedEvent};
-use crate::bella::config::SimConfig;
+use super::{inspector::choose_entity_observer, restart::SimulationState, time::TimeUnitPassedEvent};
+use crate::bella::config::SimulationConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 use noise::{
     utils::{NoiseMapBuilder, PlaneMapBuilder},
@@ -24,22 +24,22 @@ impl Plugin for TerrainPlugin {
         app.add_plugins((ThermalConductorPlugin, TerrainOverlayStatePlugin))
             .register_type::<BiomeType>()
             .register_type::<Tile>()
-            .add_systems(OnEnter(SimState::LoadAssets), initialize_assets_map_biomes)
+            .add_systems(OnEnter(SimulationState::LoadAssets), initialize_assets_map_biomes)
             .add_systems(
-                OnEnter(SimState::PreSimulation),
+                OnEnter(SimulationState::PreSimulation),
                 init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
             )
-            .add_systems(OnEnter(SimState::TerrainGeneration), generate_terrain)
-            .add_systems(OnExit(SimState::Simulation), despawn_terrain)
+            .add_systems(OnEnter(SimulationState::TerrainGeneration), generate_terrain)
+            .add_systems(OnExit(SimulationState::Simulation), despawn_terrain)
             .add_systems(
                 Update,
                 update_tile_color_for_biome
                     .run_if(in_state(TerrainOverlayState::Bioms))
-                    .run_if(in_state(SimState::Simulation)),
+                    .run_if(in_state(SimulationState::Simulation)),
             )
             .add_systems(
                 Update,
-                (update_temperatures, reset_nutrients).run_if(on_event::<HourPassedEvent>),
+                (update_temperatures, reset_nutrients).run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }
@@ -100,7 +100,7 @@ impl Nutrients {
 fn generate_terrain(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    config: Res<SimConfig>,
+    config: Res<SimulationConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let current_time = std::time::SystemTime::now()

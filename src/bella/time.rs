@@ -1,4 +1,4 @@
-use super::{config::SimConfig, pause::PauseState, restart::SimState};
+use super::{config::SimulationConfig, pause::PauseState, restart::SimulationState};
 use bevy::prelude::*;
 use std::time::Duration;
 
@@ -6,101 +6,105 @@ pub struct TimePlugin;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<HourlyTimer>()
-            .register_type::<DailyTimer>()
-            .register_type::<SimTime>()
-            .add_event::<HourPassedEvent>()
+        app.register_type::<TimeUnitTimer>()
+            .register_type::<DayTimer>()
+            .register_type::<SimulationTime>()
+            .add_event::<TimeUnitPassedEvent>()
             .add_event::<DayPassedEvent>()
-            .insert_resource(SimTime { days: 0, hours: 0 })
-            .add_systems(OnExit(SimState::Simulation), reset_timers)
+            .add_systems(OnExit(SimulationState::Simulation), reset_timers)
+            .add_systems(Startup, (init_time, setup_timer_ui))
             .add_systems(
-                Startup,
-                (init_hourly_timer, init_daily_timer, setup_timer_ui),
+                PreUpdate,
+                (update_simulation_time, update_timer_ui)
+                    .chain()
+                    .run_if(on_event::<TimeUnitPassedEvent>),
             )
             .add_systems(
                 PreUpdate,
                 (
-                    update_simulation_time.run_if(on_event::<HourPassedEvent>),
-                    update_timer_ui,
+                    send_time_passed_events_if_needed,
+                    send_day_passed_event_if_needed,
                 )
-                    .chain()
-                    .run_if(in_state(PauseState::Running)),
-            )
-            .add_systems(
-                PreUpdate,
-                (send_hour_passed_event, send_day_passed_event)
                     .run_if(in_state(PauseState::Running)),
             );
     }
 }
 
 #[derive(Resource, Reflect, Deref, DerefMut)]
-pub struct DailyTimer(Timer);
+pub struct TimeUnitTimer(Timer);
 
 #[derive(Resource, Reflect, Deref, DerefMut)]
-pub struct HourlyTimer(Timer);
+pub struct DayTimer(Timer);
+
+#[derive(Resource, Reflect)]
+pub struct SimulationTime {
+    pub time_units_passed: u64,
+    pub time_units_per_day: u64,
+}
+
+impl SimulationTime {
+    pub fn reset(&mut self) {
+        self.time_units_passed = 0;
+    }
+
+    pub fn days_passed(&self) -> u64 {
+        self.time_units_passed / self.time_units_per_day
+    }
+}
 
 #[derive(Event)]
-pub struct HourPassedEvent;
+pub struct TimeUnitPassedEvent;
 
 #[derive(Event)]
 pub struct DayPassedEvent;
 
-#[derive(Resource, Reflect)]
-pub struct SimTime {
-    pub days: u32,
-    pub hours: u32,
-}
-
-fn init_hourly_timer(mut commands: Commands, config: Res<SimConfig>) {
-    commands.insert_resource(HourlyTimer(Timer::from_seconds(
-        config.time.hour_length_in_frames,
+fn init_time(mut commands: Commands, config: Res<SimulationConfig>) {
+    commands.insert_resource(TimeUnitTimer(Timer::from_seconds(
+        config.time.frames_per_time_unit as f32,
         TimerMode::Repeating,
     )));
-}
 
-fn init_daily_timer(mut commands: Commands, config: Res<SimConfig>) {
-    commands.insert_resource(DailyTimer(Timer::from_seconds(
-        24. * config.time.hour_length_in_frames,
+    commands.insert_resource(DayTimer(Timer::from_seconds(
+        config.time.time_units_per_day as f32,
         TimerMode::Repeating,
     )));
+
+    commands.insert_resource(SimulationTime {
+        time_units_passed: 0,
+        time_units_per_day: config.time.time_units_per_day,
+    });
 }
 
-fn send_hour_passed_event(
-    mut ev_hour_passed: EventWriter<HourPassedEvent>,
-    mut timer: ResMut<HourlyTimer>,
+fn send_time_passed_events_if_needed(
+    mut ev_time_unit_passed: EventWriter<TimeUnitPassedEvent>,
+    mut timer: ResMut<TimeUnitTimer>,
 ) {
     if timer.tick(Duration::from_secs(1)).just_finished() {
-        ev_hour_passed.send(HourPassedEvent);
+        ev_time_unit_passed.send(TimeUnitPassedEvent);
     }
 }
 
-fn send_day_passed_event(
+fn send_day_passed_event_if_needed(
     mut ew_day_passed: EventWriter<DayPassedEvent>,
-    mut timer: ResMut<DailyTimer>,
+    mut timer: ResMut<DayTimer>,
 ) {
     if timer.tick(Duration::from_secs(1)).just_finished() {
         ew_day_passed.send(DayPassedEvent);
     }
 }
 
-fn update_simulation_time(mut time_passed: ResMut<SimTime>) {
-    time_passed.hours += 1;
-
-    if time_passed.hours == 24 {
-        time_passed.hours = 0;
-        time_passed.days += 1;
-    }
+fn reset_timers(
+    mut time_unit_timer: ResMut<TimeUnitTimer>,
+    mut day_timer: ResMut<DayTimer>,
+    mut simulation_time: ResMut<SimulationTime>,
+) {
+    time_unit_timer.reset();
+    day_timer.reset();
+    simulation_time.reset();
 }
 
-fn reset_timers(
-    mut hourly_timer: ResMut<HourlyTimer>,
-    mut daily_timer: ResMut<DailyTimer>,
-    mut sim_time: ResMut<SimTime>,
-) {
-    hourly_timer.reset();
-    daily_timer.reset();
-    *sim_time = SimTime { days: 0, hours: 0 };
+fn update_simulation_time(mut simulation_time: ResMut<SimulationTime>) {
+    simulation_time.time_units_passed += 1;
 }
 
 ///////////////////// timer ui /////////////////////
@@ -109,12 +113,9 @@ fn reset_timers(
 pub struct TimerUiTextMarker;
 
 fn setup_timer_ui(mut commands: Commands) {
-    let initial_hour = 0;
-    let initial_day = 0;
-
     commands.spawn((
         TimerUiTextMarker,
-        Text(format!("Day: {}\nHour: {}", initial_day, initial_hour)),
+        Text("Day: 0\nTime unit: 0".to_string()),
         TextColor::BLACK,
         Node {
             position_type: PositionType::Absolute,
@@ -127,12 +128,13 @@ fn setup_timer_ui(mut commands: Commands) {
 
 fn update_timer_ui(
     mut query: Query<&mut Text, With<TimerUiTextMarker>>,
-    time_passed: Res<SimTime>,
+    time_passed: Res<SimulationTime>,
 ) {
     for mut text in query.iter_mut() {
         text.0 = format!(
-            "Day:  {: >2}\nHour: {: >2}",
-            time_passed.days, time_passed.hours
+            "Day:  {: >3}\nTime unit: {: >3}",
+            time_passed.days_passed(),
+            time_passed.time_units_passed
         );
     }
 }

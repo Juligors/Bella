@@ -64,7 +64,7 @@ fn load_config(mut cmd: Commands) {
         .try_deserialize::<DataCollectionConfig>()
         .expect("Can't deserialize data collection config to config struct!");
 
-    cmd.insert_resource(SimConfig {
+    cmd.insert_resource(SimulationConfig {
         organism: organism_config,
         animal: animal_config,
         plant: plant_config,
@@ -76,7 +76,7 @@ fn load_config(mut cmd: Commands) {
 }
 
 #[derive(Resource, Debug)]
-pub struct SimConfig {
+pub struct SimulationConfig {
     pub organism: OrganismConfig,
     pub animal: AnimalConfig,
     pub plant: PlantConfig,
@@ -123,7 +123,6 @@ pub struct AnimalConfig {
     // pub waiting_for_reproduction_time: i8,
     pub carnivores_to_herbivores_ratio: f32,
 
-
     // NEW
     pub reproduction_range_gene_config: UnsignedFloatGeneConfig,
     pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
@@ -153,7 +152,8 @@ pub struct TerrainConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct TimeConfig {
-    pub hour_length_in_frames: f32,
+    pub frames_per_time_unit: u64,
+    pub time_units_per_day: u64,
 }
 
 #[derive(Debug, Deserialize)]

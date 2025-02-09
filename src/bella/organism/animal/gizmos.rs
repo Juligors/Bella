@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::bella::{
     inspector::{ChosenEntity, EguiFocusState},
     organism::plant::PlantMarker,
-    restart::SimState,
+    restart::SimulationState,
 };
 
 use super::{
@@ -27,7 +27,7 @@ impl Plugin for AnimalGizmosPlugin {
                     draw_gizmo_to_animal_destination,
                     draw_gizmo_of_animal_sight_range,
                 )
-                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(SimulationState::Simulation))
                     .run_if(in_state(AnimalGizmosOverlayState::Visible)),
             )
             .add_systems(

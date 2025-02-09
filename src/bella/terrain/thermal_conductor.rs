@@ -2,7 +2,9 @@ use super::{
     terrain_overlay_state::TerrainOverlayState,
     tile::{Tile, TileLayout},
 };
-use crate::bella::{config::SimConfig, environment::Sun, restart::SimState, time::HourPassedEvent};
+use crate::bella::{
+    config::SimulationConfig, environment::Sun, restart::SimulationState, time::TimeUnitPassedEvent,
+};
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 use std::time::Duration;
 
@@ -12,24 +14,24 @@ impl Plugin for ThermalConductorPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ThermalConductor>()
             .add_systems(
-                OnEnter(SimState::LoadAssets),
+                OnEnter(SimulationState::LoadAssets),
                 initialize_assets_map_temperature,
             )
             .add_systems(
                 Update,
                 update_tile_color_for_thermal
                     .run_if(in_state(TerrainOverlayState::Thermal))
-                    .run_if(in_state(SimState::Simulation)),
+                    .run_if(in_state(SimulationState::Simulation)),
             )
             .add_systems(
                 Update,
                 handle_select_input
-                    .run_if(in_state(SimState::Simulation))
+                    .run_if(in_state(SimulationState::Simulation))
                     .run_if(in_state(TerrainOverlayState::Thermal)),
             )
             .add_systems(
                 Update,
-                accumulate_energy_from_solar.run_if(on_event::<HourPassedEvent>),
+                accumulate_energy_from_solar.run_if(on_event::<TimeUnitPassedEvent>),
             );
     }
 }
@@ -92,7 +94,7 @@ impl ThermalConductor {
 #[derive(Resource, Deref, DerefMut)]
 pub struct ThermalOverlayUpdateTimer(Timer);
 
-pub fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimConfig>) {
+pub fn init_thermal_overlay_update_timer(mut cmd: Commands, config: Res<SimulationConfig>) {
     cmd.insert_resource(ThermalOverlayUpdateTimer(Timer::from_seconds(
         config.terrain.thermal_overlay_update_cooldown,
         TimerMode::Repeating,
