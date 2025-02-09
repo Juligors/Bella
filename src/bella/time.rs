@@ -130,11 +130,10 @@ fn update_timer_ui(
     mut query: Query<&mut Text, With<TimerUiTextMarker>>,
     time_passed: Res<SimulationTime>,
 ) {
-    for mut text in query.iter_mut() {
-        text.0 = format!(
-            "Day:  {: >3}\nTime unit: {: >3}",
-            time_passed.days_passed(),
-            time_passed.time_units_passed
-        );
-    }
+    let mut text = query.single_mut();
+    text.0 = format!(
+        "Day:  {: >3}\nTime unit: {: >3}",
+        time_passed.days_passed(),
+        time_passed.time_units_passed
+    );
 }
