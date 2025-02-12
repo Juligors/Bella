@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use super::{
     gene::{Allele, AlleleType, Gene, UnsignedFloatGene},
     Age, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker,
@@ -17,6 +19,11 @@ use crate::bella::{
     time::TimeUnitPassedEvent,
 };
 use bevy::prelude::*;
+use rand::{rngs::ThreadRng, thread_rng, Rng};
+
+thread_local! {
+    static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
+}
 
 pub struct PlantPlugin;
 
@@ -327,7 +334,6 @@ fn reproduce(
             .expect("Failed to fetch parent from query during reproduction");
 
         // crossing parent organism genes
-
         let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
         let starting_age = 0;
         let age = Age::new(
@@ -380,10 +386,17 @@ fn reproduce(
         let pollination_range = PollinationRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
 
         // other setup
-        let middle = (parent1.2.translation + parent2.2.translation) / 2.0;
+        let point = RNG.with(|rng| {
+            let mut rng = rng.borrow_mut();
+            if rng.gen_bool(0.5) {
+                parent1.2.translation.truncate()
+            } else {
+                parent2.2.translation.truncate()
+            }
+        });
         let new_plant_position = tile_layout
             .get_random_position_in_ring(
-                middle.truncate(),
+                point,
                 config.organism.offspring_spawn_range,
                 config.organism.offspring_spawn_range / 2.0,
             )
