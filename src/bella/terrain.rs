@@ -2,11 +2,15 @@ pub mod terrain_overlay_state;
 pub mod thermal_conductor;
 pub mod tile;
 
+use std::collections::VecDeque;
+
 use self::thermal_conductor::{
     init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
     ThermalConductorPlugin,
 };
-use super::{inspector::choose_entity_observer, restart::SimulationState, time::TimeUnitPassedEvent};
+use super::{
+    inspector::choose_entity_observer, restart::SimulationState, time::TimeUnitPassedEvent,
+};
 use crate::bella::config::SimulationConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 use noise::{
@@ -24,12 +28,19 @@ impl Plugin for TerrainPlugin {
         app.add_plugins((ThermalConductorPlugin, TerrainOverlayStatePlugin))
             .register_type::<BiomeType>()
             .register_type::<Tile>()
-            .add_systems(OnEnter(SimulationState::LoadAssets), initialize_assets_map_biomes)
+            .register_type::<Humidity>()
+            .add_systems(
+                OnEnter(SimulationState::LoadAssets),
+                initialize_assets_map_biomes,
+            )
             .add_systems(
                 OnEnter(SimulationState::PreSimulation),
                 init_thermal_overlay_update_timer, // TODO: do we still need it? Probably just use events
             )
-            .add_systems(OnEnter(SimulationState::TerrainGeneration), generate_terrain)
+            .add_systems(
+                OnEnter(SimulationState::TerrainGeneration),
+                (generate_terrain, update_humidity).chain(),
+            )
             .add_systems(OnExit(SimulationState::Simulation), despawn_terrain)
             .add_systems(
                 Update,
@@ -54,6 +65,11 @@ pub enum BiomeType {
     Dirt,
     Grass,
     Water,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct Humidity {
+    pub value: f32,
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -152,6 +168,7 @@ fn generate_terrain(
                 thermal_conductivity: k,
             };
 
+            let humidity = Humidity { value: 0.0 };
             let nutrients = match biome {
                 BiomeType::Dirt => Nutrients::new(config.terrain.nutrients_per_tile),
                 BiomeType::Sand => Nutrients::new(-config.terrain.nutrients_per_tile),
@@ -172,6 +189,7 @@ fn generate_terrain(
                     biome,
                     thermal_conductor,
                     nutrients,
+                    humidity,
                 ))
                 .id();
 
@@ -233,4 +251,78 @@ fn reset_nutrients(mut query: Query<&mut Nutrients>) {
             tile_nutrients.restore_value();
         }
     }
+}
+
+fn update_humidity(
+    query: Query<(&mut Humidity, &BiomeType, &Tile)>,
+    tile_layout: Res<TileLayout>,
+    config: Res<SimulationConfig>,
+) {
+    let mut tiles_map: Vec<Vec<_>> = tile_layout
+        .entities
+        .iter()
+        .map(|tile_row| {
+            tile_row
+                .iter()
+                .map(|tile_entity| unsafe {
+                    query
+                        .get_unchecked(*tile_entity)
+                        .expect("Failed to get tile by Entity")
+                })
+                .collect()
+        })
+        .collect();
+
+    let mut queue = VecDeque::new();
+
+    // add all water tiles to queue and set their humidity
+    for (y, row) in tiles_map.iter_mut().enumerate() {
+        for (x, tile) in row.iter_mut().enumerate() {
+            if *tile.1 == BiomeType::Water {
+                tile.0.value = config.environment.water_humidity;
+                queue.push_back((x, y));
+            }
+        }
+    }
+
+    while let Some((x, y)) = queue.pop_front() {
+        let src_humidity = tiles_map[y][x].0.value;
+
+        for (nx, ny) in neighbors(x, y, tile_layout.cols as usize, tile_layout.rows as usize) {
+            let dist_humidity = &mut tiles_map[ny][nx].0;
+
+            if dist_humidity.value >= src_humidity {
+                continue;
+            }
+
+            let humidity_to_add = (src_humidity - dist_humidity.value)
+                * config.environment.humidity_spread_coefficient;
+            if humidity_to_add > dist_humidity.value {
+                dist_humidity.value += humidity_to_add;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+}
+
+fn neighbors(x: usize, y: usize, width: usize, height: usize) -> Vec<(usize, usize)> {
+    let mut neighbours = Vec::new();
+
+    if x > 0 {
+        neighbours.push((x - 1, y));
+    }
+
+    if x + 1 < width {
+        neighbours.push((x + 1, y));
+    }
+
+    if y > 0 {
+        neighbours.push((x, y - 1));
+    }
+
+    if y + 1 < height {
+        neighbours.push((x, y + 1));
+    }
+
+    neighbours
 }

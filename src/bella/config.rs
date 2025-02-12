@@ -163,6 +163,9 @@ pub struct EnvironmentConfig {
     pub sun_energy_output_per_plant: f32,
     pub sun_day_energy_ratio: f32,
     pub sun_night_energy_ratio: f32,
+
+    pub water_humidity: f32,
+    pub humidity_spread_coefficient: f32,
 }
 
 #[derive(Debug, Deserialize)]
