@@ -48,9 +48,9 @@ impl Plugin for MyWindowPlugin {
                 //     filter: format!("wgpu=error,naga=warn,bella={}", logging_level),
                 //     ..Default::default()
                 // }),
-                // NOTE: We disable LogPlugin because it causes memory leak
-                .disable::<bevy::log::LogPlugin>()
-                .build(),
+                // NOTE: We disable LogPlugin because it causes memory leak. It's needed for tracy traces tho!
+                // .disable::<bevy::log::LogPlugin>()
+                // .build(),
             // bevy::diagnostic::LogDiagnosticsPlugin {
             //     wait_duration: std::time::Duration::from_secs(5),
             //     ..Default::default()

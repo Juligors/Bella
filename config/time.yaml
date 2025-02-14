@@ -1,1 +1,2 @@
-hour_length_in_frames: 60.0
+frames_per_time_unit: 5
+time_units_per_day: 24

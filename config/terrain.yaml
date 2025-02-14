@@ -1,6 +1,6 @@
-map_width: 5
-map_height: 5
-tile_size: 500.0
+map_width: 50
+map_height: 50
+tile_size: 50.0
 
 biome_overlay_update_cooldown: 60.0
 thermal_overlay_update_cooldown: 1.0
