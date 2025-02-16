@@ -2,7 +2,7 @@ pub mod terrain_overlay_state;
 pub mod thermal_conductor;
 pub mod tile;
 
-use std::collections::VecDeque;
+use std::{cell::RefCell, collections::VecDeque};
 
 use self::thermal_conductor::{
     init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
@@ -17,9 +17,13 @@ use noise::{
     utils::{NoiseMapBuilder, PlaneMapBuilder},
     HybridMulti, Perlin,
 };
-use rand::Rng;
+use rand::{rngs::ThreadRng, thread_rng, Rng};
 use terrain_overlay_state::{TerrainOverlayState, TerrainOverlayStatePlugin};
 use tile::{Tile, TileLayout};
+
+thread_local! {
+    static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
+}
 
 pub struct TerrainPlugin;
 
@@ -119,17 +123,13 @@ fn generate_terrain(
     config: Res<SimulationConfig>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let current_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Can't read system time.")
-        .as_secs();
-
     let rows_count = config.terrain.map_height;
     let cols_count = config.terrain.map_width;
 
     let mut rng = rand::thread_rng();
 
-    let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::new(current_time as u32))
+    let seed = RNG.with(|rng| rng.borrow_mut().gen::<u32>());
+    let noise_map = PlaneMapBuilder::new(HybridMulti::<Perlin>::new(seed))
         .set_size(cols_count as usize, rows_count as usize)
         .build();
 
@@ -160,7 +160,7 @@ fn generate_terrain(
             let heat_capacity = ThermalConductor::default_heat_capacity();
             let min_heat = heat_capacity * ThermalConductor::min_temperature();
             let max_heat = heat_capacity * ThermalConductor::max_temperature();
-            let heat = rng.gen_range(min_heat..max_heat);
+            let heat = rng.gen_range(min_heat..max_heat); // TODO: should we just remove heat? It's not really useful in any way
             let k = ThermalConductor::default_thermal_conductivity();
             let thermal_conductor = ThermalConductor {
                 heat,

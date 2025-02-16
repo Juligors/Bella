@@ -1,6 +1,10 @@
 # Rust
 /target
 
+# WASM
+/target-wasm
+/out-wasm
+
 # default directory for tracy files
 /tracy_out
 

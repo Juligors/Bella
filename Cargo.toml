@@ -8,7 +8,9 @@ license = "MIT OR Apache-2.0"
 
 
 [dependencies]
-bevy = { version = "0.15.0", features = ["trace_tracy"] }
+bevy = { version = "0.15.0" }
+# we remove trace_tracy beacause it doesn't work with WASM. just use cargo run --features bevy/trace_tracy
+# bevy = { version = "0.15.0", features = ["trace_tracy"] }
 bevy-inspector-egui = { version = "0.28.0" }
 bevy_egui = "0.31.1"
 
@@ -27,3 +29,16 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
+[profile.wasm-release]
+# Default to release profile values.
+inherits = "release"
+# Optimize with size in mind (also try "z", sometimes it is better).
+# Slightly slows compile times, great improvements to file size and runtime performance.
+# opt-level = "s"
+# Strip all debugging information from the binary to slightly reduce file size.
+# strip = "debuginfo"
+# codegen-units = 1
+# lto = "thin"
+# lto = "fat"
