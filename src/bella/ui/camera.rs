@@ -79,9 +79,9 @@ fn camera_zoom(
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
     if let Projection::Orthographic(ortographic_projection) = projection.as_mut() {
-        let mut log_scale = ortographic_projection.scale.ln();
-        log_scale -= 0.1 * mouse_wheel_input.delta.y;
-        ortographic_projection.scale = log_scale.exp().clamp(0.4, f32::MAX);
+        let change = 0.1 * mouse_wheel_input.delta.y.clamp(-1.0, 1.0);
+        let log_scale = ortographic_projection.scale.ln() - change;
+        ortographic_projection.scale = log_scale.exp();
     }
 }
 
