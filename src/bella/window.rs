@@ -5,7 +5,6 @@ use bevy::{
     tasks::available_parallelism,
     window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
-use std::env;
 
 pub struct MyWindowPlugin;
 
@@ -45,26 +44,39 @@ impl Plugin for MyWindowPlugin {
             ..default()
         });
 
-        app.add_plugins(default_plugins.set(TaskPoolPlugin {
-            task_pool_options: TaskPoolOptions {
-                compute: TaskPoolThreadAssignmentPolicy {
-                    // set the minimum # of compute threads to the total number of available threads
-                    min_threads: available_parallelism(),
-                    // unlimited max threads
-                    max_threads: usize::MAX,
-                    // this value is irrelevant in this case
-                    percent: 1.0,
-                },
-                ..default()
-            },
-        }))
+        app.add_plugins(
+            default_plugins
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            // set the minimum # of compute threads to the total number of available threads
+                            min_threads: available_parallelism(),
+                            // unlimited max threads
+                            max_threads: usize::MAX,
+                            // this value is irrelevant in this case
+                            percent: 1.0,
+                        },
+                        ..default()
+                    },
+                })
+                // NOTE: We disable LogPlugin because it causes memory leak
+                .disable::<bevy::log::LogPlugin>()
+                .build(),
+            // bevy::diagnostic::LogDiagnosticsPlugin {
+            //     wait_duration: std::time::Duration::from_secs(5),
+            //     ..Default::default()
+            // },
+            // bevy::diagnostic::FrameTimeDiagnosticsPlugin,
+        )
         .insert_resource(ClearColor(Color::srgb(1.0, 1.0, 1.0)))
         .insert_resource(WinitSettings {
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,
         })
-        .add_systems(Startup, setup_window_cursor_lock)
-        .add_systems(Update, close_on_esc);
+        .add_systems(Startup, setup_window_cursor_lock);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Update, close_on_esc);
     }
 }
 
@@ -74,6 +86,7 @@ fn setup_window_cursor_lock(mut window_q: Query<&mut Window>) {
     window.cursor_options.grab_mode = CursorGrabMode::None;
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn close_on_esc(
     mut commands: Commands,
     focused_windows: Query<(Entity, &Window)>,
