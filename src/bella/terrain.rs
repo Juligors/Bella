@@ -33,6 +33,7 @@ impl Plugin for TerrainPlugin {
             .register_type::<BiomeType>()
             .register_type::<Tile>()
             .register_type::<Humidity>()
+            .register_type::<Nutrients>()
             .add_systems(
                 OnEnter(SimulationState::LoadAssets),
                 initialize_assets_map_biomes,
