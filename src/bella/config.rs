@@ -16,79 +16,105 @@ impl Plugin for ConfigPlugin {
 
 fn load_config(mut cmd: Commands) {
     let organism_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let organism_config =
         organism_config.add_source(config::File::with_name("config/organisms.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let organism_config =
+        organism_config.add_source(config::File::from_str(ORGANISMS, config::FileFormat::Yaml));
+
     let organism_config = organism_config
-        .add_source(config::File::from_str(ORGANISMS, config::FileFormat::Yaml))
         .build()
         .expect("Can't read organism configuration!")
         .try_deserialize::<OrganismConfig>()
         .expect("Can't deserialize organism config to config struct!");
 
     let animal_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let animal_config = animal_config.add_source(config::File::with_name("config/animals.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let animal_config =
+        animal_config.add_source(config::File::from_str(ANIMALS, config::FileFormat::Yaml));
+
     let animal_config = animal_config
-        .add_source(config::File::from_str(ANIMALS, config::FileFormat::Yaml))
         .build()
         .expect("Can't read animal configuration!")
         .try_deserialize::<AnimalConfig>()
         .expect("Can't deserialize animal config to config struct!");
 
     let plant_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let plant_config = plant_config.add_source(config::File::with_name("config/plants.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let plant_config =
+        plant_config.add_source(config::File::from_str(PLANTS, config::FileFormat::Yaml));
+
     let plant_config = plant_config
-        .add_source(config::File::from_str(PLANTS, config::FileFormat::Yaml))
         .build()
         .expect("Can't read plant configuration!")
         .try_deserialize::<PlantConfig>()
         .expect("Can't deserialize plant config to config struct!");
 
     let terrain_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let terrain_config = terrain_config.add_source(config::File::with_name("config/terrain.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let terrain_config =
+        terrain_config.add_source(config::File::from_str(TERRAIN, config::FileFormat::Yaml));
+
     let terrain_config = terrain_config
-        .add_source(config::File::from_str(TERRAIN, config::FileFormat::Yaml))
         .build()
         .expect("Can't read terrain configuration!")
         .try_deserialize::<TerrainConfig>()
         .expect("Can't deserialize terrain config to config struct!");
 
     let time_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let time_config = time_config.add_source(config::File::with_name("config/time.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let time_config =
+        time_config.add_source(config::File::from_str(TIME, config::FileFormat::Yaml));
+
     let time_config = time_config
-        .add_source(config::File::from_str(TIME, config::FileFormat::Yaml))
         .build()
         .expect("Can't read time configuration!")
         .try_deserialize::<TimeConfig>()
         .expect("Can't deserialize time config to config struct!");
 
     let environment_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let environment_config =
         environment_config.add_source(config::File::with_name("config/environment.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let environment_config = environment_config.add_source(config::File::from_str(
+        ENVIRONMENT,
+        config::FileFormat::Yaml,
+    ));
+
     let environment_config = environment_config
-        .add_source(config::File::from_str(
-            ENVIRONMENT,
-            config::FileFormat::Yaml,
-        ))
         .build()
         .expect("Can't read environment configuration!")
         .try_deserialize::<EnvironmentConfig>()
         .expect("Can't deserialize environment config to config struct!");
 
     let data_collection_config = Config::builder();
+
     #[cfg(not(target_arch = "wasm32"))]
     let data_collection_config =
         data_collection_config.add_source(config::File::with_name("config/data_collection.yaml"));
+    #[cfg(target_arch = "wasm32")]
+    let data_collection_config = data_collection_config.add_source(config::File::from_str(
+        DATA_COLLECTION,
+        config::FileFormat::Yaml,
+    ));
+
     let data_collection_config = data_collection_config
-        .add_source(config::File::from_str(
-            DATA_COLLECTION,
-            config::FileFormat::Yaml,
-        ))
         .build()
         .expect("Can't read data_collection configuration!")
         .try_deserialize::<DataCollectionConfig>()
@@ -160,6 +186,7 @@ pub struct AnimalConfig {
 #[derive(Debug, Deserialize)]
 pub struct PlantConfig {
     pub energy_production_from_solar_efficiency_gene_config: UnsignedFloatGeneConfig,
+    pub nutrient_consumption_gene_config: UnsignedFloatGeneConfig,
     pub pollination_range_gene_config: UnsignedFloatGeneConfig,
     pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
 
@@ -176,7 +203,8 @@ pub struct TerrainConfig {
     pub thermal_overlay_update_cooldown: f32,
     pub biome_overlay_update_cooldown: f32,
 
-    pub nutrients_per_tile: f32,
+    pub nutrients_per_tile_dirt: f32,
+    pub nutrients_per_tile_sand: f32,
 }
 
 #[derive(Debug, Deserialize)]
