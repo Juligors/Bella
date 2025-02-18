@@ -62,6 +62,20 @@ impl Plugin for TerrainPlugin {
 #[derive(Component)]
 pub struct TerrainMarker;
 
+#[derive(Bundle)]
+pub struct TerrainBundle {
+    mesh: Mesh3d,
+    material: MeshMaterial3d<StandardMaterial>,
+    transform: Transform,
+
+    marker: TerrainMarker,
+    tile: Tile,
+    biome: BiomeType,
+    thermal_conductor: ThermalConductor,
+    nutrients: Nutrients,
+    humidity: Humidity,
+}
+
 #[derive(Component, Reflect, Debug, Hash, PartialEq, Eq)]
 pub enum BiomeType {
     Stone,
@@ -179,18 +193,17 @@ fn generate_terrain(
                 .with_scale(Vec3::splat(config.terrain.tile_size));
 
             let entity = commands
-                .spawn((
-                    TerrainMarker,
-                    Name::new(format!("Terrain {} {}", col, row)),
-                    Mesh3d(mesh_handle.clone()),
-                    MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
+                .spawn(TerrainBundle{
+                    mesh: Mesh3d(mesh_handle.clone()),
+                    material: MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
                     transform,
+                    marker: TerrainMarker,
                     tile,
                     biome,
                     thermal_conductor,
                     nutrients,
                     humidity,
-                ))
+                })
                 .id();
 
             choose_entity_observer.watch_entity(entity);
