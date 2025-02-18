@@ -383,7 +383,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             // if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
             //     kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
             // }
-            // trace!("Energy consumed for reproduction: {}", energy_needed1);
+            // println!("Energy consumed for reproduction: {}", energy_needed1);
 
             // let energy_needed2 = organism_energy_efficiency2
             //     .reproduction_energy_cost_gene
@@ -391,7 +391,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             // if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
             //     kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
             // }
-            // trace!("Energy consumed for reproduction: {}", energy_needed2);
+            // println!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
@@ -737,11 +737,11 @@ fn get_animal_asset(assets: &AnimalAssets, diet: &Diet) -> Handle<StandardMateri
 //                 // }
 //                 match tiles.get(e) {
 //                     Ok(_) => continue,
-//                     Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
+//                     Err(_) => println!("No entity {}, despite getting it from tile_layout", e),
 //                 }
 //             }
 //             None => {
-//                 error!("No tile under this creature, pos: {}", creature_pos);
+//                 println!("No tile under this creature, pos: {}", creature_pos);
 //             }
 //         }
 //     }

@@ -11,8 +11,8 @@ reproduction_energy_cost_gene_config:
   offset: 0.0
 
 age_penalty_gene_config:
-  multiplier: 1.0
-  offset: 0.5
+  multiplier: 0.8
+  offset: 0.2
 
 
 maturity_age_gene_config:
@@ -34,6 +34,6 @@ starting_mass_dist:
   std: 0.5
   min: 1.0
 
-offspring_spawn_range: 100.0
+offspring_spawn_range: 10.0
 max_energy_consumption_per_mass_unit: 9.0
 carcass_mass_decay_percentage: 0.1

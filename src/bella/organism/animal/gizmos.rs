@@ -77,7 +77,7 @@ fn draw_gizmo_to_animal_destination(
             Destination::Organism { entity } => match organisms.get(*entity) {
                 Ok(transform) => transform.translation,
                 Err(_) => {
-                    debug!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
+                    println!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
                     mobile.destination = None;
                     continue;
                 }
@@ -109,7 +109,7 @@ fn draw_gizmo_to_animal_destination_for_chosen_animal(
             Destination::Organism { entity } => match organisms.get(*entity) {
                 Ok(transform) => transform.translation,
                 Err(_) => {
-                    debug!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
+                    println!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
                     mobile.destination = None;
                     return;
                 }

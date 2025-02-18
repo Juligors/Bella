@@ -14,7 +14,7 @@ use crate::bella::{
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
-        BiomeType, Nutrients,
+        BiomeType, Humidity, Nutrients,
     },
     time::TimeUnitPassedEvent,
 };
@@ -78,12 +78,17 @@ pub struct PlantAssets {
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct PlantEnergyEfficiency {
     pub production_from_solar_gene: UnsignedFloatGene,
+    pub nutrient_consumption: UnsignedFloatGene,
 }
 
 impl PlantEnergyEfficiency {
-    pub fn new(production_from_solar_gene: impl Into<UnsignedFloatGene>) -> Self {
+    pub fn new(
+        production_from_solar_gene: impl Into<UnsignedFloatGene>,
+        nutrient_consumption_gene: impl Into<UnsignedFloatGene>,
+    ) -> Self {
         Self {
             production_from_solar_gene: production_from_solar_gene.into(),
+            nutrient_consumption: nutrient_consumption_gene.into(),
         }
     }
 }
@@ -155,6 +160,7 @@ fn spawn_plants(
                 config
                     .plant
                     .energy_production_from_solar_efficiency_gene_config,
+                config.plant.nutrient_consumption_gene_config,
             );
             let pollination_range =
                 PollinationRange::new(config.plant.pollination_range_gene_config);
@@ -197,7 +203,8 @@ fn despawn_plants(mut commands: Commands, plants: Query<Entity, With<PlantMarker
 
 fn produce_energy_from_solar(
     mut query: Query<(&mut EnergyDatav3, &PlantEnergyEfficiency, &Transform), With<PlantMarker>>,
-    mut nutrients: Query<&mut Nutrients>,
+    mut nutrients_query: Query<&mut Nutrients>,
+    humidity_query: Query<&Humidity>,
     tile_layout: Res<TileLayout>,
     sun: Res<Sun>,
 ) {
@@ -205,23 +212,24 @@ fn produce_energy_from_solar(
         let tile_entity = tile_layout
             .get_entity_for_position(transform.translation.truncate())
             .expect("Failed to get tile under the plant!");
-        let mut nutrients = nutrients
+
+        let mut tile_nutrients = nutrients_query
             .get_mut(tile_entity)
-            .expect("Failed to get tile from query!");
-        let nutrients_value = nutrients.take_part_of_nutrients();
-        trace!("Taken {} nutrients", nutrients_value);
+            .expect("Failed to get tile's nutrients from query!");
+        let nutrients_value = tile_nutrients
+            .take_part_of_nutrients(energy_efficiency.nutrient_consumption.phenotype());
+
+        let tile_humidity = humidity_query
+            .get(tile_entity)
+            .expect("Failed to get tile's humidity from query!");
+        let humidity_value = tile_humidity.value;
 
         let produced_energy = sun.get_energy_for_plant()
             * energy_efficiency.production_from_solar_gene.phenotype()
-            + nutrients_value;
+            * nutrients_value
+            * humidity_value;
 
         energy_data.store_energy(produced_energy);
-
-        trace!(
-            "Produced {} energy from solar, current active energy : {}",
-            produced_energy,
-            energy_data.active_energy
-        );
     }
 }
 
@@ -291,7 +299,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             // if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
             //     kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
             // }
-            // trace!("Energy consumed for reproduction: {}", energy_needed1);
+            // println!("Energy consumed for reproduction: {}", energy_needed1);
 
             // let energy_needed2 = organism_energy_efficiency2
             //     .reproduction_energy_cost_gene
@@ -299,7 +307,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             // if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
             //     kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
             // }
-            // trace!("Energy consumed for reproduction: {}", energy_needed2);
+            // println!("Energy consumed for reproduction: {}", energy_needed2);
         }
     }
 }
@@ -322,6 +330,7 @@ fn reproduce(
         &PollinationRange,
         &Age,
     )>,
+    biomes: Query<&BiomeType>,
 ) {
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
@@ -382,6 +391,10 @@ fn reproduce(
                 .7
                 .production_from_solar_gene
                 .mixed_with(&parent2.7.production_from_solar_gene),
+            parent1
+                .7
+                .nutrient_consumption
+                .mixed_with(&parent2.7.nutrient_consumption),
         );
         let pollination_range = PollinationRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
 
@@ -394,17 +407,33 @@ fn reproduce(
                 parent2.2.translation.truncate()
             }
         });
-        let new_plant_position = tile_layout
-            .get_random_position_in_ring(
-                point,
-                config.organism.offspring_spawn_range,
-                config.organism.offspring_spawn_range / 2.0,
-            )
-            .extend(energy_data.get_size() / 2.0);
+        let mut new_plant_position = tile_layout.get_random_position_in_ring(
+            point,
+            config.organism.offspring_spawn_range,
+            4.0, // NOTE: magic number to make sure plants don't spawn on top of each other
+        );
+        loop {
+            let entity_of_tile_under = tile_layout
+                .get_entity_for_position(new_plant_position)
+                .expect("Failed to get tile for new plant position");
+            let biome_under_new_plant = biomes
+                .get(entity_of_tile_under)
+                .expect("Failed to get biome of tile for new plant position");
+            if *biome_under_new_plant == BiomeType::Water {
+                new_plant_position = tile_layout.get_random_position_in_ring(
+                    point,
+                    config.organism.offspring_spawn_range,
+                    4.0, // NOTE: magic number to make sure plants don't spawn on top of each other
+                );
+            } else {
+                break;
+            }
+        }
 
         let new_size = energy_data.get_size();
         let mut transform =
-            Transform::from_translation(new_plant_position).with_scale(Vec3::splat(new_size));
+            Transform::from_translation(new_plant_position.extend(energy_data.get_size() / 2.0))
+                .with_scale(Vec3::splat(new_size));
         transform.translation.z = new_size / 2.0;
 
         let entity = commands
@@ -450,10 +479,10 @@ fn reproduce(
 //                         energy_data.energy += energy_taken;
 //                     };
 //                 }
-//                 Err(_) => error!("No entity {}, despite getting it from tile_layout", e),
+//                 Err(_) => println!("No entity {}, despite getting it from tile_layout", e),
 //             },
 //             None => {
-//                 error!("No tile under this plant :(");
+//                 println!("No tile under this plant :(");
 //             }
 //         }
 //     }

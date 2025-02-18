@@ -85,17 +85,17 @@ pub enum BiomeType {
     Water,
 }
 
+/// ensures that there are more plants (and maybe more animals?) near the water, so we don't have the same number of organisms everywhere (less homogenous?)
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Humidity {
     pub value: f32,
 }
 
+/// ensure that there are not too many plants on the same chunk.
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Nutrients {
     value: f32,
     base_value: f32,
-    this_time_count: u32,
-    last_time_count: u32,
 }
 
 impl Nutrients {
@@ -103,27 +103,19 @@ impl Nutrients {
         Self {
             value,
             base_value: value,
-            this_time_count: 0,
-            last_time_count: 10,
         }
     }
 
     pub fn restore_value(&mut self) {
         self.value = self.base_value;
-
-        if self.this_time_count > 0 {
-            self.last_time_count = self.this_time_count;
-            self.this_time_count = 0;
-        }
     }
 
-    pub fn take_part_of_nutrients(&mut self) -> f32 {
-        self.this_time_count += 1;
-
-        let mut value_to_give = self.base_value / self.last_time_count as f32;
-        if self.value < value_to_give {
-            value_to_give = self.value;
-        }
+    pub fn take_part_of_nutrients(&mut self, nutrients_to_take: f32) -> f32 {
+        let value_to_give = if self.value >= nutrients_to_take {
+            nutrients_to_take
+        } else {
+            self.value
+        };
 
         self.value -= value_to_give;
 
@@ -164,9 +156,11 @@ fn generate_terrain(
             let tile_position = tile_layout.get_tile_position(&tile);
 
             let noise_value = noise_map.get_value(col as usize, row as usize);
+            // TODO: for now let's use only Dirt and Water. Need to generate bigger biomes
             let biome = match noise_value {
-                x if x < 0.3 => BiomeType::Dirt,
-                x if x < 0.6 => BiomeType::Sand,
+                x if x < 0.6 => BiomeType::Dirt,
+                // x if x < 0.3 => BiomeType::Dirt,
+                // x if x < 0.6 => BiomeType::Sand,
                 x if x < 1.0 => BiomeType::Water,
                 _ => BiomeType::Water,
             };
@@ -184,16 +178,16 @@ fn generate_terrain(
 
             let humidity = Humidity { value: 0.0 };
             let nutrients = match biome {
-                BiomeType::Dirt => Nutrients::new(config.terrain.nutrients_per_tile),
-                BiomeType::Sand => Nutrients::new(-config.terrain.nutrients_per_tile),
-                _ => Nutrients::new(f32::MIN),
+                BiomeType::Dirt => Nutrients::new(config.terrain.nutrients_per_tile_dirt),
+                BiomeType::Sand => Nutrients::new(-config.terrain.nutrients_per_tile_sand),
+                _ => Nutrients::new(0.0), // TODO: maybe just don't insert it? do Option<Nutrients> in bundle?
             };
 
             let transform = Transform::from_xyz(tile_position.x, tile_position.y, 0.)
                 .with_scale(Vec3::splat(config.terrain.tile_size));
 
             let entity = commands
-                .spawn(TerrainBundle{
+                .spawn(TerrainBundle {
                     mesh: Mesh3d(mesh_handle.clone()),
                     material: MeshMaterial3d(materials.add(Color::linear_rgb(0.9, 0.3, 0.3))),
                     transform,

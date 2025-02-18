@@ -1,5 +1,9 @@
 energy_production_from_solar_efficiency_gene_config:
-  multiplier: 0.4
+  multiplier: 2.0 # for now let's make it not matter (gene will have phenotype of around 1.0)
+  offset: 0.0
+
+nutrient_consumption_gene_config:
+  multiplier: 2.0 # for now let's make it not matter (gene will have phenotype of around 1.0)
   offset: 0.0
 
 pollination_range_gene_config:
@@ -13,9 +17,9 @@ group_spawn_on_grass_chance:
 
 group_size_dist:
   type: 'range'
-  min: 4
-  max: 8
+  min: 2
+  max: 2
 
 energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 15.0
-  offset: 0.3
+  multiplier: 5.0
+  offset: 1.0

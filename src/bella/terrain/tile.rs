@@ -109,7 +109,15 @@ impl TileLayout {
     pub fn is_position_in_bounds(&self, position: impl Into<Vec2>) -> bool {
         let pos = position.into();
 
-        pos.x >= 0.0 && pos.x <= self.width && pos.y >= 0.0 && pos.y <= self.height
+        self.is_x_coordinate_in_bounds(pos.x) && self.is_y_coordinate_in_bounds(pos.y)
+    }
+
+    pub fn is_x_coordinate_in_bounds(&self, x: f32) -> bool {
+        x >= 0.0 && x <= self.width
+    }
+
+    pub fn is_y_coordinate_in_bounds(&self, y: f32) -> bool {
+        y >= 0.0 && y <= self.height
     }
 
     pub fn is_position_inside_tile(&self, position: impl Into<Vec2>, tile: &Tile) -> bool {
@@ -170,21 +178,39 @@ impl TileLayout {
     ) -> Vec2 {
         let pos = position.into();
 
-        RNG.with(|rng| {
+        let (r, theta) = RNG.with(|rng| {
             let mut rng = rng.borrow_mut();
 
             let r: f32 = rng.gen_range(inner_range..range);
-            let theta: f32 = rng.gen_range(0.0..(2.0*PI));
+            let theta: f32 = rng.gen_range(0.0..(2.0 * PI));
 
-            let x_possibly_outside_bounds = pos.x + r * theta.cos();
-            let y_possibly_outside_bounds = pos.y + r * theta.sin();
+            (r, theta)
+        });
 
-            
-            let x = x_possibly_outside_bounds.clamp(0.0, self.width);
-            let y = y_possibly_outside_bounds.clamp(0.0, self.height);
+        let x_diff = r * theta.cos();
+        let y_diff = r * theta.sin();
 
-            Vec2::new(x, y)
-        })
+        let x_possibly_outside_bounds = pos.x + x_diff;
+        let y_possibly_outside_bounds = pos.y + y_diff;
+
+        let mut x = x_possibly_outside_bounds.clamp(0.0, self.width);
+        let mut y = y_possibly_outside_bounds.clamp(0.0, self.height);
+
+        // NOTE: we move back position in case it's "smashed" against map bounds
+        if x == 0.0 {
+            x += self.half_tile_size;
+        }
+        if x == self.width {
+            x -= self.half_tile_size;
+        }
+        if y == 0.0 {
+            y += self.half_tile_size;
+        }
+        if y == self.height {
+            y -= self.half_tile_size;
+        }
+
+        Vec2::new(x, y)
     }
 
     pub fn get_random_position_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec2 {

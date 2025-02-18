@@ -370,27 +370,23 @@ fn consume_energy_to_survive(
                 .phenotype()
             * age.get_age_penalty();
 
-        trace!(
-            "Trying to consume {} energy to survive, active: {}",
-            energy_to_survive,
-            energy_data.active_energy
-        );
+        if energy_to_survive == 0.0 {
+            println!(
+                "consumed 0 energy!? - Age {}, mass {}, energy_efficiency: {}",
+                age.value,
+                energy_data.mass,
+                energy_efficiency
+                    .energy_consumption_to_survive_per_mass_unit_gene
+                    .phenotype()
+            );
+        }
 
         let energy_left_to_consume =
             energy_data.consume_from_active_energy_and_dmg_if_not_enough(energy_to_survive);
-        if energy_left_to_consume == 0.0 {
-            trace!(
-                "Had enough active energy to survive, energy left: {}",
-                energy_data.active_energy
-            );
-        } else {
-            trace!(
-                "Didn't have enough energy, still needs to consume {} energy",
-                energy_left_to_consume
-            );
+
+        if energy_left_to_consume >= 0.0 {
             let dmg = energy_left_to_consume / 10.0;
             health.hp -= dmg;
-            trace!("Damaged by {}, hp left: {}", dmg, health.hp);
         }
     }
 }
