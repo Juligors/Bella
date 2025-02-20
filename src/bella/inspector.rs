@@ -5,7 +5,7 @@ use super::{
         plant::PlantMarker,
     },
     terrain::{tile::TileLayout, TerrainMarker},
-    time::{DayTimer, TimeUnitTimer, SimulationTime},
+    time::{DayTimer, SimulationTime, TimeUnitTimer},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::egui::{text::LayoutJob, Color32, TextFormat};
@@ -217,14 +217,18 @@ fn update_egui_visible_state_based_on_keyboard_input(
 
 pub fn update_egui_focus_state(
     mut egui_contexts: bevy_egui::EguiContexts,
-    window_entity: Single<Entity, With<Window>>,
+    window_query: Query<Entity, With<Window>>,
     mut egui_wants_focus_before: Local<bool>,
     mut egui_wants_focus_now: Local<bool>,
     mut next_state: ResMut<NextState<EguiFocusState>>,
 ) {
     *egui_wants_focus_before = *egui_wants_focus_now;
 
-    if let Some(ctx) = egui_contexts.try_ctx_for_entity_mut(window_entity.into_inner()) {
+    let Ok(window_entity) = window_query.get_single() else {
+        return
+    };
+
+    if let Some(ctx) = egui_contexts.try_ctx_for_entity_mut(window_entity) {
         *egui_wants_focus_now = ctx.wants_pointer_input() || ctx.wants_keyboard_input();
         *egui_wants_focus_now |= ctx.is_pointer_over_area();
     } else {
