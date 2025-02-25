@@ -21,7 +21,7 @@ maturity_age_gene_config:
 starting_age_dist:
   type: 'range'
   max: 24
-  min: 0
+  min: 1
 
 reproduction_cooldown_gene_config:
   max_value: 18
@@ -34,6 +34,6 @@ starting_mass_dist:
   std: 0.5
   min: 1.0
 
-offspring_spawn_range: 10.0
+offspring_spawn_range: 20.0
 max_energy_consumption_per_mass_unit: 9.0
 carcass_mass_decay_percentage: 0.1

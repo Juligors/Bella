@@ -8,7 +8,56 @@ license = "MIT OR Apache-2.0"
 
 
 [dependencies]
-bevy = { version = "0.15.0" }
+# bevy = { version = "0.15.0" }
+bevy = { version = "0.15.2", default-features = false, features = [
+    # those are needed in WINDOWED and HEADLESS
+    # "bevy_color", "bevy_core_pipeline", "default_font", "multi_threaded", 
+
+    # those are needed in WINDOWED
+    # "bevy_gizmos",  "bevy_mesh_picking_backend", "bevy_picking", "bevy_render", "bevy_text", "bevy_window", "bevy_winit", "webgl2",
+
+    # those idk
+    # "bevy_pbr", "bevy_scene", "bevy_state", "bevy_ui", "bevy_ui_picking_backend", "sysinfo_plugin", "custom_cursor"
+
+    
+"x11",
+"webgl2",
+"tonemapping_luts", # rendering stuff
+"sysinfo_plugin",
+"multi_threaded",
+"default_font",
+"bevy_winit",
+"bevy_window",
+"bevy_ui_picking_backend",
+"bevy_ui",
+"bevy_text",
+"bevy_state",
+"bevy_render",
+"bevy_picking",
+"bevy_pbr",
+"bevy_mesh_picking_backend",
+"bevy_gizmos",
+"bevy_core_pipeline",
+"bevy_color",
+
+# "smaa_luts",
+# "vorbis",
+# "png",
+# "ktx2",
+# "hdr",
+# "custom_cursor",
+# "bevy_sprite_picking_backend",
+# "bevy_sprite",
+# "bevy_scene",
+# "bevy_gltf",
+# "bevy_gilrs",
+# "bevy_audio",
+# "bevy_asset",
+# "bevy_animation",
+# "animation",
+# "zstd",
+]}
+
 # we remove trace_tracy beacause it doesn't work with WASM. just use cargo run --features bevy/trace_tracy
 # bevy = { version = "0.15.0", features = ["trace_tracy"] }
 bevy-inspector-egui = { version = "0.28.0" }
