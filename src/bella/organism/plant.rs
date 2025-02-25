@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use super::{
-    gene::{Allele, AlleleType, Gene, UnsignedFloatGene},
+    gene::{Allele, AlleleType, FloatGene, Gene},
     Age, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker,
     SexualMaturity,
 };
@@ -77,14 +77,14 @@ pub struct PlantAssets {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct PlantEnergyEfficiency {
-    pub production_from_solar_gene: UnsignedFloatGene,
-    pub nutrient_consumption: UnsignedFloatGene,
+    pub production_from_solar_gene: FloatGene,
+    pub nutrient_consumption: FloatGene,
 }
 
 impl PlantEnergyEfficiency {
     pub fn new(
-        production_from_solar_gene: impl Into<UnsignedFloatGene>,
-        nutrient_consumption_gene: impl Into<UnsignedFloatGene>,
+        production_from_solar_gene: impl Into<FloatGene>,
+        nutrient_consumption_gene: impl Into<FloatGene>,
     ) -> Self {
         Self {
             production_from_solar_gene: production_from_solar_gene.into(),
@@ -95,11 +95,11 @@ impl PlantEnergyEfficiency {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct PollinationRange {
-    gene: UnsignedFloatGene,
+    gene: FloatGene,
 }
 
 impl PollinationRange {
-    pub fn new(gene: impl Into<UnsignedFloatGene>) -> Self {
+    pub fn new(gene: impl Into<FloatGene>) -> Self {
         Self { gene: gene.into() }
     }
 }

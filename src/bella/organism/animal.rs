@@ -3,7 +3,7 @@ pub mod mobile;
 
 use self::mobile::Mobile;
 use super::{
-    gene::UnsignedFloatGene, plant::PlantMatterMarker, Age, EnergyDatav3, HungerLevel,
+    gene::FloatGene, plant::PlantMatterMarker, Age, EnergyDatav3, HungerLevel,
     OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker, SexualMaturity,
 };
 use crate::bella::{
@@ -77,7 +77,7 @@ pub struct ReproduceAnimalsEvent {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct AnimalEnergyEfficiency {
-    // pub production_from_solar_gene: UnsignedFloatGene,
+    // pub energy_consumption_to_survive_per_mass_unit_gene: FloatGene,
 }
 
 impl AnimalEnergyEfficiency {
@@ -100,8 +100,8 @@ pub struct SightRange(f32);
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Attack {
-    pub range: f32,
-    pub damage: f32,
+    pub range: FloatGene,
+    pub damage: FloatGene,
 }
 
 #[derive(Resource)]
@@ -113,11 +113,11 @@ pub struct AnimalAssets {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct ReproductionRange {
-    gene: UnsignedFloatGene,
+    gene: FloatGene,
 }
 
 impl ReproductionRange {
-    pub fn new(gene: impl Into<UnsignedFloatGene>) -> Self {
+    pub fn new(gene: impl Into<FloatGene>) -> Self {
         Self { gene: gene.into() }
     }
 }

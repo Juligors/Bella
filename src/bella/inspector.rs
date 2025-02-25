@@ -1,7 +1,7 @@
 use super::{
     organism::{
         animal::AnimalMarker,
-        gene::{Allele, Gene, UnsignedFloatGene, UnsignedIntGene},
+        gene::{Allele, FloatGene, Gene, IntGene},
         plant::PlantMarker,
     },
     terrain::{tile::TileLayout, TerrainMarker},
@@ -28,8 +28,8 @@ impl Plugin for InspectorPlugin {
             .init_state::<EguiVisibleState>()
             .insert_resource(ChosenEntity { entity: None })
             // for custom UI for Genes
-            .register_type_data::<UnsignedFloatGene, InspectorEguiImpl>()
-            .register_type_data::<UnsignedIntGene, InspectorEguiImpl>()
+            .register_type_data::<FloatGene, InspectorEguiImpl>()
+            .register_type_data::<IntGene, InspectorEguiImpl>()
             .register_type_data::<Gene, InspectorEguiImpl>()
             .register_type_data::<Allele, InspectorEguiImpl>()
             .add_systems(Startup, setup_egui)
@@ -225,7 +225,7 @@ pub fn update_egui_focus_state(
     *egui_wants_focus_before = *egui_wants_focus_now;
 
     let Ok(window_entity) = window_query.get_single() else {
-        return
+        return;
     };
 
     if let Some(ctx) = egui_contexts.try_ctx_for_entity_mut(window_entity) {
@@ -242,7 +242,7 @@ pub fn update_egui_focus_state(
     }
 }
 
-impl InspectorPrimitive for UnsignedFloatGene {
+impl InspectorPrimitive for FloatGene {
     fn ui(
         &mut self,
         ui: &mut bevy_egui::egui::Ui,
@@ -290,13 +290,12 @@ impl InspectorPrimitive for UnsignedFloatGene {
         _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
         ui.add_enabled_ui(false, |ui| {
-            ui.label("Readonly UnsignedFloatGene UI, not implemented")
-                .changed();
+            ui.label("Readonly FloatGene UI, not implemented").changed();
         });
     }
 }
 
-impl InspectorPrimitive for UnsignedIntGene {
+impl InspectorPrimitive for IntGene {
     fn ui(
         &mut self,
         ui: &mut bevy_egui::egui::Ui,
@@ -345,7 +344,7 @@ impl InspectorPrimitive for UnsignedIntGene {
         _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
         ui.add_enabled_ui(false, |ui| {
-            ui.label("Readonly UnsignedIntGene UI, not implemented")
+            ui.label("Readonly IntGene UI, not implemented")
                 .changed();
         });
     }

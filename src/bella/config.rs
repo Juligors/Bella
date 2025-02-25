@@ -144,15 +144,15 @@ pub struct SimulationConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct OrganismConfig {
-    pub max_health_gene_config: UnsignedFloatGeneConfig,
-    pub max_active_energy_gene_config: UnsignedFloatGeneConfig,
-    pub reproduction_energy_cost_gene_config: UnsignedFloatGeneConfig,
-    pub age_penalty_gene_config: UnsignedFloatGeneConfig,
+    pub max_health_gene_config: FloatGeneConfig,
+    pub max_active_energy_gene_config: FloatGeneConfig,
+    pub reproduction_energy_cost_gene_config: FloatGeneConfig,
+    pub age_penalty_gene_config: FloatGeneConfig,
 
-    pub maturity_age_gene_config: UnsignedIntGeneConfig,
+    pub maturity_age_gene_config: IntGeneConfig,
     // TODO: this is for now to differenciate starting timers
     pub starting_age_dist: DiscreteDistribution,
-    pub reproduction_cooldown_gene_config: UnsignedIntGeneConfig,
+    pub reproduction_cooldown_gene_config: IntGeneConfig,
 
     pub starting_mass_dist: ContinuousDistribution,
 
@@ -179,16 +179,16 @@ pub struct AnimalConfig {
     pub carnivores_to_herbivores_ratio: f32,
 
     // NEW
-    pub reproduction_range_gene_config: UnsignedFloatGeneConfig,
-    pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
+    pub reproduction_range_gene_config: FloatGeneConfig,
+    pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PlantConfig {
-    pub energy_production_from_solar_efficiency_gene_config: UnsignedFloatGeneConfig,
-    pub nutrient_consumption_gene_config: UnsignedFloatGeneConfig,
-    pub pollination_range_gene_config: UnsignedFloatGeneConfig,
-    pub energy_to_survive_per_mass_unit_gene_config: UnsignedFloatGeneConfig,
+    pub energy_production_from_solar_efficiency_gene_config: FloatGeneConfig,
+    pub nutrient_consumption_gene_config: FloatGeneConfig,
+    pub pollination_range_gene_config: FloatGeneConfig,
+    pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
 
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
@@ -240,14 +240,14 @@ thread_local! {
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
-pub struct UnsignedFloatGeneConfig {
+pub struct FloatGeneConfig {
     pub multiplier: f32,
     pub offset: f32,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
-pub struct UnsignedIntGeneConfig {
+pub struct IntGeneConfig {
     pub max_value: u32,
     pub min_value: u32,
 }

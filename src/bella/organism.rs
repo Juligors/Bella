@@ -9,7 +9,7 @@ use self::plant::PlantPlugin;
 use super::time::TimeUnitPassedEvent;
 use bevy::prelude::*;
 use carcass::CarcassPlugin;
-use gene::{GenePlugin, UnsignedFloatGene, UnsignedIntGene};
+use gene::{FloatGene, GenePlugin, IntGene};
 
 pub struct OrganismPlugin;
 
@@ -54,11 +54,11 @@ pub struct OrganismBundle {
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Health {
     pub hp: f32,
-    max_hp_gene: UnsignedFloatGene,
+    max_hp_gene: FloatGene,
 }
 
 impl Health {
-    pub fn new(gene: UnsignedFloatGene) -> Self {
+    pub fn new(gene: FloatGene) -> Self {
         Self {
             hp: gene.phenotype() / 2.0,
             max_hp_gene: gene,
@@ -72,12 +72,12 @@ pub struct EnergyDatav3 {
     /// currently possesed glycogen/starch energy equivalent
     pub active_energy: Energy,
     /// storage limit of glycogen/starch energy equivalent
-    pub max_active_energy_gene: UnsignedFloatGene,
+    pub max_active_energy_gene: FloatGene,
 
     /// current mass, equivalent of fat/body mass/oil
     pub mass: f32,
     /// energy stored as mass per mass unit
-    pub energy_per_mass_unit_gene: UnsignedFloatGene,
+    pub energy_per_mass_unit_gene: FloatGene,
 }
 
 #[derive(Reflect, Debug, Clone)]
@@ -88,8 +88,8 @@ pub enum HungerLevel {
 
 impl EnergyDatav3 {
     pub fn new(
-        max_active_energy_gene: UnsignedFloatGene,
-        energy_per_mass_unit_gene: UnsignedFloatGene,
+        max_active_energy_gene: FloatGene,
+        energy_per_mass_unit_gene: FloatGene,
         mass: f32,
     ) -> Self {
         Self {
@@ -191,14 +191,14 @@ impl EnergyDatav3 {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct OrganismEnergyEfficiency {
-    pub energy_consumption_to_survive_per_mass_unit_gene: UnsignedFloatGene,
-    pub reproduction_energy_cost_gene: UnsignedFloatGene,
+    pub energy_consumption_to_survive_per_mass_unit_gene: FloatGene,
+    pub reproduction_energy_cost_gene: FloatGene,
 }
 
 impl OrganismEnergyEfficiency {
     pub fn new(
-        energy_consumption_to_survive_per_mass_unit_gene: UnsignedFloatGene,
-        reproduction_energy_cost_gene: UnsignedFloatGene,
+        energy_consumption_to_survive_per_mass_unit_gene: FloatGene,
+        reproduction_energy_cost_gene: FloatGene,
     ) -> Self {
         Self {
             energy_consumption_to_survive_per_mass_unit_gene,
@@ -211,11 +211,11 @@ impl OrganismEnergyEfficiency {
 pub struct Age {
     pub value: u32,
     // TODO: to raczej nie powinno być takie ogólne, tylko osobne dla każdego komponentu, który osłabiany jest z wiekiem
-    pub age_penalty_gene: UnsignedFloatGene,
+    pub age_penalty_gene: FloatGene,
 }
 
 impl Age {
-    pub fn new(age_value: u32, age_penalty_gene: UnsignedFloatGene) -> Self {
+    pub fn new(age_value: u32, age_penalty_gene: FloatGene) -> Self {
         Self {
             value: age_value,
             age_penalty_gene,
@@ -230,16 +230,16 @@ impl Age {
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct SexualMaturity {
     pub level: SexualMaturityLevel,
-    pub maturity_age_gene: UnsignedIntGene,
-    pub reproduction_cooldown_gene: UnsignedIntGene,
+    pub maturity_age_gene: IntGene,
+    pub reproduction_cooldown_gene: IntGene,
     // reproductions_left: u32,
-    // max_reproduction_count_gene: UnsignedFloatGene,
+    // max_reproduction_count_gene: FloatGene,
 }
 
 impl SexualMaturity {
     pub fn new(
-        maturity_age_gene: UnsignedIntGene,
-        reproduction_cooldown_gene: UnsignedIntGene,
+        maturity_age_gene: IntGene,
+        reproduction_cooldown_gene: IntGene,
         starting_age: u32,
     ) -> Self {
         let maturity_age = maturity_age_gene.phenotype();

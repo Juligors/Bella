@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
 
-use crate::bella::config::{UnsignedFloatGeneConfig, UnsignedIntGeneConfig};
+use crate::bella::config::{FloatGeneConfig, IntGeneConfig};
 
 thread_local! {
     static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
@@ -12,8 +12,8 @@ pub struct GenePlugin;
 
 impl Plugin for GenePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<UnsignedFloatGene>()
-            .register_type::<UnsignedIntGene>()
+        app.register_type::<FloatGene>()
+            .register_type::<IntGene>()
             .register_type::<Gene>()
             .register_type::<Allele>()
             .register_type::<AlleleType>();
@@ -21,14 +21,14 @@ impl Plugin for GenePlugin {
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub struct UnsignedFloatGene {
+pub struct FloatGene {
     pub gene: Gene,
     pub multiplier: f32,
     pub offset: f32,
     phenotype: f32,
 }
 
-impl UnsignedFloatGene {
+impl FloatGene {
     pub fn new(gene: Gene, multiplier: f32, offset: f32) -> Self {
         let phenotype = multiplier * (gene.expression_level() + offset).clamp(0.0, 1.0);
 
@@ -48,7 +48,7 @@ impl UnsignedFloatGene {
         assert!(self.multiplier == other.multiplier);
         assert!(self.offset == other.offset);
 
-        UnsignedFloatGene::new(
+        FloatGene::new(
             self.gene.cross_with(&other.gene),
             self.multiplier,
             self.offset,
@@ -56,8 +56,8 @@ impl UnsignedFloatGene {
     }
 }
 
-impl From<UnsignedFloatGeneConfig> for UnsignedFloatGene {
-    fn from(value: UnsignedFloatGeneConfig) -> Self {
+impl From<FloatGeneConfig> for FloatGene {
+    fn from(value: FloatGeneConfig) -> Self {
         assert!(value.multiplier > 0.0);
         assert!(value.offset >= 0.0);
 
@@ -66,16 +66,21 @@ impl From<UnsignedFloatGeneConfig> for UnsignedFloatGene {
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub struct UnsignedIntGene {
+pub struct IntGene {
     pub gene: Gene,
     pub max_value: u32,
     pub min_value: u32,
     phenotype: u32,
 }
 
-impl UnsignedIntGene {
+impl IntGene {
     pub fn new(gene: Gene, min_value: u32, max_value: u32) -> Self {
-        assert!(max_value >= min_value, "max: {}, min: {}", max_value, min_value);
+        assert!(
+            max_value >= min_value,
+            "max: {}, min: {}",
+            max_value,
+            min_value
+        );
 
         let diff = (max_value - min_value) as f32;
         let phenotype = (gene.expression_level() * diff) as u32 + min_value;
@@ -104,9 +109,9 @@ impl UnsignedIntGene {
     }
 }
 
-impl From<UnsignedIntGeneConfig> for UnsignedIntGene {
-    fn from(value: UnsignedIntGeneConfig) -> Self {
-        UnsignedIntGene::new(Gene::new(0.5), value.min_value, value.max_value)
+impl From<IntGeneConfig> for IntGene {
+    fn from(value: IntGeneConfig) -> Self {
+        IntGene::new(Gene::new(0.5), value.min_value, value.max_value)
     }
 }
 
