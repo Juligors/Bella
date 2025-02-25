@@ -9,8 +9,9 @@ wasm: build-wasm
 	yes | cp $(OUT_WASM)/bella_bg.wasm ../webella/compiled/bella_bg.wasm
 	yes | cp $(OUT_WASM)/bella.js ../webella/compiled/bella.js
 
-wasm-opt: wasm
+wasm-opt: build-wasm
 	wasm-opt -Oz --output $(OUT_WASM)/bella_bg-optimized.wasm $(OUT_WASM)/bella_bg.wasm
+	yes | cp $(OUT_WASM)/bella_bg-optimized.wasm ../webella/compiled/bella_bg.wasm
 
 
 # .PHONY: wasm, wasm-opt
