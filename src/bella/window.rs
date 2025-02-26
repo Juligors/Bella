@@ -45,28 +45,27 @@ impl Plugin for MyWindowPlugin {
         });
 
         app.add_plugins(
-            default_plugins
-                .set(TaskPoolPlugin {
-                    task_pool_options: TaskPoolOptions {
-                        compute: TaskPoolThreadAssignmentPolicy {
-                            // set the minimum # of compute threads to the total number of available threads
-                            min_threads: available_parallelism(),
-                            // unlimited max threads
-                            max_threads: usize::MAX,
-                            // this value is irrelevant in this case
-                            percent: 1.0,
-                        },
-                        ..default()
+            default_plugins.set(TaskPoolPlugin {
+                task_pool_options: TaskPoolOptions {
+                    compute: TaskPoolThreadAssignmentPolicy {
+                        // set the minimum # of compute threads to the total number of available threads
+                        min_threads: available_parallelism(),
+                        // unlimited max threads
+                        max_threads: usize::MAX,
+                        // this value is irrelevant in this case
+                        percent: 1.0,
                     },
-                })
-                // NOTE: We disable LogPlugin because it causes memory leak, BUT it's needed for tracy to work!
+                    ..default()
+                },
+            }), // NOTE: LogPlugin may or may not cause memory leak
+                // NOTE: LogPlugin seems to be needed for Tracy to work
                 // .disable::<bevy::log::LogPlugin>()
                 // .build(),
-            // bevy::diagnostic::LogDiagnosticsPlugin {
-            //     wait_duration: std::time::Duration::from_secs(5),
-            //     ..Default::default()
-            // },
-            // bevy::diagnostic::FrameTimeDiagnosticsPlugin,
+                // bevy::diagnostic::LogDiagnosticsPlugin {
+                //     wait_duration: std::time::Duration::from_secs(5),
+                //     ..Default::default()
+                // },
+                // bevy::diagnostic::FrameTimeDiagnosticsPlugin,
         )
         .insert_resource(ClearColor(Color::srgb(1.0, 1.0, 1.0)))
         .insert_resource(WinitSettings {
