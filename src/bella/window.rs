@@ -59,9 +59,9 @@ impl Plugin for MyWindowPlugin {
                         ..default()
                     },
                 })
-                // NOTE: We disable LogPlugin because it causes memory leak
-                .disable::<bevy::log::LogPlugin>()
-                .build(),
+                // NOTE: We disable LogPlugin because it causes memory leak, BUT it's needed for tracy to work!
+                // .disable::<bevy::log::LogPlugin>()
+                // .build(),
             // bevy::diagnostic::LogDiagnosticsPlugin {
             //     wait_duration: std::time::Duration::from_secs(5),
             //     ..Default::default()
