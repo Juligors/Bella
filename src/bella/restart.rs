@@ -9,6 +9,10 @@ impl Plugin for RestartPlugin {
         app.init_state::<SimulationState>()
             .add_systems(
                 OnEnter(SimulationState::LoadConfig),
+                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::InitializeDataCollection),
+            )
+            .add_systems(
+                OnEnter(SimulationState::InitializeDataCollection),
                 |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::Menu),
             )
             .add_systems(
@@ -47,6 +51,7 @@ impl Plugin for RestartPlugin {
 pub enum SimulationState {
     #[default]
     LoadConfig,
+    InitializeDataCollection,
     Menu,
     LoadAssets,
     TerrainGeneration,

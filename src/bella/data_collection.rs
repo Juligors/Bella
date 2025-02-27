@@ -1,11 +1,9 @@
 use super::{
-    config::SimulationConfig,
-    organism::{
+    config::SimulationConfig, organism::{
         animal::{AnimalMarker, Diet},
         plant::{PlantEnergyEfficiency, PlantMarker},
         Energy, EnergyDatav3, Health, OrganismEnergyEfficiency,
-    },
-    time::{SimulationTime, TimeUnitPassedEvent},
+    }, restart::SimulationState, time::{SimulationTime, TimeUnitPassedEvent}
 };
 use bevy::prelude::*;
 use serde::Serialize;
@@ -19,7 +17,7 @@ pub struct DataCollectionPlugin;
 
 impl Plugin for DataCollectionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (initialize_data_collection_directory,))
+        app.add_systems(OnEnter(SimulationState::InitializeDataCollection), (initialize_data_collection_directory,))
             .add_systems(
                 PostUpdate,
                 (save_plant_data, save_animal_data).run_if(on_event::<TimeUnitPassedEvent>),
@@ -142,8 +140,8 @@ pub fn save_animal_data(
             day: time.days_passed(),
 
             diet: match x.3 {
-                Diet::Carnivorous => "c",
-                Diet::Herbivorous => "h",
+                Diet::Carnivore => "c",
+                Diet::Herbivore => "h",
                 Diet::Omnivore => "o",
             }
             .to_string(),
