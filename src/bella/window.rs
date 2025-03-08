@@ -16,12 +16,12 @@ impl Plugin for MyWindowPlugin {
         //     logging_level = program_args[1].clone();
         // }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(not(feature = "bella_web"))]
         let default_plugins = DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bella".into(),
                 resolution: (1400., 700.).into(),
-                present_mode: PresentMode::AutoVsync,
+                present_mode: PresentMode::AutoNoVsync,
                 window_theme: Some(WindowTheme::Dark),
                 window_level: WindowLevel::AlwaysOnTop,
                 position: WindowPosition::At((75, 50).into()),
@@ -30,7 +30,7 @@ impl Plugin for MyWindowPlugin {
             ..default()
         });
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(feature = "bella_web")]
         let default_plugins = DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bella".into(),

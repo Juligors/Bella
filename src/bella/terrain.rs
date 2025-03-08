@@ -9,7 +9,7 @@ use self::thermal_conductor::{
     ThermalConductorPlugin,
 };
 use super::{
-    inspector::choose_entity_observer, restart::SimulationState, time::TimeUnitPassedEvent,
+    restart::SimulationState, time::TimeUnitPassedEvent,
 };
 use crate::bella::config::SimulationConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
@@ -86,6 +86,16 @@ pub enum BiomeType {
     Water,
 }
 
+impl BiomeType {
+    pub fn plants_can_live_here(&self) -> bool {
+        *self == BiomeType::Dirt
+    }
+
+    pub fn animals_can_live_here(&self) -> bool {
+        *self != BiomeType::Water
+    }
+}
+
 /// ensures that there are more plants (and maybe more animals?) near the water, so we don't have the same number of organisms everywhere (less homogenous?)
 #[derive(Component, Reflect, Debug, Clone)]
 pub struct Humidity {
@@ -147,7 +157,7 @@ fn generate_terrain(
     let mesh = tile_layout.generate_mesh();
     let mesh_handle = meshes.add(mesh);
 
-    let mut choose_entity_observer = Observer::new(choose_entity_observer);
+    // let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for row in 0..rows_count {
         tile_layout.add_new_row();
@@ -201,13 +211,13 @@ fn generate_terrain(
                 })
                 .id();
 
-            choose_entity_observer.watch_entity(entity);
+            // choose_entity_observer.watch_entity(entity);
 
             tile_layout.add_new_tile_to_last_row(entity);
         }
     }
 
-    commands.spawn(choose_entity_observer);
+    // commands.spawn(choose_entity_observer);
 
     commands.insert_resource(tile_layout);
 }

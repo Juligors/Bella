@@ -2,37 +2,40 @@
 
 pub mod bella;
 
-use bella::config::ConfigPlugin;
-use bella::data_collection::DataCollectionPlugin;
-use bella::environment::EnvironmentPlugin;
-use bella::inspector::InspectorPlugin;
-use bella::organism::OrganismPlugin;
-use bella::pause::PausePlugin;
-use bella::restart::RestartPlugin;
-use bella::terrain::TerrainPlugin;
-use bella::time::TimePlugin;
-use bella::ui::UiPlugin;
-use bella::window::MyWindowPlugin;
 use bevy::prelude::*;
 
 fn main() {
     let mut app = App::new();
 
+    #[cfg(feature = "bella_headless")]
+    app.add_plugins(DefaultPlugins)
+        .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+            core::time::Duration::from_secs_f32(1.0 / 99999.0),
+        ));
+    #[cfg(not(feature = "bella_headless"))]
+    app.add_plugins(bella::window::MyWindowPlugin); // NOTE: it adds DefaultPlugins
+
     app.add_plugins((
         MeshPickingPlugin,
-        MyWindowPlugin,
-        ConfigPlugin,
-        TimePlugin,
-        EnvironmentPlugin,
-        PausePlugin,
-        RestartPlugin,
-    ))
-    .add_plugins(UiPlugin)
-    .add_plugins((TerrainPlugin, OrganismPlugin))
-    .add_plugins(InspectorPlugin);
+        bella::config::ConfigPlugin,
+        bella::ui_facade::UiFacadePlugin,
+        bella::time::TimePlugin,
+        bella::environment::EnvironmentPlugin,
+        bella::pause::PausePlugin,
+        bella::restart::RestartPlugin,
+        bella::terrain::TerrainPlugin,
+        bella::organism::OrganismPlugin,
+    ));
 
-    #[cfg(not(target_arch = "wasm32"))]
-    app.add_plugins(DataCollectionPlugin);
+    #[cfg(not(feature = "bella_headless"))]
+    app.add_plugins((
+        bella::ui::UiPlugin,
+        bella::inspector::InspectorPlugin,
+        bella::organism::animal::gizmos::AnimalGizmosPlugin,
+    ));
+
+    #[cfg(not(feature = "bella_web"))]
+    app.add_plugins(bella::data_collection::DataCollectionPlugin);
 
     app.run();
 }

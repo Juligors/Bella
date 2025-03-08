@@ -1,14 +1,17 @@
 pub mod gizmos;
 pub mod mobile;
 
+use std::cell::RefCell;
+
 use self::mobile::Mobile;
 use super::{
-    gene::FloatGene, plant::PlantMatterMarker, Age, EnergyDatav3, HungerLevel,
-    OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker, SexualMaturity,
+    gene::{FloatGene, IntGene},
+    plant::PlantMatterMarker,
+    Age, EnergyDatav3, HungerLevel, OrganismBundle, OrganismEnergyEfficiency,
+    ReadyToReproduceMarker, SexualMaturity,
 };
 use crate::bella::{
     config::SimulationConfig,
-    inspector::choose_entity_observer,
     organism::Health,
     pause::PauseState,
     restart::SimulationState,
@@ -17,21 +20,26 @@ use crate::bella::{
         tile::{Tile, TileLayout},
         BiomeType,
     },
-    time::TimeUnitPassedEvent,
+    time::TimeUnitPassedEvent, ui_facade::choose_entity_observer,
 };
 use bevy::prelude::*;
 use gizmos::AnimalGizmosPlugin;
 use itertools::multiunzip;
 use mobile::{Destination, MobilePlugin};
+use rand::{rngs::ThreadRng, thread_rng, Rng};
+
+thread_local! {
+    static RNG: RefCell<ThreadRng> = RefCell::new(thread_rng());
+}
 
 pub struct AnimalPlugin;
 
 impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((MobilePlugin, AnimalGizmosPlugin))
+        app.add_plugins((MobilePlugin))
             .register_type::<Diet>()
             .register_type::<SightRange>()
-            .register_type::<Attack>()
+            .register_type::<AttackDmg>()
             .add_event::<ReproduceAnimalsEvent>()
             .add_systems(OnEnter(SimulationState::LoadAssets), prepare_animal_assets)
             .add_systems(OnEnter(SimulationState::OrganismGeneration), spawn_animals)
@@ -39,7 +47,7 @@ impl Plugin for AnimalPlugin {
             .add_systems(
                 Update,
                 (
-                    choose_new_destination,
+                    // choose_new_destination,
                     send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy,
                     reproduce,
                     // connect_animal_with_medium_its_on,
@@ -62,11 +70,20 @@ pub struct AnimalBundle {
     marker: AnimalMarker,
     matter_marker: AnimalMatterMarker,
     animal_energy_efficiency: AnimalEnergyEfficiency,
-    reproduction_range: ReproductionRange,
+    action_range: ActionRange,
     mobile: Mobile,
-    attack: Attack,
+    attack: AttackDmg,
     sight_range: SightRange,
     diet: Diet,
+}
+
+pub enum Action {
+    /// NOTE: or call it Resting? Sleeping? It should probably cost less energy
+    DoingNothing,
+    GoingTo { position: Vec2 },
+    Eating { food: Entity },
+    Attacking { enemy: Entity },
+    Mating { with: Entity },
 }
 
 #[derive(Event)]
@@ -90,24 +107,30 @@ impl AnimalEnergyEfficiency {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub enum Diet {
-    Carnivorous,
-    Herbivorous,
+    Carnivore,
+    Herbivore,
     Omnivore,
 }
 
-#[derive(Component, Reflect, Debug, Clone, Deref, DerefMut)]
-pub struct SightRange(f32);
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct SightRange {
+    gene: FloatGene,
+}
 
 #[derive(Component, Reflect, Debug, Clone)]
-pub struct Attack {
-    pub range: FloatGene,
-    pub damage: FloatGene,
+pub struct ActionRange {
+    pub gene: FloatGene,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+pub struct AttackDmg {
+    pub gene: FloatGene,
 }
 
 #[derive(Resource)]
 pub struct AnimalAssets {
-    pub carnivorous: Handle<StandardMaterial>,
-    pub herbivorous: Handle<StandardMaterial>,
+    pub carnivore: Handle<StandardMaterial>,
+    pub herbivore: Handle<StandardMaterial>,
     pub omnivore: Handle<StandardMaterial>,
 }
 
@@ -124,8 +147,8 @@ impl ReproductionRange {
 
 pub fn prepare_animal_assets(mut cmd: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
     let animal_assets = AnimalAssets {
-        carnivorous: materials.add(Color::srgb(1.0, 0.3, 0.3)),
-        herbivorous: materials.add(Color::srgb(0.3, 1.0, 0.7)),
+        carnivore: materials.add(Color::srgb(1.0, 0.3, 0.3)),
+        herbivore: materials.add(Color::srgb(0.3, 1.0, 0.7)),
         omnivore: materials.add(Color::srgb(0.3, 0.3, 1.0)),
     };
 
@@ -144,7 +167,7 @@ fn spawn_animals(
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
-        if *biome_type != BiomeType::Sand {
+        if !biome_type.animals_can_live_here() {
             continue;
         }
 
@@ -177,24 +200,25 @@ fn spawn_animals(
             );
 
             let diet = match config.animal.diet_dist.sample() {
-                0 => Diet::Herbivorous,
-                1 => Diet::Carnivorous,
+                0 => Diet::Herbivore,
+                1 => Diet::Carnivore,
                 _ => Diet::Omnivore,
             };
             let animal_energy_efficiency = AnimalEnergyEfficiency::new();
-            let reproduction_range =
-                ReproductionRange::new(config.plant.pollination_range_gene_config);
             let mobile = Mobile {
-                speed: config.animal.speed_dist.sample(),
+                speed: config.animal.speed_gene_config.into(),
                 destination: None,
                 next_step_destination: None,
             };
-            let sight_range = SightRange(config.animal.sight_range_dist.sample());
-            let attack = Attack {
-                range: config.animal.attack_range_dist.sample(),
-                damage: config.animal.attack_damage_dist.sample(),
+            let sight_range = SightRange {
+                gene: config.animal.sight_range_gene_config.into(),
             };
-
+            let action_range = ActionRange {
+                gene: config.animal.action_range_gene_config.into(),
+            };
+            let attack = AttackDmg {
+                gene: config.animal.attack_damage_gene_config.into(),
+            };
             let size = energy_data.get_size();
             let position = tile_layout.get_random_position_in_tile(tile);
 
@@ -214,7 +238,7 @@ fn spawn_animals(
                     marker: AnimalMarker,
                     matter_marker: AnimalMatterMarker,
                     animal_energy_efficiency,
-                    reproduction_range,
+                    action_range,
                     mobile,
                     attack,
                     sight_range,
@@ -274,10 +298,8 @@ pub fn choose_new_destination(
             HungerLevel::Satiated => should_wander_around = true,
             HungerLevel::Hungry => {
                 let distances = match diets[i] {
-                    Diet::Carnivorous => {
-                        utils::find_closest_meat(entities[i], transforms[i], &meat)
-                    }
-                    Diet::Herbivorous => {
+                    Diet::Carnivore => utils::find_closest_meat(entities[i], transforms[i], &meat),
+                    Diet::Herbivore => {
                         utils::find_closest_plant_matter(transforms[i], &plant_matter)
                     }
                     Diet::Omnivore => {
@@ -304,7 +326,7 @@ pub fn choose_new_destination(
         if should_wander_around {
             let new_destination_position = tile_layout.get_random_position_in_range(
                 transforms[i].translation.truncate(),
-                **sight_ranges[i] / 20.0, // TODO: magic number for showcase
+                sight_ranges[i].gene.phenotype(),
             );
 
             mobiles[i].destination = Some(Destination::Place {
@@ -414,10 +436,12 @@ fn reproduce(
         &ReproductionRange,
         &Age,
         &Mobile,
-        &Attack,
+        &ActionRange,
         &SightRange,
+        &AttackDmg,
         &Diet,
     )>,
+    biomes: Query<&BiomeType>,
 ) {
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
@@ -432,7 +456,7 @@ fn reproduce(
         // crossing parent organism genes
 
         let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
-        let starting_age = 0;
+        let starting_age = config.organism.starting_age_dist.sample();
         let age = Age::new(
             starting_age,
             parent1
@@ -473,35 +497,62 @@ fn reproduce(
                 .mixed_with(&parent2.6.reproduction_energy_cost_gene),
         );
 
-        // crossing parent plant genes
+        // crossing parent animal genes
         let animal_energy_efficiency = AnimalEnergyEfficiency::new();
         let reproduction_range = ReproductionRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
-        // TODO: All to genes!
         let mobile = Mobile {
-            speed: parent1.10.speed,
+            speed: parent1.10.speed.mixed_with(&parent2.10.speed),
             destination: None,
             next_step_destination: None,
         };
-        let attack = Attack {
-            range: parent1.11.range,
-            damage: parent1.11.damage,
+        let action_range = ActionRange {
+            gene: parent1.11.gene.mixed_with(&parent2.11.gene),
         };
-        let sight_range = SightRange(parent1.12 .0);
-        let diet = parent1.13.clone();
+        let sight_range = SightRange {
+            gene: parent1.12.gene.mixed_with(&parent2.12.gene),
+        };
+        let attack = AttackDmg {
+            gene: parent1.13.gene.mixed_with(&parent2.13.gene),
+        };
+        // TODO: diet should also be a gene
+        let diet = parent1.14.clone();
 
         // other setup
-        let middle = (parent1.2.translation + parent2.2.translation) / 2.0;
-        let new_plant_position = tile_layout
-            .get_random_position_in_ring(
-                middle.truncate(),
-                config.organism.offspring_spawn_range,
-                config.organism.offspring_spawn_range / 2.0,
-            )
-            .extend(energy_data.get_size() / 2.0);
+        let point = RNG.with(|rng| {
+            let mut rng = rng.borrow_mut();
+            if rng.gen_bool(0.5) {
+                parent1.2.translation.truncate()
+            } else {
+                parent2.2.translation.truncate()
+            }
+        });
+        let mut new_animal_position = tile_layout.get_random_position_in_ring(
+            point,
+            config.organism.offspring_spawn_range,
+            4.0, // NOTE: magic number to make sure plants don't spawn on top of each other
+        );
+        loop {
+            let entity_of_tile_under = tile_layout
+                .get_entity_for_position(new_animal_position)
+                .expect("Failed to get tile for new animal position");
+            let biome_under_new_animal = biomes
+                .get(entity_of_tile_under)
+                .expect("Failed to get biome of tile for new animal position");
+            if *biome_under_new_animal == BiomeType::Water {
+                new_animal_position = tile_layout.get_random_position_in_ring(
+                    point,
+                    config.organism.offspring_spawn_range,
+                    4.0, // NOTE: magic number to make sure animals don't spawn on top of each other
+                );
+            } else {
+                break;
+            }
+        }
 
         let new_size = energy_data.get_size();
         let mut transform =
-            Transform::from_translation(new_plant_position).with_scale(Vec3::splat(new_size));
+            Transform::from_translation(new_animal_position.extend(energy_data.get_size() / 2.0))
+                .with_scale(Vec3::splat(new_size));
         transform.translation.z = new_size / 2.0;
 
         let entity = commands
@@ -520,10 +571,10 @@ fn reproduce(
                 marker: AnimalMarker,
                 matter_marker: AnimalMatterMarker,
                 animal_energy_efficiency,
-                reproduction_range,
                 mobile,
-                attack,
+                action_range,
                 sight_range,
+                attack,
                 diet,
             })
             .id();
@@ -534,115 +585,15 @@ fn reproduce(
     commands.spawn(choose_entity_observer);
 }
 
-// fn consume_energy_to_reproduce(
-//     mut commands: Commands,
-//     mut query: Query<
-//         (
-//             &mut ReproductionState,
-//             &mut EnergyData,
-//             &mut Health,
-//             &Transform,
-//             &Diet,
-//             &Mesh3d,
-//             &MeshMaterial3d<StandardMaterial>,
-//             &Size,
-//             &Attack,
-//             &SightRange,
-//             &Mobile,
-//         ),
-//         With<AnimalMarker>,
-//     >,
-//     config: Res<SimConfig>,
-//     tile_layout: Res<TileLayout>,
-// ) {
-//     let mut choose_entity_observer = Observer::new(choose_entity_observer);
+/// TODO: this should be called every hour and when previous action ends
+fn choose_next_action(query: Query<()>){
+    // Order:
+    // Fear > Hunger (carcass/plant) > Hunger (attack) > LookingForMate > Bored (wander around) > Bored (wait?)
+    
+    // if is_hungry() -> 
 
-//     for (
-//         mut parent_life_cycle_state,
-//         mut parent_energy_data,
-//         mut parent_health,
-//         parent_transform,
-//         parent_diet,
-//         parent_mesh,
-//         parent_material,
-//         parent_size,
-//         parent_attack,
-//         parent_sight_range,
-//         parent_mobile,
-//     ) in query.iter_mut()
-//     {
-//         // TODO: this should happen somewhere else and emit ReproduceEvent with Entity being parent
-//         match *parent_life_cycle_state {
-//             ReproductionState::Developing(_) => continue,
-//             ReproductionState::WaitingToReproduce(cooldown) => {
-//                 *parent_life_cycle_state = ReproductionState::WaitingToReproduce(cooldown - 1);
-//             }
-//             ReproductionState::ReadyToReproduce => {
-//                 *parent_life_cycle_state = ReproductionState::WaitingToReproduce(
-//                     config.plant.waiting_for_reproduction_time,
-//                 );
+}
 
-//                 let size = Size {
-//                     size: parent_size.size,
-//                 };
-//                 let health = Health {
-//                     max_hp: parent_health.max_hp,
-//                     hp: parent_health.max_hp / 2.0,
-//                 };
-//                 let mobile = Mobile {
-//                     speed: parent_mobile.speed,
-//                     destination: None,
-//                     next_step_destination: None,
-//                 };
-
-//                 let energy_data = EnergyData {
-//                     energy: 1000.,
-//                     production_efficiency: 0.01,
-//                     energy_needed_for_survival_per_mass_unit: 5.,
-//                     energy_needed_for_growth_per_mass_unit: 5.,
-//                     grow_by: 0.2,
-//                 };
-//                 let attack = Attack {
-//                     damage: parent_attack.damage,
-//                     range: parent_attack.range,
-//                 };
-//                 let sight_range = SightRange(parent_sight_range.0);
-//                 let diet = (parent_diet).clone();
-
-//                 let position = tile_layout.get_random_position_in_range(
-//                     parent_transform.translation.truncate(),
-//                     config.animal.reproduction_range,
-//                 );
-
-//                 let entity = commands
-//                     .spawn((
-//                         AnimalMarker,
-//                         Transform::from_translation(position.extend(size.size))
-//                             .with_scale(Vec3::splat(size.size)),
-//                         HungerLevel::Hungry(100), // FIXME: magic numbetruct
-//                         ReproductionState::Developing(config.animal.development_time), // TODO: probably need to fix that?
-//                         Meat {
-//                             stored_energy: energy_data.energy, // TODO: this shouldn't be duplicated, it's stored enerngy!
-//                         },
-//                         parent_mesh.clone(),
-//                         parent_material.clone(),
-//                         attack,
-//                         sight_range,
-//                         diet,
-//                         health,
-//                         mobile,
-//                         size,
-//                         energy_data,
-//                     ))
-//                     .id();
-
-//                 choose_entity_observer.watch_entity(entity);
-//             }
-//         }
-//     }
-
-//     commands.spawn(choose_entity_observer);
-// }
 
 mod utils {
     use super::*;
@@ -704,7 +655,7 @@ mod utils {
     ) -> Option<Destination> {
         positions_and_distances
             .iter()
-            .filter(|(_, distance)| *distance < **sight_range)
+            .filter(|(_, distance)| *distance < sight_range.gene.phenotype())
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(entity, _)| Destination::Organism { entity: *entity })
     }
@@ -712,8 +663,8 @@ mod utils {
 
 fn get_animal_asset(assets: &AnimalAssets, diet: &Diet) -> Handle<StandardMaterial> {
     match &diet {
-        Diet::Carnivorous => assets.carnivorous.clone(),
-        Diet::Herbivorous => assets.herbivorous.clone(),
+        Diet::Carnivore => assets.carnivore.clone(),
+        Diet::Herbivore => assets.herbivore.clone(),
         Diet::Omnivore => assets.omnivore.clone(),
     }
 }

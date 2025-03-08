@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::bella::inspector::EguiFocusState;
+use crate::bella::ui_facade::EguiFocusState;
 
 pub struct TerrainOverlayStatePlugin;
 

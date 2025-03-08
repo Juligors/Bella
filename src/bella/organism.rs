@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use self::plant::PlantPlugin;
 use super::time::TimeUnitPassedEvent;
+use animal::AnimalPlugin;
 use bevy::prelude::*;
 use carcass::CarcassPlugin;
 use gene::{FloatGene, GenePlugin, IntGene};
@@ -15,7 +16,7 @@ pub struct OrganismPlugin;
 
 impl Plugin for OrganismPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((GenePlugin, PlantPlugin, CarcassPlugin))
+        app.add_plugins((GenePlugin, PlantPlugin, AnimalPlugin, CarcassPlugin))
             .register_type::<Health>()
             .register_type::<Age>()
             .register_type::<SexualMaturity>()
@@ -115,6 +116,7 @@ impl EnergyDatav3 {
     }
 
     /// TODO: right now it works for both animals and plants, but plants don't have hunger...
+    /// TODO: idk about that approach. Also we can't inspect HungerLevel
     pub fn get_hunger_level(&self) -> HungerLevel {
         let active_energy_percentage = self.active_energy / self.max_active_energy_gene.phenotype();
         if active_energy_percentage > 0.75 {

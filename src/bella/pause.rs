@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::inspector::EguiFocusState;
+use super::ui_facade::EguiFocusState;
 
 pub struct PausePlugin;
 

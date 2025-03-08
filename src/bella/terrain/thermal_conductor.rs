@@ -5,7 +5,7 @@ use super::{
 use crate::bella::{
     config::SimulationConfig, environment::Sun, restart::SimulationState, time::TimeUnitPassedEvent,
 };
-use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 use std::time::Duration;
 
 pub struct ThermalConductorPlugin;
@@ -23,12 +23,12 @@ impl Plugin for ThermalConductorPlugin {
                     .run_if(in_state(TerrainOverlayState::Thermal))
                     .run_if(in_state(SimulationState::Simulation)),
             )
-            .add_systems(
-                Update,
-                handle_select_input
-                    .run_if(in_state(SimulationState::Simulation))
-                    .run_if(in_state(TerrainOverlayState::Thermal)),
-            )
+            // .add_systems(
+            //     Update,
+            //     handle_select_input
+            //         .run_if(in_state(SimulationState::Simulation))
+            //         .run_if(in_state(TerrainOverlayState::Thermal)),
+            // )
             .add_systems(
                 Update,
                 accumulate_energy_from_solar.run_if(on_event::<TimeUnitPassedEvent>),
@@ -247,25 +247,25 @@ fn update_tile_color_for_thermal(
 }
 
 // TODO: this might be useful, but probably needs to be reworked with bevy_picking (maybe some more general solution allowing for changing of anything?)
-fn handle_select_input(
-    window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    mut tiles: Query<(Entity, &mut ThermalConductor)>,
-    tile_layout: Res<TileLayout>,
-) {
-    // let (camera, camera_transform) = camera.into_inner();
-    // let Some(cursor_position) = window.into_inner().cursor_position() else {
-    //     return;
-    // };
+// fn handle_select_input(
+//     window: Single<&Window, With<PrimaryWindow>>,
+//     camera: Single<(&Camera, &GlobalTransform)>,
+//     mut tiles: Query<(Entity, &mut ThermalConductor)>,
+//     tile_layout: Res<TileLayout>,
+// ) {
+//     // let (camera, camera_transform) = camera.into_inner();
+//     // let Some(cursor_position) = window.into_inner().cursor_position() else {
+//     //     return;
+//     // };
 
-    // let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
-    //     return;
-    // };
+//     // let Ok(pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+//     //     return;
+//     // };
 
-    // let length = ray.origin.length();
+//     // let length = ray.origin.length();
 
-    // if let Some(selected_entity) = tile_layout.get_entity_for_position(pos) {
-    //     let (_, mut thermal_conductor) = tiles.get_mut(selected_entity).unwrap();
-    //     thermal_conductor.heat = thermal_conductor.max_heat();
-    // }
-}
+//     // if let Some(selected_entity) = tile_layout.get_entity_for_position(pos) {
+//     //     let (_, mut thermal_conductor) = tiles.get_mut(selected_entity).unwrap();
+//     //     thermal_conductor.heat = thermal_conductor.max_heat();
+//     // }
+// }

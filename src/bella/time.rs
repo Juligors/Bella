@@ -12,10 +12,10 @@ impl Plugin for TimePlugin {
             .add_event::<TimeUnitPassedEvent>()
             .add_event::<DayPassedEvent>()
             .add_systems(OnExit(SimulationState::Simulation), reset_timers)
-            .add_systems(Startup, (init_time, setup_timer_ui))
+            .add_systems(Startup, init_time)
             .add_systems(
                 PreUpdate,
-                (update_simulation_time, update_timer_ui)
+                update_simulation_time
                     .chain()
                     .run_if(on_event::<TimeUnitPassedEvent>),
             )
@@ -47,7 +47,7 @@ impl SimulationTime {
         self.time_units_passed = 0;
     }
 
-    pub fn time_units_this_day(&self) -> u64{
+    pub fn time_units_this_day(&self) -> u64 {
         self.time_units_passed % self.time_units_per_day
     }
 
@@ -111,35 +111,4 @@ fn reset_timers(
 
 fn update_simulation_time(mut simulation_time: ResMut<SimulationTime>) {
     simulation_time.time_units_passed += 1;
-}
-
-///////////////////// timer ui /////////////////////
-
-#[derive(Component)]
-pub struct TimerUiTextMarker;
-
-fn setup_timer_ui(mut commands: Commands) {
-    commands.spawn((
-        TimerUiTextMarker,
-        Text("Day: 0\nTime unit: 0".to_string()),
-        TextColor::BLACK,
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            right: Val::Px(5.0),
-            ..default()
-        },
-    ));
-}
-
-fn update_timer_ui(
-    mut query: Query<&mut Text, With<TimerUiTextMarker>>,
-    time_passed: Res<SimulationTime>,
-) {
-    let mut text = query.single_mut();
-    text.0 = format!(
-        "Day:{:>2}\nTime unit:{: >2}",
-        time_passed.days_passed(),
-        time_passed.time_units_this_day()
-    );
 }

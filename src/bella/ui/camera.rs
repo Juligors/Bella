@@ -4,7 +4,7 @@ use bevy::{
     render::camera::ScalingMode,
 };
 
-use crate::bella::{config::SimulationConfig, inspector::EguiFocusState};
+use crate::bella::{config::SimulationConfig, ui_facade::EguiFocusState};
 
 pub struct MyCameraPlugin;
 

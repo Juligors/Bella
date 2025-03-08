@@ -6,6 +6,7 @@ use super::{
     },
     terrain::{tile::TileLayout, TerrainMarker},
     time::{DayTimer, SimulationTime, TimeUnitTimer},
+    ui_facade::{ChosenEntity, EguiFocusState, EguiVisibleState},
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::egui::{text::LayoutJob, Color32, TextFormat};
@@ -24,9 +25,6 @@ pub struct InspectorPlugin;
 impl Plugin for InspectorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((EguiPlugin, DefaultInspectorConfigPlugin))
-            .init_state::<EguiFocusState>()
-            .init_state::<EguiVisibleState>()
-            .insert_resource(ChosenEntity { entity: None })
             // for custom UI for Genes
             .register_type_data::<FloatGene, InspectorEguiImpl>()
             .register_type_data::<IntGene, InspectorEguiImpl>()
@@ -48,25 +46,6 @@ impl Plugin for InspectorPlugin {
                 update_egui_focus_state.after(EguiSet::InitContexts),
             );
     }
-}
-
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum EguiVisibleState {
-    #[default]
-    Yes,
-    No,
-}
-
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum EguiFocusState {
-    #[default]
-    IsNotFocused,
-    IsFocused,
-}
-
-#[derive(Resource)]
-pub struct ChosenEntity {
-    pub entity: Option<Entity>,
 }
 
 fn setup_egui(mut egui_context: Single<&mut EguiContext, With<PrimaryWindow>>) {
@@ -110,22 +89,6 @@ fn chosen_entity_ui(world: &mut World) {
                     });
             });
     }
-}
-
-pub fn choose_entity_observer(
-    click: Trigger<Pointer<Click>>,
-    mut chosen_entity: ResMut<ChosenEntity>,
-    egui_focus_state: Res<State<EguiFocusState>>,
-) {
-    if matches!(**egui_focus_state, EguiFocusState::IsFocused) {
-        return;
-    }
-
-    if click.button != PointerButton::Primary {
-        return;
-    }
-
-    chosen_entity.entity = Some(click.target);
 }
 
 fn resources_ui(world: &mut World) {
@@ -344,8 +307,7 @@ impl InspectorPrimitive for IntGene {
         _: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
         ui.add_enabled_ui(false, |ui| {
-            ui.label("Readonly IntGene UI, not implemented")
-                .changed();
+            ui.label("Readonly IntGene UI, not implemented").changed();
         });
     }
 }

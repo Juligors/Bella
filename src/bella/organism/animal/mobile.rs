@@ -1,6 +1,6 @@
-use super::{AnimalMarker, Attack};
+use super::{ActionRange, AnimalMarker, AttackDmg};
 use crate::bella::{
-    organism::{carcass::Carcass, plant::PlantMarker, EnergyDatav3, Health},
+    organism::{carcass::Carcass, gene::FloatGene, plant::PlantMarker, EnergyDatav3, Health},
     pause::PauseState,
     restart::SimulationState,
     terrain::tile::TileLayout,
@@ -29,7 +29,7 @@ impl Plugin for MobilePlugin {
 // TODO: to powinna być część zwierząt i tyle
 #[derive(Component, Reflect, Debug)]
 pub struct Mobile {
-    pub speed: f32,
+    pub speed: FloatGene,
     pub destination: Option<Destination>,
     pub next_step_destination: Option<Vec2>,
 }
@@ -71,11 +71,11 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, tile_layout: R
         let old_position = transform.translation.truncate();
         let position_diff = *dest_position - old_position;
 
-        let move_by = if position_diff.length() <= mobile.speed {
+        let move_by = if position_diff.length() <= mobile.speed.phenotype() {
             mobile.destination = None;
             position_diff
         } else {
-            position_diff.normalize() * mobile.speed
+            position_diff.normalize() * mobile.speed.phenotype()
         };
 
         let new_position = old_position + move_by;
@@ -93,13 +93,13 @@ pub fn make_step(mut query: Query<(&mut Mobile, &mut Transform)>, tile_layout: R
 }
 
 fn attack(
-    mut query_self: Query<(&Attack, &Mobile, &Transform)>,
+    mut query_self: Query<(&AttackDmg, &ActionRange, &Mobile, &Transform)>,
     mut query_other_organisms: Query<
         (&mut Health, &Transform),
         Or<(With<PlantMarker>, With<AnimalMarker>)>,
     >,
 ) {
-    for (attack, mobile, transform) in query_self.iter_mut() {
+    for (attack, action_range, mobile, transform) in query_self.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
@@ -110,11 +110,11 @@ fn attack(
                 match query_other_organisms.get_mut(*target) {
                     Ok((mut health, other_transform)) => {
                         let distance = other_transform.translation.distance(transform.translation);
-                        if distance > attack.range {
+                        if distance > action_range.gene.phenotype() {
                             continue;
                         }
 
-                        health.hp -= attack.damage;
+                        health.hp -= attack.gene.phenotype();
                     }
                     Err(_) => {
                         // This means that destination organism isn't Plant/Animal, so just ignore it
@@ -126,10 +126,16 @@ fn attack(
 }
 
 fn eat_matter(
-    mut query: Query<(&Attack, &Mobile, &Transform, &mut EnergyDatav3)>,
+    mut query: Query<(
+        &AttackDmg,
+        &ActionRange,
+        &Mobile,
+        &Transform,
+        &mut EnergyDatav3,
+    )>,
     mut query_matter: Query<(&mut Carcass, &Transform)>,
 ) {
-    for (attack, mobile, transform, mut energy_data) in query.iter_mut() {
+    for (attack, action_range, mobile, transform, mut energy_data) in query.iter_mut() {
         if mobile.destination.is_none() {
             continue;
         }
@@ -139,11 +145,11 @@ fn eat_matter(
             Destination::Organism { entity: target } => match query_matter.get_mut(*target) {
                 Ok((mut carcass, other_transform)) => {
                     let distance = other_transform.translation.distance(transform.translation);
-                    if distance > attack.range {
+                    if distance > action_range.gene.phenotype() {
                         continue;
                     }
 
-                    let mut eaten_mass = attack.damage / 5.0;
+                    let mut eaten_mass = attack.gene.phenotype() / 5.0;
                     if eaten_mass > carcass.mass {
                         eaten_mass = carcass.mass;
                     }

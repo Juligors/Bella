@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 
 use crate::bella::{
-    inspector::{ChosenEntity, EguiFocusState},
     organism::plant::PlantMarker,
     restart::SimulationState,
+    ui_facade::{ChosenEntity, EguiFocusState},
 };
 
 use super::{
     mobile::{Destination, Mobile},
-    AnimalMarker, Attack, Diet, SightRange,
+    ActionRange, AnimalMarker, AttackDmg, Diet, SightRange,
 };
 
 pub struct AnimalGizmosPlugin;
@@ -127,7 +127,7 @@ fn draw_gizmo_of_animal_sight_range(
 ) {
     for (transform, sight_range, diet) in animals.iter() {
         let isometry = Isometry3d::from_translation(transform.translation);
-        let radius = **sight_range;
+        let radius = sight_range.gene.phenotype();
         let color = get_color_for_diet(diet);
 
         gizmos.circle(isometry, radius, color).resolution(32);
@@ -145,7 +145,7 @@ fn draw_gizmo_of_animal_sight_range_for_chosen_animal(
 
     if let Ok((transform, sight_range, diet)) = animals.get(chosen_entity.entity.unwrap()) {
         let isometry = Isometry3d::from_translation(transform.translation);
-        let radius = **sight_range;
+        let radius = sight_range.gene.phenotype();
         let color = get_color_for_diet(diet);
 
         gizmos.circle(isometry, radius, color).resolution(32);
@@ -154,16 +154,16 @@ fn draw_gizmo_of_animal_sight_range_for_chosen_animal(
 
 fn draw_gizmo_of_animal_attack_range_for_chosen_animal(
     mut gizmos: Gizmos,
-    animals: Query<(&Transform, &Attack, &Diet), With<AnimalMarker>>,
+    animals: Query<(&Transform, &ActionRange, &Diet), With<AnimalMarker>>,
     chosen_entity: Res<ChosenEntity>,
 ) {
     if chosen_entity.entity.is_none() {
         return;
     }
 
-    if let Ok((transform, attack, diet)) = animals.get(chosen_entity.entity.unwrap()) {
+    if let Ok((transform, action_range, diet)) = animals.get(chosen_entity.entity.unwrap()) {
         let isometry = Isometry3d::from_translation(transform.translation);
-        let radius = attack.range;
+        let radius = action_range.gene.phenotype();
         let color = get_color_for_diet(diet);
 
         gizmos.circle(isometry, radius, color).resolution(32);
@@ -172,8 +172,8 @@ fn draw_gizmo_of_animal_attack_range_for_chosen_animal(
 
 fn get_color_for_diet(diet: &Diet) -> Srgba {
     match diet {
-        Diet::Carnivorous => bevy::color::palettes::css::RED,
-        Diet::Herbivorous => bevy::color::palettes::css::GREEN,
+        Diet::Carnivore => bevy::color::palettes::css::RED,
+        Diet::Herbivore => bevy::color::palettes::css::GREEN,
         Diet::Omnivore => bevy::color::palettes::css::BLUE,
     }
 }

@@ -8,7 +8,6 @@ use super::{
 use crate::bella::{
     config::SimulationConfig,
     environment::Sun,
-    inspector::choose_entity_observer,
     organism::{EnergyDatav3, Health},
     restart::SimulationState,
     terrain::{
@@ -16,7 +15,7 @@ use crate::bella::{
         tile::{Tile, TileLayout},
         BiomeType, Humidity, Nutrients,
     },
-    time::TimeUnitPassedEvent,
+    time::TimeUnitPassedEvent, ui_facade::choose_entity_observer,
 };
 use bevy::prelude::*;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
@@ -124,7 +123,7 @@ fn spawn_plants(
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for (biome_type, tile) in tiles.iter() {
-        if *biome_type != BiomeType::Dirt {
+        if !biome_type.plants_can_live_here() {
             continue;
         }
 

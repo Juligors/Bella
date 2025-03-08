@@ -6,62 +6,61 @@ authors = ["Julian Górski"]
 license = "MIT OR Apache-2.0"
 
 
+[features]
+default = ["bella_normal"]
+
+# wasm, windowed
+bella_web = [
+    "bella_normal",
+    "bevy/webgl2",
+]
+
+# native, windowed
+bella_normal = [
+    "bella_base",
+    # we don't use trace_tracy beacause it doesn't work with WASM. just use cargo run --features bevy/trace_tracy
+
+    "bevy-inspector-egui",
+    "bevy_egui",
+
+    "bevy/bevy_window",
+    "bevy/bevy_core_pipeline",
+    "bevy/sysinfo_plugin",
+    "bevy/default_font",
+    "bevy/bevy_ui",
+    "bevy/bevy_text",
+    "bevy/bevy_render",
+    "bevy/bevy_picking",
+    "bevy/bevy_ui_picking_backend",
+    "bevy/bevy_mesh_picking_backend",
+    "bevy/bevy_gizmos",
+    "bevy/tonemapping_luts",
+]
+
+# native, headless
+bella_headless = [
+    "bella_base"
+]
+
+# base for other features
+bella_base = [
+    # we want those
+    "bevy/multi_threaded",
+    "bevy/bevy_state",
+    # needed for code to work without changing too much
+    "bevy/bevy_pbr",
+    "bevy/bevy_color",
+    # idk why they are needed, I think they are just window things?
+    "bevy/bevy_winit",
+    "bevy/x11",
+]
+
 
 [dependencies]
-# bevy = { version = "0.15.0" }
-bevy = { version = "0.15.2", default-features = false, features = [
-    # those are needed in WINDOWED and HEADLESS
-    # "bevy_color", "bevy_core_pipeline", "default_font", "multi_threaded", 
+bevy = { version = "0.15.2", default-features = false }
 
-    # those are needed in WINDOWED
-    # "bevy_gizmos",  "bevy_mesh_picking_backend", "bevy_picking", "bevy_render", "bevy_text", "bevy_window", "bevy_winit", "webgl2",
-
-    # those idk
-    # "bevy_pbr", "bevy_scene", "bevy_state", "bevy_ui", "bevy_ui_picking_backend", "sysinfo_plugin", "custom_cursor"
-
-    
-"x11",
-"webgl2",
-"tonemapping_luts", # rendering stuff
-"sysinfo_plugin",
-"multi_threaded",
-"default_font",
-"bevy_winit",
-"bevy_window",
-"bevy_ui_picking_backend",
-"bevy_ui",
-"bevy_text",
-"bevy_state",
-"bevy_render",
-"bevy_picking",
-"bevy_pbr",
-"bevy_mesh_picking_backend",
-"bevy_gizmos",
-"bevy_core_pipeline",
-"bevy_color",
-
-# "smaa_luts",
-# "vorbis",
-# "png",
-# "ktx2",
-# "hdr",
-# "custom_cursor",
-# "bevy_sprite_picking_backend",
-# "bevy_sprite",
-# "bevy_scene",
-# "bevy_gltf",
-# "bevy_gilrs",
-# "bevy_audio",
-# "bevy_asset",
-# "bevy_animation",
-# "animation",
-# "zstd",
-]}
-
-# we remove trace_tracy beacause it doesn't work with WASM. just use cargo run --features bevy/trace_tracy
-# bevy = { version = "0.15.0", features = ["trace_tracy"] }
-bevy-inspector-egui = { version = "0.28.0" }
-bevy_egui = "0.31.1"
+bevy-inspector-egui = { version = "0.28.0", optional = true}
+bevy_egui = {version = "0.31.1", optional = true}
 
 rand = "0.8.5"
 itertools = "0.13.0"
@@ -70,7 +69,6 @@ noise = { version = "0.9.0", features = ["images"] }
 serde = { version = "1.0.217", features = ["derive"] }
 rand_distr = "0.4.3"
 rmp-serde = "1.3.0"
-
 
 
 [profile.dev]
@@ -85,7 +83,7 @@ opt-level = 3
 inherits = "release"
 # Optimize with size in mind (also try "z", sometimes it is better).
 # Slightly slows compile times, great improvements to file size and runtime performance.
-# opt-level = "s"
+opt-level = "s"
 # Strip all debugging information from the binary to slightly reduce file size.
 # strip = "debuginfo"
 # codegen-units = 1

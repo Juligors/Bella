@@ -167,19 +167,12 @@ pub struct AnimalConfig {
     pub group_size_dist: DiscreteDistribution,
     pub size_dist: ContinuousDistribution,
     pub diet_dist: DiscreteDistribution,
-    pub max_health_dist: ContinuousDistribution,
-    pub speed_dist: ContinuousDistribution,
-    pub sight_range_dist: ContinuousDistribution,
-    pub attack_range_dist: ContinuousDistribution,
-    pub attack_damage_dist: ContinuousDistribution,
+    pub max_health_gene_config: FloatGeneConfig,
+    pub speed_gene_config: FloatGeneConfig,
+    pub sight_range_gene_config: FloatGeneConfig,
+    pub action_range_gene_config: FloatGeneConfig,
+    pub attack_damage_gene_config: FloatGeneConfig,
 
-    // TODO: to już jest w Organism
-    // pub development_time: i8,
-    // pub waiting_for_reproduction_time: i8,
-    pub carnivores_to_herbivores_ratio: f32,
-
-    // NEW
-    pub reproduction_range_gene_config: FloatGeneConfig,
     pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
 }
 

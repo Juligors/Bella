@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::inspector::EguiFocusState;
+use super::ui_facade::EguiFocusState;
 
 pub struct RestartPlugin;
 
@@ -9,7 +9,9 @@ impl Plugin for RestartPlugin {
         app.init_state::<SimulationState>()
             .add_systems(
                 OnEnter(SimulationState::LoadConfig),
-                |mut ns: ResMut<NextState<SimulationState>>| ns.set(SimulationState::InitializeDataCollection),
+                |mut ns: ResMut<NextState<SimulationState>>| {
+                    ns.set(SimulationState::InitializeDataCollection)
+                },
             )
             .add_systems(
                 OnEnter(SimulationState::InitializeDataCollection),
