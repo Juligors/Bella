@@ -15,112 +15,64 @@ impl Plugin for ConfigPlugin {
 }
 
 fn load_config(mut cmd: Commands) {
-    let organism_config = Config::builder();
+    #[cfg(feature = "bella_normal")]
+    cmd.insert_resource(load_config_for_native());
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let organism_config =
-        organism_config.add_source(config::File::with_name("config/organisms.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let organism_config =
-        organism_config.add_source(config::File::from_str(ORGANISMS, config::FileFormat::Yaml));
+    #[cfg(feature = "bella_web")]
+    cmd.insert_resource(load_config_for_wasm());
+}
 
-    let organism_config = organism_config
+fn load_config_for_native() -> SimulationConfig {
+    let organism_config = Config::builder()
+        .add_source(config::File::with_name("config/organisms.yaml"))
         .build()
         .expect("Can't read organism configuration!")
         .try_deserialize::<OrganismConfig>()
         .expect("Can't deserialize organism config to config struct!");
 
-    let animal_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let animal_config = animal_config.add_source(config::File::with_name("config/animals.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let animal_config =
-        animal_config.add_source(config::File::from_str(ANIMALS, config::FileFormat::Yaml));
-
-    let animal_config = animal_config
+    let animal_config = Config::builder()
+        .add_source(config::File::with_name("config/animals.yaml"))
         .build()
         .expect("Can't read animal configuration!")
         .try_deserialize::<AnimalConfig>()
         .expect("Can't deserialize animal config to config struct!");
 
-    let plant_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let plant_config = plant_config.add_source(config::File::with_name("config/plants.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let plant_config =
-        plant_config.add_source(config::File::from_str(PLANTS, config::FileFormat::Yaml));
-
-    let plant_config = plant_config
+    let plant_config = Config::builder()
+        .add_source(config::File::with_name("config/plants.yaml"))
         .build()
         .expect("Can't read plant configuration!")
         .try_deserialize::<PlantConfig>()
         .expect("Can't deserialize plant config to config struct!");
 
-    let terrain_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let terrain_config = terrain_config.add_source(config::File::with_name("config/terrain.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let terrain_config =
-        terrain_config.add_source(config::File::from_str(TERRAIN, config::FileFormat::Yaml));
-
-    let terrain_config = terrain_config
+    let terrain_config = Config::builder()
+        .add_source(config::File::with_name("config/terrain.yaml"))
         .build()
         .expect("Can't read terrain configuration!")
         .try_deserialize::<TerrainConfig>()
         .expect("Can't deserialize terrain config to config struct!");
 
-    let time_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let time_config = time_config.add_source(config::File::with_name("config/time.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let time_config =
-        time_config.add_source(config::File::from_str(TIME, config::FileFormat::Yaml));
-
-    let time_config = time_config
+    let time_config = Config::builder()
+        .add_source(config::File::with_name("config/time.yaml"))
         .build()
         .expect("Can't read time configuration!")
         .try_deserialize::<TimeConfig>()
         .expect("Can't deserialize time config to config struct!");
 
-    let environment_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let environment_config =
-        environment_config.add_source(config::File::with_name("config/environment.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let environment_config = environment_config.add_source(config::File::from_str(
-        ENVIRONMENT,
-        config::FileFormat::Yaml,
-    ));
-
-    let environment_config = environment_config
+    let environment_config = Config::builder()
+        .add_source(config::File::with_name("config/environment.yaml"))
         .build()
         .expect("Can't read environment configuration!")
         .try_deserialize::<EnvironmentConfig>()
         .expect("Can't deserialize environment config to config struct!");
 
-    let data_collection_config = Config::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let data_collection_config =
-        data_collection_config.add_source(config::File::with_name("config/data_collection.yaml"));
-    #[cfg(target_arch = "wasm32")]
-    let data_collection_config = data_collection_config.add_source(config::File::from_str(
-        DATA_COLLECTION,
-        config::FileFormat::Yaml,
-    ));
-
-    let data_collection_config = data_collection_config
+    let data_collection_config = Config::builder()
+        .add_source(config::File::with_name("config/data_collection.yaml"))
         .build()
         .expect("Can't read data_collection configuration!")
         .try_deserialize::<DataCollectionConfig>()
         .expect("Can't deserialize data_collection config to config struct!");
 
-    cmd.insert_resource(SimulationConfig {
+    SimulationConfig {
         organism: organism_config,
         animal: animal_config,
         plant: plant_config,
@@ -128,7 +80,100 @@ fn load_config(mut cmd: Commands) {
         time: time_config,
         environment: environment_config,
         data_collection: data_collection_config,
-    });
+    }
+}
+
+fn load_config_for_wasm() -> SimulationConfig {
+    let organism_config = OrganismConfig {
+        max_health_gene_config: FloatGeneConfig::new(200.0, 0.0),
+        max_active_energy_gene_config: FloatGeneConfig::new(1000.0, 0.0),
+        reproduction_energy_cost_gene_config: FloatGeneConfig::new(200.0, 0.0),
+        age_penalty_gene_config: FloatGeneConfig::new(0.8, 0.2),
+        maturity_age_gene_config: IntGeneConfig::new(0, 12),
+        starting_age_dist: DiscreteDistribution::Range { min: 1, max: 24 },
+        reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
+        starting_mass_dist: ContinuousDistribution::Normal {
+            mean: 10.0,
+            std: 0.5,
+            min: Some(1.0),
+            max: None,
+        },
+        offspring_spawn_range: 20.0,
+        max_energy_consumption_per_mass_unit: 9.0,
+        carcass_mass_decay_percentage: 0.1,
+    };
+
+    let animal_config = AnimalConfig {
+        group_spawn_on_sand_chance: BooleanDistribution::Chance { chance: 1.0 },
+        group_size_dist: DiscreteDistribution::Range { min: 1, max: 1 },
+        size_dist: ContinuousDistribution::Normal {
+            mean: 2.0,
+            std: 1.0,
+            min: Some(1.0),
+            max: None,
+        },
+        diet_dist: DiscreteDistribution::WeightedChoice {
+            choices: vec![0, 1, 2],
+            weights: vec![0.8, 0.1, 0.1],
+        },
+        max_health_gene_config: FloatGeneConfig::new(65.0, 10.0),
+        speed_gene_config: FloatGeneConfig::new(0.9, 0.1),
+        sight_range_gene_config: FloatGeneConfig::new(1500.0, 0.0),
+        action_range_gene_config: FloatGeneConfig::new(20.0, 0.0),
+        attack_damage_gene_config: FloatGeneConfig::new(5.0, 0.0),
+        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(2.0, 0.3),
+    };
+
+    let plant_config = PlantConfig {
+        energy_production_from_solar_efficiency_gene_config: FloatGeneConfig::new(2.0, 0.0),
+        nutrient_consumption_gene_config: FloatGeneConfig::new(2.0, 0.0),
+        pollination_range_gene_config: FloatGeneConfig::new(5000.0, 0.0),
+        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(5.0, 1.0),
+        group_spawn_on_grass_chance: BooleanDistribution::Chance { chance: 1.0 },
+        group_size_dist: DiscreteDistribution::Range { min: 2, max: 8 },
+    };
+
+    let terrain_config = TerrainConfig {
+        map_width: 30,
+        map_height: 30,
+        tile_size: 100.0,
+        thermal_overlay_update_cooldown: 1.0,
+        biome_overlay_update_cooldown: 60.0,
+        nutrients_per_tile_dirt: 4.0,
+        nutrients_per_tile_sand: 2.0,
+    };
+
+    let time_config = TimeConfig {
+        frames_per_time_unit: 5,
+        time_units_per_day: 24,
+    };
+
+    let environment_config = EnvironmentConfig {
+        starting_hour: 0,
+        sun_energy_output_per_tile: 1000.0,
+        sun_energy_output_per_plant: 100.0,
+        sun_day_energy_ratio: 1.0,
+        sun_night_energy_ratio: 0.2,
+        water_humidity: 1.0,
+        humidity_spread_coefficient: 0.8,
+    };
+
+    // NOTE: won't be used on the web anyway
+    let data_collection_config = DataCollectionConfig {
+        directory: "data".into(),
+        plants_filename: "plants.msgpack".into(),
+        animals_filename: "animals.msgpack".into(),
+    };
+
+    SimulationConfig {
+        organism: organism_config,
+        animal: animal_config,
+        plant: plant_config,
+        terrain: terrain_config,
+        time: time_config,
+        environment: environment_config,
+        data_collection: data_collection_config,
+    }
 }
 
 #[derive(Resource, Debug)]
@@ -238,11 +283,26 @@ pub struct FloatGeneConfig {
     pub offset: f32,
 }
 
+impl FloatGeneConfig {
+    pub fn new(multiplier: f32, offset: f32) -> Self {
+        Self { multiplier, offset }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub struct IntGeneConfig {
     pub max_value: u32,
     pub min_value: u32,
+}
+
+impl IntGeneConfig {
+    pub fn new(min_value: u32, max_value: u32) -> Self {
+        Self {
+            max_value,
+            min_value,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -342,167 +402,3 @@ impl ContinuousDistribution {
         })
     }
 }
-
-const ORGANISMS: &str = r#"
-max_health_gene_config:
-  multiplier: 200.0
-  offset: 0.0
-
-max_active_energy_gene_config:
-  multiplier: 1000.0
-  offset: 0.0
-
-reproduction_energy_cost_gene_config:
-  multiplier: 200.0
-  offset: 0.0
-
-age_penalty_gene_config:
-  multiplier: 1.0
-  offset: 0.5
-
-
-maturity_age_gene_config:
-  max_value: 12
-  min_value: 0
-starting_age_dist:
-  type: 'range'
-  max: 24
-  min: 0
-
-reproduction_cooldown_gene_config:
-  max_value: 18
-  min_value: 6
-
-
-starting_mass_dist:
-  type: 'normal'
-  mean: 10.0
-  std: 0.5
-  min: 1.0
-
-offspring_spawn_range: 100.0
-max_energy_consumption_per_mass_unit: 9.0
-carcass_mass_decay_percentage: 0.1
-"#;
-
-const ANIMALS: &str = r#"
-development_time: 50
-waiting_for_reproduction_time: 15
-carnivores_to_herbivores_ratio: 0.5
-
-group_spawn_on_sand_chance:
-  type: "chance"
-  chance: 1.0
-
-group_size_dist:
-  type: "range"
-  min: 1
-  max: 1
-
-size_dist:
-  type: "normal"
-  mean: 2.0
-  std: 1.0
-  min: 1.0
-
-diet_dist:
-  type: "weightedchoice"
-  choices: [0, 1, 2]
-  weights: [0.8, 0.1, 0.1]
-
-max_health_dist:
-  type: "normal"
-  mean: 75.0
-  std: 20.0
-  min: 10.0
-  max: 150.0
-
-speed_dist:
-  type: "normal"
-  mean: 0.3
-  std: 0.1
-  min: 0.1
-  max: 0.5
-
-sight_range_dist:
-  type: "normal"
-  mean: 750.0
-  std: 50.0
-  min: 0.0
-
-attack_range_dist:
-  type: "normal"
-  mean: 10.0
-  std: 1.0
-  min: 0.0
-
-attack_damage_dist:
-  type: "normal"
-  mean: 3.0
-  std: 1.0
-  min: 0.0
-
-
-# NEW
-reproduction_range_gene_config:
-  multiplier: 5000.0
-  offset: 0.0
-
-energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 2.0
-  offset: 0.3
-"#;
-
-const PLANTS: &str = r#"
-energy_production_from_solar_efficiency_gene_config:
-  multiplier: 0.4
-  offset: 0.0
-
-pollination_range_gene_config:
-  multiplier: 5000.0
-  offset: 0.0
-
-
-group_spawn_on_grass_chance:
-  type: 'chance'
-  chance: 1.0
-
-group_size_dist:
-  type: 'range'
-  min: 4
-  max: 8
-
-energy_to_survive_per_mass_unit_gene_config:
-  multiplier: 15.0
-  offset: 0.3
-"#;
-
-const ENVIRONMENT: &str = r#"
-starting_hour: 0
-sun_energy_output_per_tile: 10000
-sun_energy_output_per_plant: 1000
-sun_day_energy_ratio: 1.0
-sun_night_energy_ratio: 0.2
-
-water_humidity: 1.0
-humidity_spread_coefficient: 0.8
-"#;
-const DATA_COLLECTION: &str = r#"
-directory: "data"
-plants_filename: "plants.msgpack"
-animals_filename: "animals.msgpack"
-"#;
-const TERRAIN: &str = r#"
-map_width: 30
-map_height: 30
-tile_size: 50.0
-
-biome_overlay_update_cooldown: 60.0
-thermal_overlay_update_cooldown: 1.0
-
-nutrients_per_tile: 1000.0
-"#;
-const TIME: &str = r#"
-frames_per_time_unit: 5
-time_units_per_day: 24
-"#;
