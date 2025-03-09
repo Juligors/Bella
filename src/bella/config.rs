@@ -15,11 +15,12 @@ impl Plugin for ConfigPlugin {
 }
 
 fn load_config(mut cmd: Commands) {
-    #[cfg(feature = "bella_normal")]
-    cmd.insert_resource(load_config_for_native());
-
+    #[cfg(not(feature = "bella_web"))]
+    let config = load_config_for_native();
     #[cfg(feature = "bella_web")]
-    cmd.insert_resource(load_config_for_wasm());
+    let config = load_config_for_wasm();
+
+    cmd.insert_resource(config);
 }
 
 fn load_config_for_native() -> SimulationConfig {
