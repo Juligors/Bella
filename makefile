@@ -2,6 +2,7 @@ MAKEFLAGS +=  -B
 
 TARGET_WASM := CARGO_TARGET_DIR=target-wasm
 OUT_WASM := out-wasm
+WEBELLA_DIR := ../webella/public
 
 # helper
 build-wasm:
@@ -10,10 +11,11 @@ build-wasm:
 
 # basic build for web
 wasm: build-wasm
-	yes | cp $(OUT_WASM)/bella_bg.wasm ../webella/compiled/bella_bg.wasm
-	yes | cp $(OUT_WASM)/bella.js ../webella/compiled/bella.js
+	yes | cp $(OUT_WASM)/bella_bg.wasm $(WEBELLA_DIR)/bella_bg.wasm
+	yes | cp $(OUT_WASM)/bella.js $(WEBELLA_DIR)/bella.js
 
 # optimized build for web
 wasm-opt: build-wasm
 	wasm-opt -Oz --output $(OUT_WASM)/bella_bg-optimized.wasm $(OUT_WASM)/bella_bg.wasm
-	yes | cp $(OUT_WASM)/bella_bg-optimized.wasm ../webella/compiled/bella_bg.wasm
+	yes | cp $(OUT_WASM)/bella_bg-optimized.wasm $(WEBELLA_DIR)/bella_bg.wasm
+	yes | cp $(OUT_WASM)/bella.js $(WEBELLA_DIR)/bella.js
