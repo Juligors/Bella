@@ -319,16 +319,13 @@ pub fn find_next_step_destination(
 ) {
     for mut mobile in query_mobiles.iter_mut() {
         if let Some(destination) = &mobile.destination {
-            mobile.next_step_destination = match &destination {
-                Destination::Place { position } => Some(*position),
-                Destination::Organism { entity } => match query_organisms.get(*entity) {
-                    Ok(other) => Some(other.translation.truncate()),
-                    Err(_) => {
-                        mobile.destination = None;
-                        continue;
-                    }
+            match *destination {
+                Destination::Place { position } => mobile.next_step_destination = position.into(),
+                Destination::Organism { entity } => match query_organisms.get(entity) {
+                    Ok(other) => mobile.next_step_destination = other.translation.truncate().into(),
+                    Err(_) => mobile.destination = None,
                 },
-            }
+            };
         }
     }
 }
