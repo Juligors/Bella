@@ -1,6 +1,9 @@
 # Rust
 /target
 
+# VS Code
+/.vscode/
+
 # WASM
 /target-wasm
 /out-wasm
