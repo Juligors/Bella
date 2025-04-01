@@ -1,10 +1,13 @@
 use super::{
     animal::{AnimalBundle, AnimalMarker, AnimalMatterMarker},
     plant::{PlantBundle, PlantMarker, PlantMatterMarker},
-    Energy, EnergyDatav3, Health, KillOrganismEvent,
+    Energy, EnergyData, Health, KillOrganismEvent,
 };
 use crate::bella::{
-    config::SimulationConfig, pause::PauseState, restart::SimulationState,
+    config::SimulationConfig,
+    pause::PauseState,
+    restart::SimulationState,
+    terrain::{tile::TileLayout, ObjectsInTile},
     time::TimeUnitPassedEvent,
 };
 use bevy::prelude::*;
@@ -18,7 +21,9 @@ impl Plugin for CarcassPlugin {
             .add_systems(OnExit(SimulationState::Simulation), despawn_carcasses)
             .add_systems(
                 Update,
-                check_if_organisms_should_die.run_if(in_state(PauseState::Running)),
+                check_if_organisms_should_die
+                    .run_if(in_state(PauseState::Running))
+                    .run_if(in_state(SimulationState::Simulation)),
             )
             .add_systems(
                 Update,
@@ -26,7 +31,9 @@ impl Plugin for CarcassPlugin {
             )
             .add_systems(
                 PostUpdate,
-                transform_dead_organisms_into_carcasses.run_if(in_state(PauseState::Running)),
+                transform_dead_organisms_into_carcasses
+                    .run_if(in_state(PauseState::Running))
+                    .run_if(in_state(SimulationState::Simulation)),
             );
     }
 }
@@ -72,32 +79,40 @@ fn transform_dead_organisms_into_carcasses(
     query: Query<(
         Entity,
         &Transform,
-        &EnergyDatav3,
-        &Mesh3d,
+        &EnergyData,
         Option<&AnimalMarker>,
         Option<&PlantMarker>,
     )>,
     assets: Res<CarcassAssets>,
+    mut objects_in_tile_query: Query<&mut ObjectsInTile>,
+    tile_layout: Res<TileLayout>,
 ) {
     for event in event_reader.read() {
-        if let Ok((old_entity, transform, energy_data, mesh, maybe_animal, maybe_plant)) =
+        if let Ok((entity, transform, energy_data, maybe_animal, maybe_plant)) =
             query.get(event.entity)
         {
-            let mut entity_commands = commands.entity(old_entity);
+            let mut entity_commands = commands.entity(entity);
+            let tile_entity = tile_layout.get_tile_entity_for_transform(transform);
+            let mut objects = objects_in_tile_query
+                .get_mut(tile_entity)
+                .expect("Failed to get objects in tile while transforming into carcasses");
+
+            objects.remove_any_entity(entity);
+
             if maybe_animal.is_some() {
                 entity_commands.remove::<AnimalBundle>();
                 entity_commands.insert(AnimalMatterMarker);
+                objects.add_animal_carcass_entity(entity);
             }
 
             if maybe_plant.is_some() {
                 entity_commands.remove::<PlantBundle>();
                 entity_commands.insert(PlantMatterMarker);
+                objects.add_plant_carcass_entity(entity);
             }
 
             entity_commands.insert((
-                mesh.clone(),
                 MeshMaterial3d(assets.carcass.clone()),
-                *transform,
                 Carcass {
                     mass: energy_data.mass,
                     starting_mass: energy_data.mass,
@@ -110,14 +125,21 @@ fn transform_dead_organisms_into_carcasses(
 
 fn decay_and_destoy_carcasses_if_needed(
     mut commands: Commands,
-    mut carcasses: Query<(Entity, &mut Carcass)>,
+    mut carcasses: Query<(Entity, &mut Carcass, &Transform)>,
     config: Res<SimulationConfig>,
+    tile_layout: Res<TileLayout>,
+    mut objects_in_tile_query: Query<&mut ObjectsInTile>,
 ) {
-    for (entity, mut carcass) in carcasses.iter_mut() {
+    for (carcass_entity, mut carcass, carcass_transform) in carcasses.iter_mut() {
         carcass.mass -= carcass.starting_mass * config.organism.carcass_mass_decay_percentage;
 
         if carcass.mass <= 0.0 {
-            commands.entity(entity).despawn_recursive();
+            let tile_entity = tile_layout.get_tile_entity_for_transform(carcass_transform);
+            objects_in_tile_query
+                .get_mut(tile_entity)
+                .expect("Failed to get tile under carcass")
+                .remove_any_entity(carcass_entity);
+            commands.entity(carcass_entity).despawn_recursive();
         }
     }
 }

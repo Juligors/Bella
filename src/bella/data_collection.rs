@@ -2,7 +2,7 @@ use super::{
     config::SimulationConfig, organism::{
         animal::{AnimalMarker, Diet},
         plant::{PlantEnergyEfficiency, PlantMarker},
-        Energy, EnergyDatav3, Health, OrganismEnergyEfficiency,
+        Energy, EnergyData, Health, OrganismEnergyEfficiency,
     }, restart::SimulationState, time::{SimulationTime, TimeUnitPassedEvent}
 };
 use bevy::prelude::*;
@@ -64,7 +64,7 @@ pub fn save_plant_data(
         (
             Entity,
             // &Health,
-            // &EnergyDatav3,
+            // &EnergyData,
             // &OrganismEnergyEfficiency,
             // &PlantEnergyEfficiency,
         ),
@@ -127,7 +127,7 @@ pub struct Animal {
 }
 
 pub fn save_animal_data(
-    animals: Query<(Entity, &Health, &EnergyDatav3, &Diet), With<AnimalMarker>>,
+    animals: Query<(Entity, &Health, &EnergyData, &Diet), With<AnimalMarker>>,
     directory_path: Res<DirectoryPath>,
     time: Res<SimulationTime>,
     config: Res<SimulationConfig>,

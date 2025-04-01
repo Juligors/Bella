@@ -20,7 +20,7 @@ impl Plugin for OrganismPlugin {
             .register_type::<Health>()
             .register_type::<Age>()
             .register_type::<SexualMaturity>()
-            .register_type::<EnergyDatav3>()
+            .register_type::<EnergyData>()
             .register_type::<OrganismEnergyEfficiency>()
             .add_event::<KillOrganismEvent>()
             .add_systems(
@@ -40,15 +40,18 @@ impl Plugin for OrganismPlugin {
 pub type Energy = f32;
 
 #[derive(Bundle)]
-pub struct OrganismBundle {
+pub struct BasicBundle {
     mesh: Mesh3d,
     material: MeshMaterial3d<StandardMaterial>,
     transform: Transform,
+}
 
+#[derive(Bundle)]
+pub struct OrganismBundle {
     health: Health,
     age: Age,
     sexual_maturity: SexualMaturity,
-    energy_data: EnergyDatav3,
+    energy_data: EnergyData,
     organism_energy_efficiency: OrganismEnergyEfficiency,
 }
 
@@ -68,8 +71,7 @@ impl Health {
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
-/// TODO: rename to EnergyData or something else - maybe Tissue again or Tissues? Body?
-pub struct EnergyDatav3 {
+pub struct EnergyData {
     /// currently possesed glycogen/starch energy equivalent
     pub active_energy: Energy,
     /// storage limit of glycogen/starch energy equivalent
@@ -87,7 +89,7 @@ pub enum HungerLevel {
     Hungry,
 }
 
-impl EnergyDatav3 {
+impl EnergyData {
     pub fn new(
         max_active_energy_gene: FloatGene,
         energy_per_mass_unit_gene: FloatGene,
@@ -358,14 +360,13 @@ fn decrease_reproduction_cooldown_timer_and_add_ready_to_reproduce_marker(
 
 fn consume_energy_to_survive(
     mut query: Query<(
-        Entity,
-        &mut EnergyDatav3,
+        &mut EnergyData,
         &OrganismEnergyEfficiency,
         &Age,
         &mut Health,
     )>,
 ) {
-    for (entity, mut energy_data, energy_efficiency, age, mut health) in query.iter_mut() {
+    for (mut energy_data, energy_efficiency, age, mut health) in query.iter_mut() {
         let energy_to_survive = energy_data.mass
             * energy_efficiency
                 .energy_consumption_to_survive_per_mass_unit_gene
@@ -393,7 +394,7 @@ fn consume_energy_to_survive(
     }
 }
 
-fn adjust_size(mut query: Query<(&mut Transform, &EnergyDatav3)>) {
+fn adjust_size(mut query: Query<(&mut Transform, &EnergyData)>) {
     for (mut transform, energy_data) in query.iter_mut() {
         let new_size = energy_data.get_size();
         transform.scale = Vec3::splat(new_size);

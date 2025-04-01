@@ -11,11 +11,11 @@ impl Plugin for TimePlugin {
             .register_type::<SimulationTime>()
             .add_event::<TimeUnitPassedEvent>()
             .add_event::<DayPassedEvent>()
-            .add_systems(OnExit(SimulationState::Simulation), reset_timers)
+            .add_systems(OnEnter(SimulationState::Simulation), reset_timers)
             .add_systems(Startup, init_time)
             .add_systems(
                 PreUpdate,
-                update_simulation_time
+                (update_simulation_time, close_after_n_days)
                     .chain()
                     .run_if(on_event::<TimeUnitPassedEvent>),
             )
@@ -82,11 +82,9 @@ fn init_time(mut commands: Commands, config: Res<SimulationConfig>) {
 fn send_time_passed_events_if_needed(
     mut ev_time_unit_passed: EventWriter<TimeUnitPassedEvent>,
     mut timer: ResMut<TimeUnitTimer>,
-    mut simulation_time: ResMut<SimulationTime>,
 ) {
     if timer.tick(Duration::from_secs(1)).just_finished() {
         ev_time_unit_passed.send(TimeUnitPassedEvent);
-        simulation_time.time_units_passed += 1;
     }
 }
 
@@ -111,4 +109,16 @@ fn reset_timers(
 
 fn update_simulation_time(mut simulation_time: ResMut<SimulationTime>) {
     simulation_time.time_units_passed += 1;
+}
+
+fn close_after_n_days(
+    config: Res<SimulationConfig>,
+    simulation_time: Res<SimulationTime>,
+    mut exit: EventWriter<AppExit>,
+) {
+    if let Some(close_after_n_days) = config.time.close_after_n_days {
+        if simulation_time.days_passed() >= close_after_n_days {
+            exit.send(AppExit::Success);
+        }
+    }
 }

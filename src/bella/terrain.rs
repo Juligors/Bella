@@ -8,9 +8,7 @@ use self::thermal_conductor::{
     init_thermal_overlay_update_timer, update_temperatures, ThermalConductor,
     ThermalConductorPlugin,
 };
-use super::{
-    restart::SimulationState, time::TimeUnitPassedEvent,
-};
+use super::{restart::SimulationState, time::TimeUnitPassedEvent};
 use crate::bella::config::SimulationConfig;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 use noise::{
@@ -34,6 +32,7 @@ impl Plugin for TerrainPlugin {
             .register_type::<Tile>()
             .register_type::<Humidity>()
             .register_type::<Nutrients>()
+            .register_type::<ObjectsInTile>()
             .add_systems(
                 OnEnter(SimulationState::LoadAssets),
                 initialize_assets_map_biomes,
@@ -75,6 +74,7 @@ pub struct TerrainBundle {
     thermal_conductor: ThermalConductor,
     nutrients: Nutrients,
     humidity: Humidity,
+    objects_in_tile: ObjectsInTile,
 }
 
 #[derive(Component, Reflect, Debug, Hash, PartialEq, Eq)]
@@ -131,6 +131,180 @@ impl Nutrients {
         self.value -= value_to_give;
 
         value_to_give
+    }
+}
+
+#[derive(Component, Reflect, Debug)]
+pub struct ObjectsInTile {
+    pub plants: Vec<Entity>,
+    pub animals: Vec<Entity>,
+    pub plant_carcasses: Vec<Entity>,
+    pub animal_carcasses: Vec<Entity>,
+}
+
+impl ObjectsInTile {
+    pub fn remove_any_entity(&mut self, entity: Entity) {
+        if let Some(index) = self
+            .plants
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.plants.swap_remove(index);
+            // info!("Removed any plant {}", entity);
+            return;
+        }
+
+        if let Some(index) = self
+            .animals
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.animals.swap_remove(index);
+            // info!("Removed any animal {}", entity);
+            return;
+        }
+
+        if let Some(index) = self
+            .plant_carcasses
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.plant_carcasses.swap_remove(index);
+            // info!("Removed any plant carcass {}", entity);
+            return;
+        }
+
+        if let Some(index) = self
+            .animal_carcasses
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.animal_carcasses.swap_remove(index);
+            // info!("Removed any animal carcass {}", entity);
+            return;
+        }
+
+        warn!(
+            "Cannot remove entity from any ObjectsInTile, entity {:?} not found anywhere",
+            entity
+        );
+        warn!("Plant entities: {:?}", self.plants);
+        warn!("Animal entities: {:?}", self.animals);
+        warn!("Plant carcass entities: {:?}", self.plant_carcasses);
+        warn!("Animal carcass entities: {:?}", self.animal_carcasses);
+    }
+
+    pub fn remove_plant_entity(&mut self, entity: Entity) {
+        if let Some(index) = self
+            .plants
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.plants.swap_remove(index);
+            // info!("Removed plant {}", entity);
+        } else {
+            warn!("Cannot remove plant entity {:?} from ObjectsInTile", entity);
+            warn!("Plant entities: {:?}", self.plants);
+        }
+    }
+
+    pub fn remove_animal_entity(&mut self, entity: Entity) {
+        if let Some(index) = self
+            .animals
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.animals.swap_remove(index);
+            // info!("Removed animal {}", entity);
+        } else {
+            warn!(
+                "Cannot remove animal entity {:?} from ObjectsInTile",
+                entity
+            );
+            warn!("Animal entities: {:?}", self.animals);
+        }
+    }
+
+    pub fn remove_animal_carcass_entity(&mut self, entity: Entity) {
+        if let Some(index) = self
+            .animal_carcasses
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.animal_carcasses.swap_remove(index);
+            // info!("Removed animal carcass{}", entity);
+        } else {
+            warn!(
+                "Cannot remove animal carcass entity {:?} from ObjectsInTile",
+                entity
+            );
+            warn!("Animal carcass entities: {:?}", self.animal_carcasses);
+        }
+    }
+
+    pub fn remove_plant_carcass_entity(&mut self, entity: Entity) {
+        if let Some(index) = self
+            .plant_carcasses
+            .iter()
+            .position(|&other_entity| other_entity == entity)
+        {
+            self.plant_carcasses.swap_remove(index);
+            // info!("Removed plant carcass {}", entity);
+        } else {
+            warn!(
+                "Cannot remove plant carcass entity {:?} from ObjectsInTile",
+                entity
+            );
+            warn!("Plant carcass entities: {:?}", self.plant_carcasses);
+        }
+    }
+
+    pub fn add_plant_entity(&mut self, entity: Entity) {
+        if !self.plants.contains(&entity) {
+            self.plants.push(entity);
+            // info!("Added plant {}", entity);
+        } else {
+            warn!(
+                "Cannot add plant entity {:?} to ObjectsInTile, as it has been added already",
+                entity
+            );
+        }
+    }
+
+    pub fn add_animal_entity(&mut self, entity: Entity) {
+        if !self.animals.contains(&entity) {
+            self.animals.push(entity);
+            // info!("Added animal {}", entity);
+        } else {
+            warn!(
+                "Cannot add animal entity {:?} to ObjectsInTile, as it has been added already",
+                entity
+            );
+        }
+    }
+
+    pub fn add_plant_carcass_entity(&mut self, entity: Entity) {
+        if !self.plant_carcasses.contains(&entity) {
+            self.plant_carcasses.push(entity);
+            // info!("Added plant carcass {}", entity);
+        } else {
+            warn!(
+                "Cannot add plant carcass entity {:?} to ObjectsInTile, as it has been added already",
+                entity
+            );
+        }
+    }
+
+    pub fn add_animal_carcass_entity(&mut self, entity: Entity) {
+        if !self.animal_carcasses.contains(&entity) {
+            self.animal_carcasses.push(entity);
+            // info!("Added animal carcass {}", entity);
+        } else {
+            warn!(
+                "Cannot add animal carcass entity {:?} to ObjectsInTile, as it has been added already",
+                entity
+            );
+        }
     }
 }
 
@@ -193,6 +367,12 @@ fn generate_terrain(
                 BiomeType::Sand => Nutrients::new(-config.terrain.nutrients_per_tile_sand),
                 _ => Nutrients::new(0.0), // TODO: maybe just don't insert it? do Option<Nutrients> in bundle?
             };
+            let objects_in_tile = ObjectsInTile {
+                plants: Vec::new(),
+                animals: Vec::new(),
+                plant_carcasses: Vec::new(),
+                animal_carcasses: Vec::new(),
+            };
 
             let transform = Transform::from_xyz(tile_position.x, tile_position.y, 0.)
                 .with_scale(Vec3::splat(config.terrain.tile_size));
@@ -208,6 +388,7 @@ fn generate_terrain(
                     thermal_conductor,
                     nutrients,
                     humidity,
+                    objects_in_tile,
                 })
                 .id();
 

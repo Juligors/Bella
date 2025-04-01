@@ -147,6 +147,7 @@ fn load_config_for_wasm() -> SimulationConfig {
     let time_config = TimeConfig {
         frames_per_time_unit: 5,
         time_units_per_day: 24,
+        close_after_n_days: None,
     };
 
     let environment_config = EnvironmentConfig {
@@ -250,6 +251,7 @@ pub struct TerrainConfig {
 pub struct TimeConfig {
     pub frames_per_time_unit: u64,
     pub time_units_per_day: u64,
+    pub close_after_n_days: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

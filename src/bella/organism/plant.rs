@@ -2,22 +2,26 @@ use std::cell::RefCell;
 
 use super::{
     gene::{Allele, AlleleType, FloatGene, Gene},
-    Age, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency, ReadyToReproduceMarker,
-    SexualMaturity,
+    Age, BasicBundle, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency,
+    ReadyToReproduceMarker, SexualMaturity,
 };
 use crate::bella::{
     config::SimulationConfig,
     environment::Sun,
-    organism::{EnergyDatav3, Health},
+    organism::{EnergyData, Health},
     restart::SimulationState,
     terrain::{
         thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
-        BiomeType, Humidity, Nutrients,
+        BiomeType, Humidity, Nutrients, ObjectsInTile,
     },
-    time::TimeUnitPassedEvent, ui_facade::choose_entity_observer,
+    time::TimeUnitPassedEvent,
+    ui_facade::choose_entity_observer,
 };
-use bevy::prelude::*;
+use bevy::{
+    ecs::query::{QueryData, QueryFilter, WorldQuery},
+    prelude::*,
+};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 
 thread_local! {
@@ -116,13 +120,13 @@ fn spawn_plants(
     mut meshes: ResMut<Assets<Mesh>>,
     plant_assets: Res<PlantAssets>,
     config: Res<SimulationConfig>,
-    tiles: Query<(&BiomeType, &Tile)>,
+    mut tiles: Query<(&BiomeType, &Tile, &mut ObjectsInTile)>,
     tile_layout: Res<TileLayout>,
 ) {
     let mesh_handle = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
-    for (biome_type, tile) in tiles.iter() {
+    for (biome_type, tile, mut objects_in_tile) in tiles.iter_mut() {
         if !biome_type.plants_can_live_here() {
             continue;
         }
@@ -142,7 +146,7 @@ fn spawn_plants(
                 config.organism.reproduction_cooldown_gene_config.into(),
                 starting_age,
             );
-            let energy_data = EnergyDatav3::new(
+            let energy_data = EnergyData::new(
                 config.organism.max_active_energy_gene_config.into(),
                 config.organism.max_active_energy_gene_config.into(),
                 config.organism.starting_mass_dist.sample(),
@@ -168,25 +172,30 @@ fn spawn_plants(
             let position = tile_layout.get_random_position_in_tile(tile);
 
             let entity = commands
-                .spawn(PlantBundle {
-                    organism_bundle: OrganismBundle {
+                .spawn((
+                    BasicBundle {
                         mesh: Mesh3d(mesh_handle.clone()),
                         material: MeshMaterial3d(plant_assets.alive.clone()),
                         transform: Transform::from_translation(position.extend(size / 2.0))
                             .with_scale(Vec3::splat(size)),
-                        health,
-                        age,
-                        sexual_maturity,
-                        energy_data,
-                        organism_energy_efficiency,
                     },
-                    marker: PlantMarker,
-                    matter_marker: PlantMatterMarker,
-                    plant_energy_efficiency,
-                    pollination_range,
-                })
+                    PlantBundle {
+                        organism_bundle: OrganismBundle {
+                            health,
+                            age,
+                            sexual_maturity,
+                            energy_data,
+                            organism_energy_efficiency,
+                        },
+                        marker: PlantMarker,
+                        matter_marker: PlantMatterMarker,
+                        plant_energy_efficiency,
+                        pollination_range,
+                    },
+                ))
                 .id();
 
+            objects_in_tile.add_plant_entity(entity);
             choose_entity_observer.watch_entity(entity);
         }
     }
@@ -201,16 +210,14 @@ fn despawn_plants(mut commands: Commands, plants: Query<Entity, With<PlantMarker
 }
 
 fn produce_energy_from_solar(
-    mut query: Query<(&mut EnergyDatav3, &PlantEnergyEfficiency, &Transform), With<PlantMarker>>,
+    mut query: Query<(&mut EnergyData, &PlantEnergyEfficiency, &Transform), With<PlantMarker>>,
     mut nutrients_query: Query<&mut Nutrients>,
     humidity_query: Query<&Humidity>,
     tile_layout: Res<TileLayout>,
     sun: Res<Sun>,
 ) {
     for (mut energy_data, energy_efficiency, transform) in query.iter_mut() {
-        let tile_entity = tile_layout
-            .get_entity_for_position(transform.translation.truncate())
-            .expect("Failed to get tile under the plant!");
+        let tile_entity = tile_layout.get_tile_entity_for_transform(transform);
 
         let mut tile_nutrients = nutrients_query
             .get_mut(tile_entity)
@@ -241,7 +248,7 @@ fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
             &Transform,
             &PollinationRange,
             &mut SexualMaturity,
-            // &mut EnergyDatav3,
+            // &mut EnergyData,
             // &OrganismEnergyEfficiency,
         ),
         (With<ReadyToReproduceMarker>, With<PlantMarker>),
@@ -323,13 +330,13 @@ fn reproduce(
         &Transform,
         &Health,
         &SexualMaturity,
-        &EnergyDatav3,
+        &EnergyData,
         &OrganismEnergyEfficiency,
         &PlantEnergyEfficiency,
         &PollinationRange,
         &Age,
     )>,
-    biomes: Query<&BiomeType>,
+    mut tiles: Query<(&BiomeType, &mut ObjectsInTile)>,
 ) {
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
@@ -362,7 +369,7 @@ fn reproduce(
                 .mixed_with(&parent2.4.reproduction_cooldown_gene),
             starting_age,
         );
-        let energy_data = EnergyDatav3::new(
+        let energy_data = EnergyData::new(
             parent1
                 .5
                 .max_active_energy_gene
@@ -406,28 +413,24 @@ fn reproduce(
                 parent2.2.translation.truncate()
             }
         });
-        let mut new_plant_position = tile_layout.get_random_position_in_ring(
-            point,
-            config.organism.offspring_spawn_range,
-            4.0, // NOTE: magic number to make sure plants don't spawn on top of each other
-        );
-        loop {
-            let entity_of_tile_under = tile_layout
-                .get_entity_for_position(new_plant_position)
-                .expect("Failed to get tile for new plant position");
-            let biome_under_new_plant = biomes
-                .get(entity_of_tile_under)
-                .expect("Failed to get biome of tile for new plant position");
-            if *biome_under_new_plant == BiomeType::Water {
-                new_plant_position = tile_layout.get_random_position_in_ring(
-                    point,
-                    config.organism.offspring_spawn_range,
-                    4.0, // NOTE: magic number to make sure plants don't spawn on top of each other
-                );
-            } else {
-                break;
+
+        let (new_plant_position, mut objects_in_tile) = loop {
+            let new_plant_position = tile_layout.get_random_position_in_ring(
+                point,
+                config.organism.offspring_spawn_range,
+                config.organism.offspring_spawn_range / 2.0,
+            );
+
+            let entity_of_tile_under = tile_layout.get_tile_entity_for_position(new_plant_position);
+
+            let (biome_under_new_plant, objects_in_tile) = tiles
+                .get_mut(entity_of_tile_under)
+                .expect("Failed to get tile components of tile for new plant position");
+
+            if biome_under_new_plant.plants_can_live_here() {
+                break (new_plant_position, objects_in_tile);
             }
-        }
+        };
 
         let new_size = energy_data.get_size();
         let mut transform =
@@ -436,25 +439,28 @@ fn reproduce(
         transform.translation.z = new_size / 2.0;
 
         let entity = commands
-            .spawn(PlantBundle {
-                organism_bundle: OrganismBundle {
+            .spawn((
+                BasicBundle {
                     mesh: parent1.0.clone(),
                     material: MeshMaterial3d(plant_assets.alive.clone()),
                     transform,
-
-                    health,
-                    age,
-                    sexual_maturity,
-                    energy_data,
-                    organism_energy_efficiency,
                 },
-                marker: PlantMarker,
-                matter_marker: PlantMatterMarker,
-                plant_energy_efficiency,
-                pollination_range,
-            })
+                PlantBundle {
+                    organism_bundle: OrganismBundle {
+                        health,
+                        age,
+                        sexual_maturity,
+                        energy_data,
+                        organism_energy_efficiency,
+                    },
+                    marker: PlantMarker,
+                    matter_marker: PlantMatterMarker,
+                    plant_energy_efficiency,
+                    pollination_range,
+                },
+            ))
             .id();
-
+        objects_in_tile.add_plant_entity(entity);
         choose_entity_observer.watch_entity(entity);
     }
 

@@ -7,7 +7,7 @@ use crate::bella::{
 };
 
 use super::{
-    mobile::{Destination, Mobile},
+    animal_ai::{Destination, Mobile},
     ActionRange, AnimalMarker, AttackDmg, Diet, SightRange,
 };
 

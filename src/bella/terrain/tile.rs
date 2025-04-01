@@ -80,7 +80,12 @@ impl TileLayout {
         entities
     }
 
-    pub fn get_entity_for_position(&self, position: impl Into<Vec2>) -> Option<Entity> {
+    pub fn get_tile_entity_for_position(&self, position: impl Into<Vec2>) -> Entity {
+        self.try_get_tile_entity_for_position(position)
+            .expect("Failed to get entity for position")
+    }
+
+    pub fn try_get_tile_entity_for_position(&self, position: impl Into<Vec2>) -> Option<Entity> {
         let pos = position.into();
 
         if self.is_position_in_bounds(pos) {
@@ -102,12 +107,50 @@ impl TileLayout {
         }
     }
 
+    pub fn get_tile_entity_for_transform(&self, transform: &Transform) -> Entity {
+        self.try_get_tile_entity_for_position(transform.translation.truncate())
+            .expect("Failed to get entity for transform")
+    }
+
+    pub fn try_get_tile_entity_for_transform(&self, transform: &Transform) -> Option<Entity> {
+        self.try_get_tile_entity_for_position(transform.translation.truncate())
+    }
+
+    pub fn get_tile_entities_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec<Entity> {
+
+        let pos: Vec2 = position.into();
+        let mut tile_entities = Vec::new();
+
+        // get bounds of square around circle
+        let min_x = pos.x - range;
+        let max_x = pos.x + range;
+        let min_y = pos.y - range;
+        let max_y = pos.y + range;
+
+        let mut x = min_x;
+        let mut y = min_y;
+        while x <= max_x {
+            while y <= max_y {
+                if let Some(tile_entity) = self.try_get_tile_entity_for_position(pos) {
+                    // if tile_in_range(){
+                    tile_entities.push(tile_entity);
+                    // }
+                }
+
+                y += self.tile_size;
+            }
+            x += self.tile_size;
+        }
+
+        tile_entities
+    }
+
     pub fn is_tile_in_bounds(&self, col: u32, row: u32) -> bool {
         row < self.rows && col < self.cols
     }
 
     pub fn is_position_in_bounds(&self, position: impl Into<Vec2>) -> bool {
-        let pos = position.into();
+        let pos: Vec2 = position.into();
 
         self.is_x_coordinate_in_bounds(pos.x) && self.is_y_coordinate_in_bounds(pos.y)
     }

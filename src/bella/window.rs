@@ -10,7 +10,7 @@ pub struct MyWindowPlugin;
 
 impl Plugin for MyWindowPlugin {
     fn build(&self, app: &mut App) {
-        // let program_args: Vec<_> = env::args().collect();
+        // let program_args: Vec<_> = std::env::args().collect();
         // let mut logging_level = "info".to_string();
         // if program_args.len() > 1 {
         //     logging_level = program_args[1].clone();

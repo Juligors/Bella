@@ -10,13 +10,12 @@ fn main() {
     #[cfg(feature = "bella_headless")]
     app.add_plugins(DefaultPlugins)
         .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
-            core::time::Duration::from_secs_f32(1.0 / 99999.0),
+            core::time::Duration::from_secs_f32(f32::MIN_POSITIVE),
         ));
     #[cfg(not(feature = "bella_headless"))]
-    app.add_plugins(bella::window::MyWindowPlugin); // NOTE: it adds DefaultPlugins
+    app.add_plugins((bella::window::MyWindowPlugin, MeshPickingPlugin)); // NOTE: it adds DefaultPlugins
 
     app.add_plugins((
-        MeshPickingPlugin,
         bella::config::ConfigPlugin,
         bella::ui_facade::UiFacadePlugin,
         bella::time::TimePlugin,

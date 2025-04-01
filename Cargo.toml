@@ -7,16 +7,14 @@ license = "MIT OR Apache-2.0"
 
 
 [features]
-default = ["bella_normal"]
-
 # wasm, windowed
 bella_web = [
-    "bella_normal",
+    "bella_windowed",
     "bevy/webgl2",
 ]
 
 # native, windowed
-bella_normal = [
+bella_windowed = [
     "bella_base",
     # we don't use trace_tracy beacause it doesn't work with WASM. just use cargo run --features bevy/trace_tracy
 
@@ -30,7 +28,6 @@ bella_normal = [
     "bevy/bevy_ui",
     "bevy/bevy_text",
     "bevy/bevy_render",
-    "bevy/bevy_picking",
     "bevy/bevy_ui_picking_backend",
     "bevy/bevy_mesh_picking_backend",
     "bevy/bevy_gizmos",
@@ -50,6 +47,7 @@ bella_base = [
     # needed for code to work without changing too much
     "bevy/bevy_pbr",
     "bevy/bevy_color",
+    "bevy/bevy_picking",
     # idk why they are needed, I think they are just window things?
     "bevy/bevy_winit",
     "bevy/x11",
@@ -77,9 +75,7 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
-# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
 [profile.wasm-release]
-# Default to release profile values.
 inherits = "release"
 # Optimize with size in mind (also try "z", sometimes it is better).
 # Slightly slows compile times, great improvements to file size and runtime performance.
