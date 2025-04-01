@@ -63,61 +63,46 @@ fn change_overlay_state_based_on_keyboard_input(
 
 fn draw_gizmo_to_animal_destination(
     mut gizmos: Gizmos,
-    mut mobiles: Query<(&Transform, &mut Mobile, &Diet)>,
-    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
+    mobiles: Query<(&Transform, &Mobile, &Diet)>,
+    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>,
 ) {
-    for (transform, mut mobile, diet) in mobiles.iter_mut() {
-        if mobile.destination.is_none() {
-            continue;
+    for (transform, mobile, diet) in mobiles.iter() {
+        if let Some(destination) = mobile.destination.as_ref() {
+            let start = transform.translation;
+            let end = match destination {
+                Destination::Place { position } => position.extend(start.z),
+                Destination::Organism { entity } => match organisms.get(*entity) {
+                    Ok(transform) => transform.translation,
+                    Err(_) => continue,
+                },
+            };
+            let color = get_color_for_diet(diet);
+            gizmos.line(start, end, color);
         }
-
-        let start = transform.translation;
-        let end = match mobile.destination.as_ref().unwrap() {
-            Destination::Place { position } => position.extend(start.z),
-            Destination::Organism { entity } => match organisms.get(*entity) {
-                Ok(transform) => transform.translation,
-                Err(_) => {
-                    println!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
-                    mobile.destination = None;
-                    continue;
-                }
-            },
-        };
-        let color = get_color_for_diet(diet);
-
-        gizmos.line(start, end, color);
     }
 }
 fn draw_gizmo_to_animal_destination_for_chosen_animal(
     mut gizmos: Gizmos,
-    mut mobiles: Query<(&Transform, &mut Mobile, &Diet)>,
-    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>, // TODO: this should be Edible component
+    mobiles: Query<(&Transform, &Mobile, &Diet)>,
+    organisms: Query<&Transform, Or<(With<AnimalMarker>, With<PlantMarker>)>>,
     chosen_entity: Res<ChosenEntity>,
 ) {
-    if chosen_entity.entity.is_none() {
-        return;
-    }
+    if let Some(entity) = chosen_entity.entity {
+        if let Ok((transform, mobile, diet)) = mobiles.get(entity) {
+            if let Some(destination) = mobile.destination.as_ref() {
+                let start = transform.translation;
+                let end = match destination {
+                    Destination::Place { position } => position.extend(start.z),
+                    Destination::Organism { entity } => match organisms.get(*entity) {
+                        Ok(transform) => transform.translation,
+                        Err(_) => return,
+                    },
+                };
+                let color = get_color_for_diet(diet);
 
-    if let Ok((transform, mut mobile, diet)) = mobiles.get_mut(chosen_entity.entity.unwrap()) {
-        if mobile.destination.is_none() {
-            return;
+                gizmos.line(start, end, color);
+            }
         }
-
-        let start = transform.translation;
-        let end = match mobile.destination.as_ref().unwrap() {
-            Destination::Place { position } => position.extend(start.z),
-            Destination::Organism { entity } => match organisms.get(*entity) {
-                Ok(transform) => transform.translation,
-                Err(_) => {
-                    println!("Entity {} doesn't exist despite Destination pointing to it (should we do something about it?)", entity);
-                    mobile.destination = None;
-                    return;
-                }
-            },
-        };
-        let color = get_color_for_diet(diet);
-
-        gizmos.line(start, end, color);
     }
 }
 
