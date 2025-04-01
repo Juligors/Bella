@@ -156,6 +156,12 @@ fn spawn_animals(
 
         let animal_count = config.animal.group_size_dist.sample();
 
+        let diet = match config.animal.diet_dist.sample() {
+            0 => Diet::Herbivore,
+            1 => Diet::Carnivore,
+            _ => Diet::Omnivore,
+        };
+
         for _ in 0..animal_count {
             let health = Health::new(config.organism.max_health_gene_config.into());
             let starting_age = config.organism.starting_age_dist.sample();
@@ -178,11 +184,6 @@ fn spawn_animals(
                 config.organism.reproduction_energy_cost_gene_config.into(),
             );
 
-            let diet = match config.animal.diet_dist.sample() {
-                0 => Diet::Herbivore,
-                1 => Diet::Carnivore,
-                _ => Diet::Omnivore,
-            };
             let animal_energy_efficiency = AnimalEnergyEfficiency::new();
             let mobile = Mobile {
                 speed: config.animal.speed_gene_config.into(),
@@ -225,7 +226,7 @@ fn spawn_animals(
                         mobile,
                         attack,
                         sight_range,
-                        diet,
+                        diet: diet.clone(),
                         action,
                     },
                 ))
