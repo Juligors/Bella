@@ -73,6 +73,13 @@ fn load_config_for_native() -> SimulationConfig {
         .try_deserialize::<DataCollectionConfig>()
         .expect("Can't deserialize data_collection config to config struct!");
 
+    let window_config = Config::builder()
+        .add_source(config::File::with_name("config/window.yaml"))
+        .build()
+        .expect("Can't read window configuration!")
+        .try_deserialize::<WindowConfig>()
+        .expect("Can't deserialize window config to config struct!");
+
     SimulationConfig {
         organism: organism_config,
         animal: animal_config,
@@ -81,6 +88,7 @@ fn load_config_for_native() -> SimulationConfig {
         time: time_config,
         environment: environment_config,
         data_collection: data_collection_config,
+        window: window_config,
     }
 }
 
@@ -167,6 +175,14 @@ fn load_config_for_wasm() -> SimulationConfig {
         animals_filename: "animals.msgpack".into(),
     };
 
+    // NOTE: won't be used on the web anyway
+    let window_config = WindowConfig {
+        width: 0,
+        height: 0,
+        initial_x: 0,
+        initial_y: 0,
+    };
+
     SimulationConfig {
         organism: organism_config,
         animal: animal_config,
@@ -175,6 +191,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         time: time_config,
         environment: environment_config,
         data_collection: data_collection_config,
+        window: window_config,
     }
 }
 
@@ -187,6 +204,7 @@ pub struct SimulationConfig {
     pub time: TimeConfig,
     pub environment: EnvironmentConfig,
     pub data_collection: DataCollectionConfig,
+    pub window: WindowConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -271,6 +289,14 @@ pub struct DataCollectionConfig {
     pub directory: String,
     pub plants_filename: String,
     pub animals_filename: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WindowConfig {
+    pub width: u32,
+    pub height: u32,
+    pub initial_x: u32,
+    pub initial_y: u32,
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
