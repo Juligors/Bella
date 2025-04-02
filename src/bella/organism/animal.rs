@@ -150,7 +150,7 @@ fn spawn_animals(
             continue;
         }
 
-        if !config.animal.group_spawn_on_sand_chance.happened() {
+        if !config.animal.group_spawn_chance.happened() {
             continue;
         }
 

@@ -343,9 +343,8 @@ fn generate_terrain(
             let noise_value = noise_map.get_value(col as usize, row as usize);
             // TODO: for now let's use only Dirt and Water. Need to generate bigger biomes
             let biome = match noise_value {
-                x if x < 0.6 => BiomeType::Dirt,
-                // x if x < 0.3 => BiomeType::Dirt,
-                // x if x < 0.6 => BiomeType::Sand,
+                x if x < 0.3 => BiomeType::Dirt,
+                x if x < 0.5 => BiomeType::Sand,
                 x if x < 1.0 => BiomeType::Water,
                 _ => BiomeType::Water,
             };

@@ -7,7 +7,7 @@ nutrient_consumption_gene_config:
   offset: 0.0
 
 pollination_range_gene_config:
-  multiplier: 10000.0
+  multiplier: 1000.0
   offset: 0.0
 
 energy_to_survive_per_mass_unit_gene_config:
@@ -16,9 +16,9 @@ energy_to_survive_per_mass_unit_gene_config:
 
 group_spawn_on_grass_chance:
   type: 'chance'
-  chance: 1.0
+  chance: 0.2
 
 group_size_dist:
   type: 'range'
-  min: 32
-  max: 32
+  min: 8
+  max: 16

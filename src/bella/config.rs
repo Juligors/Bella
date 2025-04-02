@@ -107,14 +107,14 @@ fn load_config_for_wasm() -> SimulationConfig {
             min: Some(1.0),
             max: None,
         },
-        offspring_spawn_range: 20.0,
+        offspring_spawn_range: 100.0,
         max_energy_consumption_per_mass_unit: 9.0,
         carcass_mass_decay_percentage: 0.1,
     };
 
     let animal_config = AnimalConfig {
-        group_spawn_on_sand_chance: BooleanDistribution::Chance { chance: 1.0 },
-        group_size_dist: DiscreteDistribution::Range { min: 1, max: 1 },
+        group_spawn_chance: BooleanDistribution::Chance { chance: 0.2 },
+        group_size_dist: DiscreteDistribution::Range { min: 2, max: 4 },
         size_dist: ContinuousDistribution::Normal {
             mean: 2.0,
             std: 1.0,
@@ -123,28 +123,28 @@ fn load_config_for_wasm() -> SimulationConfig {
         },
         diet_dist: DiscreteDistribution::WeightedChoice {
             choices: vec![0, 1, 2],
-            weights: vec![0.8, 0.1, 0.1],
+            weights: vec![0.4, 0.3, 0.3],
         },
         max_health_gene_config: FloatGeneConfig::new(65.0, 10.0),
         speed_gene_config: FloatGeneConfig::new(0.9, 0.1),
-        sight_range_gene_config: FloatGeneConfig::new(1500.0, 0.0),
+        sight_range_gene_config: FloatGeneConfig::new(300.0, 0.0),
         action_range_gene_config: FloatGeneConfig::new(20.0, 0.0),
         attack_damage_gene_config: FloatGeneConfig::new(5.0, 0.0),
-        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(2.0, 0.3),
+        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(1.0, 0.2),
     };
 
     let plant_config = PlantConfig {
         energy_production_from_solar_efficiency_gene_config: FloatGeneConfig::new(2.0, 0.0),
         nutrient_consumption_gene_config: FloatGeneConfig::new(2.0, 0.0),
-        pollination_range_gene_config: FloatGeneConfig::new(5000.0, 0.0),
-        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(5.0, 1.0),
-        group_spawn_on_grass_chance: BooleanDistribution::Chance { chance: 1.0 },
-        group_size_dist: DiscreteDistribution::Range { min: 2, max: 8 },
+        pollination_range_gene_config: FloatGeneConfig::new(1000.0, 0.0),
+        energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(4.0, 1.0),
+        group_spawn_on_grass_chance: BooleanDistribution::Chance { chance: 0.2 },
+        group_size_dist: DiscreteDistribution::Range { min: 8, max: 16 },
     };
 
     let terrain_config = TerrainConfig {
-        map_width: 30,
-        map_height: 30,
+        map_width: 50,
+        map_height: 50,
         tile_size: 100.0,
         thermal_overlay_update_cooldown: 1.0,
         biome_overlay_update_cooldown: 60.0,
@@ -153,7 +153,7 @@ fn load_config_for_wasm() -> SimulationConfig {
     };
 
     let time_config = TimeConfig {
-        frames_per_time_unit: 5,
+        frames_per_time_unit: 60,
         time_units_per_day: 24,
         close_after_n_days: None,
     };
@@ -165,7 +165,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         sun_day_energy_ratio: 1.0,
         sun_night_energy_ratio: 0.2,
         water_humidity: 1.0,
-        humidity_spread_coefficient: 0.8,
+        humidity_spread_coefficient: 0.9,
     };
 
     // NOTE: won't be used on the web anyway
@@ -228,7 +228,7 @@ pub struct OrganismConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct AnimalConfig {
-    pub group_spawn_on_sand_chance: BooleanDistribution,
+    pub group_spawn_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
     pub size_dist: ContinuousDistribution,
     pub diet_dist: DiscreteDistribution,
