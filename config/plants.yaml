@@ -25,4 +25,8 @@ group_size_dist:
 
 reproduction_cooldown_gene_config:
   max_value: 18
+  min_value: 18
+
+maturity_age_gene_config:
+  max_value: 6
   min_value: 6

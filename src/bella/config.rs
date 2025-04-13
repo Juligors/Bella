@@ -97,7 +97,6 @@ fn load_config_for_wasm() -> SimulationConfig {
         max_active_energy_gene_config: FloatGeneConfig::new(1000.0, 0.0),
         reproduction_energy_cost_gene_config: FloatGeneConfig::new(200.0, 0.0),
         age_penalty_gene_config: FloatGeneConfig::new(0.8, 0.2),
-        maturity_age_gene_config: IntGeneConfig::new(0, 12),
         starting_age_dist: DiscreteDistribution::Range { min: 1, max: 24 },
         starting_mass_dist: ContinuousDistribution::Normal {
             mean: 10.0,
@@ -131,6 +130,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(1.0, 0.2),
         do_nothing_for_hours: 2,
         reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
+        maturity_age_gene_config: IntGeneConfig::new(12, 12),
     };
 
     let plant_config = PlantConfig {
@@ -141,6 +141,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         group_spawn_on_grass_chance: BooleanDistribution::Chance { chance: 0.2 },
         group_size_dist: DiscreteDistribution::Range { min: 8, max: 16 },
         reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
+        maturity_age_gene_config: IntGeneConfig::new(6, 6),
     };
 
     let terrain_config = TerrainConfig {
@@ -215,7 +216,6 @@ pub struct OrganismConfig {
     pub reproduction_energy_cost_gene_config: FloatGeneConfig,
     pub age_penalty_gene_config: FloatGeneConfig,
 
-    pub maturity_age_gene_config: IntGeneConfig,
     pub starting_age_dist: DiscreteDistribution,
     pub starting_mass_dist: ContinuousDistribution,
 
@@ -238,6 +238,7 @@ pub struct AnimalConfig {
     pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
     pub do_nothing_for_hours: u32,
     pub reproduction_cooldown_gene_config: IntGeneConfig,
+    pub maturity_age_gene_config: IntGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -250,6 +251,7 @@ pub struct PlantConfig {
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
     pub reproduction_cooldown_gene_config: IntGeneConfig,
+    pub maturity_age_gene_config: IntGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]

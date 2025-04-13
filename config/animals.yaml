@@ -45,5 +45,9 @@ energy_to_survive_per_mass_unit_gene_config:
 do_nothing_for_hours: 2
 
 reproduction_cooldown_gene_config:
-  max_value: 18
-  min_value: 6
+  max_value: 24
+  min_value: 24
+
+maturity_age_gene_config:
+  max_value: 24
+  min_value: 24

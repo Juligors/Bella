@@ -15,9 +15,6 @@ age_penalty_gene_config:
   offset: 0.2
 
 
-maturity_age_gene_config:
-  max_value: 12
-  min_value: 0
 starting_age_dist:
   type: 'range'
   max: 24

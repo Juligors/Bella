@@ -291,8 +291,10 @@ fn handle_action(
     mut reproduction_ew: EventWriter<ReproduceAnimalsEvent>,
     mut other_animal_partner_query: Query<&Transform, With<AnimalMarker>>,
 ) {
+    let mut animals_that_will_reproduce = Vec::new();
+
     for (
-        entity,
+        animal_entity,
         mut action,
         mut mobile,
         action_range,
@@ -353,9 +355,11 @@ fn handle_action(
                     });
                 }
             }
-            Action::Mating { with: other_entity } => {
+            Action::Mating {
+                with: partner_entity,
+            } => {
                 // NOTE: entity could have already became something else like carcass, just ignore it
-                let Ok(other_transform) = other_animal_partner_query.get_mut(other_entity) else {
+                let Ok(other_transform) = other_animal_partner_query.get_mut(partner_entity) else {
                     *action = Action::DoingNothing { for_hours: 0 };
                     continue;
                 };
@@ -364,18 +368,27 @@ fn handle_action(
                     < action_range.gene.phenotype()
                 {
                     reproduction_ew.send(ReproduceAnimalsEvent {
-                        parent1: entity,
-                        parent2: other_entity,
+                        parent1: animal_entity,
+                        parent2: partner_entity,
                     });
-                    sexual_maturity.reset_reproduction_cooldown();
+                    animals_that_will_reproduce.push(animal_entity);
+                    animals_that_will_reproduce.push(partner_entity);
                 } else {
                     mobile.destination = Some(Destination::Organism {
-                        entity: other_entity,
+                        entity: partner_entity,
                     });
                 }
             }
         }
     }
+
+    animals_that_will_reproduce
+        .into_iter()
+        .for_each(|animal_entity| {
+            if let Ok(mut animal) = animals_query.get_mut(animal_entity) {
+                animal.7.reset_reproduction_cooldown();
+            }
+        });
 }
 
 #[derive(Component, Reflect, Debug)]

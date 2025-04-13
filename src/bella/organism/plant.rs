@@ -136,7 +136,7 @@ fn spawn_plants(
             let starting_age = config.organism.starting_age_dist.sample();
             let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
-                config.organism.maturity_age_gene_config.into(),
+                config.plant.maturity_age_gene_config.into(),
                 config.plant.reproduction_cooldown_gene_config.into(),
                 starting_age,
             );
@@ -237,15 +237,20 @@ fn send_reproduce_events_if_possible(
     mut reproduction_ew: EventWriter<ReproducePlantsEvent>,
     objects_in_tile_query: Query<&ObjectsInTile>,
     tile_layout: Res<TileLayout>,
-    plants_query: Query<
-        (Entity, &Transform, &PollinationRange, &SexualMaturity),
+    mut plants_query: Query<
+        (Entity, &Transform, &PollinationRange, &mut SexualMaturity),
         With<PlantMarker>,
     >,
 ) {
-    for (plant_entity, plant_transform, pollination_range, _) in plants_query
-        .iter()
-        .filter(|(_, _, _, sexual_maturity)| sexual_maturity.is_ready_to_reproduce())
+    let mut plants_that_will_reproduce = Vec::new();
+
+    for (plant_entity, plant_transform, pollination_range, sexual_maturity) in
+        plants_query.iter()
     {
+        if !sexual_maturity.is_ready_to_reproduce() {
+            continue;
+        }
+
         let chosen_partner_entity = tile_layout
             .get_tile_entities_in_range(
                 plant_transform.translation.truncate(),
@@ -279,8 +284,18 @@ fn send_reproduce_events_if_possible(
                 parent1: plant_entity,
                 parent2: partner_entity,
             });
+            plants_that_will_reproduce.push(plant_entity);
+            plants_that_will_reproduce.push(partner_entity);
         };
     }
+
+    plants_that_will_reproduce
+        .into_iter()
+        .for_each(|plant_entity| {
+            if let Ok((_, _, _, mut sexual_maturity)) = plants_query.get_mut(plant_entity) {
+                sexual_maturity.reset_reproduction_cooldown();
+            }
+        });
 }
 
 fn reproduce(

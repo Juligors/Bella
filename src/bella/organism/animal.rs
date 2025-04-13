@@ -156,7 +156,7 @@ fn spawn_animals(
             let starting_age = config.organism.starting_age_dist.sample();
             let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
-                config.organism.maturity_age_gene_config.into(),
+                config.animal.maturity_age_gene_config.into(),
                 config.animal.reproduction_cooldown_gene_config.into(),
                 starting_age,
             );
