@@ -41,3 +41,5 @@ attack_damage_gene_config:
 energy_to_survive_per_mass_unit_gene_config:
   multiplier: 1.0
   offset: 0.2
+
+do_nothing_for_hours: 2

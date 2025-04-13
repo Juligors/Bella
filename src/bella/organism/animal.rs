@@ -39,6 +39,7 @@ impl Plugin for AnimalPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(AnimalAiPlugin)
             .register_type::<Diet>()
+            .register_type::<ActionRange>()
             .register_type::<SightRange>()
             .register_type::<AttackDmg>()
             .add_event::<ReproduceAnimalsEvent>()
@@ -199,7 +200,7 @@ fn spawn_animals(
             let attack = AttackDmg {
                 gene: config.animal.attack_damage_gene_config.into(),
             };
-            let action = Action::DoingNothing;
+            let action = Action::DoingNothing { for_hours: 0 };
             let size = energy_data.get_size();
             let position = tile_layout.get_random_position_in_tile(tile);
 
@@ -447,7 +448,7 @@ fn reproduce(
                         },
                         // TODO: diet should also be a gene
                         diet,
-                        action: Action::DoingNothing,
+                        action: Action::DoingNothing { for_hours: 0 },
                     },
                 ))
                 .id();

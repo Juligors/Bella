@@ -131,6 +131,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         action_range_gene_config: FloatGeneConfig::new(20.0, 0.0),
         attack_damage_gene_config: FloatGeneConfig::new(5.0, 0.0),
         energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(1.0, 0.2),
+        do_nothing_for_hours: 2,
     };
 
     let plant_config = PlantConfig {
@@ -237,8 +238,8 @@ pub struct AnimalConfig {
     pub sight_range_gene_config: FloatGeneConfig,
     pub action_range_gene_config: FloatGeneConfig,
     pub attack_damage_gene_config: FloatGeneConfig,
-
     pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
+    pub do_nothing_for_hours: u32,
 }
 
 #[derive(Debug, Deserialize)]

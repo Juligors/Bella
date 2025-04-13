@@ -1,5 +1,6 @@
 use super::{ActionRange, AnimalMarker, AnimalMatterMarker, AttackDmg, Diet, SightRange};
 use crate::bella::{
+    config::SimulationConfig,
     organism::{
         carcass::Carcass,
         gene::FloatGene,
@@ -52,7 +53,9 @@ impl Plugin for AnimalAiPlugin {
 #[derive(Component, Reflect, Debug, Clone)]
 pub enum Action {
     /// NOTE: or call it Resting? Sleeping? It should probably cost less energy
-    DoingNothing,
+    DoingNothing {
+        for_hours: u32,
+    },
     GoingTo {
         position: Vec2,
     },
@@ -74,14 +77,18 @@ pub struct MakeDecisionEvent {
 
 fn send_make_decision_event(
     mut event_writer: EventWriter<MakeDecisionEvent>,
-    animals_query: Query<(Entity, &Action)>,
+    mut animals_query: Query<(Entity, &mut Action)>,
 ) {
-    for (entity, action) in animals_query.iter() {
-        if matches!(action, Action::DoingNothing) {
-            event_writer.send(MakeDecisionEvent {
-                animal_entity: entity,
-            });
-        }
+    for (entity, mut action) in animals_query.iter_mut() {
+        if let Action::DoingNothing { ref mut for_hours } = action.as_mut() {
+            if *for_hours > 0 {
+                *for_hours -= 1
+            } else {
+                event_writer.send(MakeDecisionEvent {
+                    animal_entity: entity,
+                });
+            }
+        };
     }
 }
 
@@ -226,6 +233,7 @@ pub fn discover_animal_state_and_set_action(
 }
 
 fn handle_action(
+    config: Res<SimulationConfig>,
     mut animals_query: Query<(
         &mut Action,
         &mut Mobile,
@@ -247,14 +255,16 @@ fn handle_action(
         animals_query.iter_mut()
     {
         match *action {
-            Action::DoingNothing => (),
+            Action::DoingNothing { for_hours: _ } => (),
             Action::GoingTo { position } => {
                 mobile.destination = Some(Destination::Place { position })
             }
             Action::Eating { food: food_entity } => {
                 // NOTE: carcass entity could have already disappeared, just ignore it
                 let Ok((mut carcass, carcass_transform)) = matter_query.get_mut(food_entity) else {
-                    *action = Action::DoingNothing;
+                    *action = Action::DoingNothing {
+                        for_hours: config.animal.do_nothing_for_hours,
+                    };
                     continue;
                 };
 
@@ -281,7 +291,9 @@ fn handle_action(
                 // NOTE: entity could become something else, just ignore it
                 let Ok((mut health, other_transform)) = other_organism_query.get_mut(enemy_entity)
                 else {
-                    *action = Action::DoingNothing;
+                    *action = Action::DoingNothing {
+                        for_hours: config.animal.do_nothing_for_hours,
+                    };
                     continue;
                 };
 
