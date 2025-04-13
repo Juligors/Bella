@@ -28,7 +28,7 @@ impl Plugin for OrganismPlugin {
                 (
                     increase_age,
                     increase_sexual_maturity_level_for_youngs,
-                    decrease_reproduction_cooldown_timer_and_add_ready_to_reproduce_marker,
+                    decrease_reproduction_cooldown_timer,
                     consume_energy_to_survive,
                     adjust_size,
                 )
@@ -304,9 +304,6 @@ pub enum SexualMaturityLevel {
     Adult { reproduction_cooldown_timer: Timer },
 }
 
-#[derive(Component)]
-pub struct ReadyToReproduceMarker;
-
 #[derive(Event)]
 pub struct KillOrganismEvent {
     entity: Entity,
@@ -339,21 +336,13 @@ fn increase_sexual_maturity_level_for_youngs(mut query: Query<&mut SexualMaturit
     }
 }
 
-fn decrease_reproduction_cooldown_timer_and_add_ready_to_reproduce_marker(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut SexualMaturity)>,
-) {
-    for (entity, mut sexual_maturity) in query.iter_mut() {
+fn decrease_reproduction_cooldown_timer(mut query: Query<&mut SexualMaturity>) {
+    for mut sexual_maturity in query.iter_mut() {
         if let SexualMaturityLevel::Adult {
             reproduction_cooldown_timer,
         } = &mut sexual_maturity.level
         {
-            if reproduction_cooldown_timer
-                .tick(Duration::from_secs(1))
-                .just_finished()
-            {
-                commands.entity(entity).insert(ReadyToReproduceMarker);
-            };
+            reproduction_cooldown_timer.tick(Duration::from_secs(1));
         }
     }
 }

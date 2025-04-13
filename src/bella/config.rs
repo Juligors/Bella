@@ -1,4 +1,3 @@
-use super::organism::gene::Gene;
 use bevy::prelude::*;
 use config::Config;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
@@ -100,7 +99,6 @@ fn load_config_for_wasm() -> SimulationConfig {
         age_penalty_gene_config: FloatGeneConfig::new(0.8, 0.2),
         maturity_age_gene_config: IntGeneConfig::new(0, 12),
         starting_age_dist: DiscreteDistribution::Range { min: 1, max: 24 },
-        reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
         starting_mass_dist: ContinuousDistribution::Normal {
             mean: 10.0,
             std: 0.5,
@@ -132,6 +130,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         attack_damage_gene_config: FloatGeneConfig::new(5.0, 0.0),
         energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(1.0, 0.2),
         do_nothing_for_hours: 2,
+        reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
     };
 
     let plant_config = PlantConfig {
@@ -141,6 +140,7 @@ fn load_config_for_wasm() -> SimulationConfig {
         energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig::new(4.0, 1.0),
         group_spawn_on_grass_chance: BooleanDistribution::Chance { chance: 0.2 },
         group_size_dist: DiscreteDistribution::Range { min: 8, max: 16 },
+        reproduction_cooldown_gene_config: IntGeneConfig::new(6, 18),
     };
 
     let terrain_config = TerrainConfig {
@@ -216,10 +216,7 @@ pub struct OrganismConfig {
     pub age_penalty_gene_config: FloatGeneConfig,
 
     pub maturity_age_gene_config: IntGeneConfig,
-    // TODO: this is for now to differenciate starting timers
     pub starting_age_dist: DiscreteDistribution,
-    pub reproduction_cooldown_gene_config: IntGeneConfig,
-
     pub starting_mass_dist: ContinuousDistribution,
 
     pub offspring_spawn_range: f32,
@@ -240,6 +237,7 @@ pub struct AnimalConfig {
     pub attack_damage_gene_config: FloatGeneConfig,
     pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
     pub do_nothing_for_hours: u32,
+    pub reproduction_cooldown_gene_config: IntGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +249,7 @@ pub struct PlantConfig {
 
     pub group_spawn_on_grass_chance: BooleanDistribution,
     pub group_size_dist: DiscreteDistribution,
+    pub reproduction_cooldown_gene_config: IntGeneConfig,
 }
 
 #[derive(Debug, Deserialize)]

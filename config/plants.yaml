@@ -22,3 +22,7 @@ group_size_dist:
   type: 'range'
   min: 8
   max: 16
+
+reproduction_cooldown_gene_config:
+  max_value: 18
+  min_value: 6

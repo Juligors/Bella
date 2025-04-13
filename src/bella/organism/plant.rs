@@ -1,9 +1,7 @@
 use std::cell::RefCell;
 
 use super::{
-    gene::{Allele, AlleleType, FloatGene, Gene},
-    Age, BasicBundle, KillOrganismEvent, OrganismBundle, OrganismEnergyEfficiency,
-    ReadyToReproduceMarker, SexualMaturity,
+    gene::FloatGene, Age, BasicBundle, OrganismBundle, OrganismEnergyEfficiency, SexualMaturity,
 };
 use crate::bella::{
     config::SimulationConfig,
@@ -11,17 +9,13 @@ use crate::bella::{
     organism::{EnergyData, Health},
     restart::SimulationState,
     terrain::{
-        thermal_conductor::ThermalConductor,
         tile::{Tile, TileLayout},
         BiomeType, Humidity, Nutrients, ObjectsInTile,
     },
     time::TimeUnitPassedEvent,
     ui_facade::choose_entity_observer,
 };
-use bevy::{
-    ecs::query::{QueryData, QueryFilter, WorldQuery},
-    prelude::*,
-};
+use bevy::prelude::*;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 
 thread_local! {
@@ -42,7 +36,7 @@ impl Plugin for PlantPlugin {
                 Update,
                 (
                     produce_energy_from_solar,
-                    send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy,
+                    send_reproduce_events_if_possible,
                     reproduce,
                     // give_plant_energy_from_thermal_conductor_its_on,
                 )
@@ -143,7 +137,7 @@ fn spawn_plants(
             let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
                 config.organism.maturity_age_gene_config.into(),
-                config.organism.reproduction_cooldown_gene_config.into(),
+                config.plant.reproduction_cooldown_gene_config.into(),
                 starting_age,
             );
             let energy_data = EnergyData::new(
@@ -239,82 +233,53 @@ fn produce_energy_from_solar(
     }
 }
 
-fn send_reproduce_events_if_possible_and_reset_cooldowns_and_consume_energy(
+fn send_reproduce_events_if_possible(
     mut reproduction_ew: EventWriter<ReproducePlantsEvent>,
-    mut commands: Commands,
-    mut plants_ready_to_reproduce: Query<
-        (
-            Entity,
-            &Transform,
-            &PollinationRange,
-            &mut SexualMaturity,
-            // &mut EnergyData,
-            // &OrganismEnergyEfficiency,
-        ),
-        (With<ReadyToReproduceMarker>, With<PlantMarker>),
+    objects_in_tile_query: Query<&ObjectsInTile>,
+    tile_layout: Res<TileLayout>,
+    plants_query: Query<
+        (Entity, &Transform, &PollinationRange, &SexualMaturity),
+        With<PlantMarker>,
     >,
 ) {
-    let mut combinations = plants_ready_to_reproduce.iter_combinations_mut();
-
-    while let Some(
-        [(
-            entity1,
-            transform1,
-            range1,
-            mut sexual_maturity1,
-            // mut energy_data1,
-            // organism_energy_efficiency1,
-        ), (
-            entity2,
-            transform2,
-            range2,
-            mut sexual_maturity2,
-            // mut energy_data2,
-            // organism_energy_efficiency2,
-        )],
-    ) = combinations.fetch_next()
+    for (plant_entity, plant_transform, pollination_range, _) in plants_query
+        .iter()
+        .filter(|(_, _, _, sexual_maturity)| sexual_maturity.is_ready_to_reproduce())
     {
-        let distance = transform1.translation.distance(transform2.translation);
-        if distance <= range1.gene.phenotype() && distance <= range2.gene.phenotype() {
-            // TODO: it's a bug fix to ensure one plant get's to have multiple children at the same time
-            // (this loop iterates over one plant multiple times, it doesn't know that marker gets removed)
-            // honestly at this point marker could be removed, but it helps with O(n^2) complexity
-            // could get rid of it and in this function just manually filter only plants ready to reproduce and then iter over their combinations
-            if !sexual_maturity1.is_ready_to_reproduce()
-                || !sexual_maturity2.is_ready_to_reproduce()
-            {
-                continue;
-            }
+        let chosen_partner_entity = tile_layout
+            .get_tile_entities_in_range(
+                plant_transform.translation.truncate(),
+                pollination_range.gene.phenotype(),
+            )
+            .iter()
+            .flat_map(|tile_entity| {
+                objects_in_tile_query
+                    .get(*tile_entity)
+                    .expect("Failed to get tile")
+                    .plants
+                    .clone()
+            })
+            .filter_map(|entity| {
+                let (entity, transform, _, sexual_maturity) = plants_query.get(entity).expect(
+                    "Failed to get plant entity despite that entity being in ObjectsInTile",
+                );
+                if sexual_maturity.is_ready_to_reproduce() {
+                    let distance = plant_transform.translation.distance(transform.translation);
+
+                    Some((entity, distance))
+                } else {
+                    None
+                }
+            })
+            .max_by(|(_, distance1), (_, distance2)| distance1.total_cmp(distance2))
+            .map(|(entity, _)| entity);
+
+        if let Some(partner_entity) = chosen_partner_entity {
             reproduction_ew.send(ReproducePlantsEvent {
-                parent1: entity1,
-                parent2: entity2,
+                parent1: plant_entity,
+                parent2: partner_entity,
             });
-
-            // remove marker
-            commands.entity(entity1).remove::<ReadyToReproduceMarker>();
-            commands.entity(entity2).remove::<ReadyToReproduceMarker>();
-
-            // reset reproduction cooldowns
-            sexual_maturity1.reset_reproduction_cooldown();
-            sexual_maturity2.reset_reproduction_cooldown();
-
-            // consume energy for reproduction and  kill organisms if they didn't have enough energy
-            // let energy_needed1 = organism_energy_efficiency1
-            //     .reproduction_energy_cost_gene
-            //     .phenotype();
-            // if energy_data1.try_to_consume_energy(energy_needed1).is_err() {
-            //     kill_organism_ew.send(KillOrganismEvent { entity: entity1 });
-            // }
-            // println!("Energy consumed for reproduction: {}", energy_needed1);
-
-            // let energy_needed2 = organism_energy_efficiency2
-            //     .reproduction_energy_cost_gene
-            //     .phenotype();
-            // if energy_data2.try_to_consume_energy(energy_needed2).is_err() {
-            //     kill_organism_ew.send(KillOrganismEvent { entity: entity2 });
-            // }
-            // println!("Energy consumed for reproduction: {}", energy_needed2);
-        }
+        };
     }
 }
 
@@ -326,7 +291,6 @@ fn reproduce(
     config: Res<SimulationConfig>,
     query: Query<(
         &Mesh3d,
-        &MeshMaterial3d<StandardMaterial>,
         &Transform,
         &Health,
         &SexualMaturity,
@@ -341,76 +305,90 @@ fn reproduce(
     let mut choose_entity_observer = Observer::new(choose_entity_observer);
 
     for event in event_reader.read() {
-        let parent1 = query
-            .get(event.parent1)
-            .expect("Failed to fetch parent from query during reproduction");
-        let parent2 = query
-            .get(event.parent2)
-            .expect("Failed to fetch parent from query during reproduction");
+        let Ok((
+            mesh1,
+            transform1,
+            health1,
+            sexual_maturity1,
+            energy_data1,
+            organism_energy_efficiency1,
+            plant_energy_efficiency1,
+            pollination_range1,
+            age1,
+        )) = query.get(event.parent1)
+        else {
+            continue;
+        };
+        let Ok((
+            _,
+            transform2,
+            health2,
+            sexual_maturity2,
+            energy_data2,
+            organism_energy_efficiency2,
+            plant_energy_efficiency2,
+            pollination_range2,
+            age2,
+        )) = query.get(event.parent2)
+        else {
+            continue;
+        };
 
         // crossing parent organism genes
-        let health = Health::new(parent1.3.max_hp_gene.mixed_with(&parent2.3.max_hp_gene));
+        let health = Health::new(health1.max_hp_gene.mixed_with(&health2.max_hp_gene));
         let starting_age = config.organism.starting_age_dist.sample();
         let age = Age::new(
             starting_age,
-            parent1
-                .9
-                .age_penalty_gene
-                .mixed_with(&parent2.9.age_penalty_gene),
+            age1.age_penalty_gene.mixed_with(&age2.age_penalty_gene),
         );
         let sexual_maturity = SexualMaturity::new(
-            parent1
-                .4
+            sexual_maturity1
                 .maturity_age_gene
-                .mixed_with(&parent2.4.maturity_age_gene),
-            parent1
-                .4
+                .mixed_with(&sexual_maturity2.maturity_age_gene),
+            sexual_maturity1
                 .reproduction_cooldown_gene
-                .mixed_with(&parent2.4.reproduction_cooldown_gene),
+                .mixed_with(&sexual_maturity2.reproduction_cooldown_gene),
             starting_age,
         );
         let energy_data = EnergyData::new(
-            parent1
-                .5
+            energy_data1
                 .max_active_energy_gene
-                .mixed_with(&parent2.5.max_active_energy_gene),
-            parent1
-                .5
+                .mixed_with(&energy_data2.max_active_energy_gene),
+            energy_data1
                 .energy_per_mass_unit_gene
-                .mixed_with(&parent2.5.energy_per_mass_unit_gene),
+                .mixed_with(&energy_data2.energy_per_mass_unit_gene),
             config.organism.starting_mass_dist.sample(),
         );
         let organism_energy_efficiency = OrganismEnergyEfficiency::new(
-            parent1
-                .6
+            organism_energy_efficiency1
                 .energy_consumption_to_survive_per_mass_unit_gene
-                .mixed_with(&parent2.6.energy_consumption_to_survive_per_mass_unit_gene),
-            parent1
-                .6
+                .mixed_with(
+                    &organism_energy_efficiency2.energy_consumption_to_survive_per_mass_unit_gene,
+                ),
+            organism_energy_efficiency1
                 .reproduction_energy_cost_gene
-                .mixed_with(&parent2.6.reproduction_energy_cost_gene),
+                .mixed_with(&organism_energy_efficiency2.reproduction_energy_cost_gene),
         );
 
         // crossing parent plant genes
         let plant_energy_efficiency = PlantEnergyEfficiency::new(
-            parent1
-                .7
+            plant_energy_efficiency1
                 .production_from_solar_gene
-                .mixed_with(&parent2.7.production_from_solar_gene),
-            parent1
-                .7
+                .mixed_with(&plant_energy_efficiency2.production_from_solar_gene),
+            plant_energy_efficiency1
                 .nutrient_consumption
-                .mixed_with(&parent2.7.nutrient_consumption),
+                .mixed_with(&plant_energy_efficiency2.nutrient_consumption),
         );
-        let pollination_range = PollinationRange::new(parent1.8.gene.mixed_with(&parent2.8.gene));
+        let pollination_range =
+            PollinationRange::new(pollination_range1.gene.mixed_with(&pollination_range2.gene));
 
         // other setup
         let point = RNG.with(|rng| {
             let mut rng = rng.borrow_mut();
             if rng.gen_bool(0.5) {
-                parent1.2.translation.truncate()
+                transform1.translation.truncate()
             } else {
-                parent2.2.translation.truncate()
+                transform2.translation.truncate()
             }
         });
 
@@ -441,7 +419,7 @@ fn reproduce(
         let entity = commands
             .spawn((
                 BasicBundle {
-                    mesh: parent1.0.clone(),
+                    mesh: mesh1.clone(),
                     material: MeshMaterial3d(plant_assets.alive.clone()),
                     transform,
                 },

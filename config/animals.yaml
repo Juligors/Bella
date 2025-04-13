@@ -43,3 +43,7 @@ energy_to_survive_per_mass_unit_gene_config:
   offset: 0.2
 
 do_nothing_for_hours: 2
+
+reproduction_cooldown_gene_config:
+  max_value: 18
+  min_value: 6

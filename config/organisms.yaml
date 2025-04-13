@@ -23,11 +23,6 @@ starting_age_dist:
   max: 24
   min: 1
 
-reproduction_cooldown_gene_config:
-  max_value: 18
-  min_value: 6
-
-
 starting_mass_dist:
   type: 'normal'
   mean: 10.0

@@ -1,11 +1,9 @@
-use super::{ActionRange, AnimalMarker, AnimalMatterMarker, AttackDmg, Diet, SightRange};
+use super::{ActionRange, AnimalMarker, AttackDmg, Diet, ReproduceAnimalsEvent, SightRange};
 use crate::bella::{
     config::SimulationConfig,
     organism::{
-        carcass::Carcass,
-        gene::FloatGene,
-        plant::{PlantMarker, PlantMatterMarker},
-        EnergyData, Health, HungerLevel, SexualMaturity,
+        carcass::Carcass, gene::FloatGene, plant::PlantMarker, EnergyData, Health, HungerLevel,
+        SexualMaturity,
     },
     pause::PauseState,
     restart::SimulationState,
@@ -109,6 +107,7 @@ pub fn discover_animal_state_and_set_action(
     tile_layout: Res<TileLayout>,
     objects_in_tile_query: Query<&ObjectsInTile>,
     transforms_query: Query<&Transform>,
+    potential_partners_query: Query<(&Transform, &SexualMaturity), With<AnimalMarker>>,
 ) {
     'main_loop: for (event, _) in event_reader.par_read() {
         let Ok((
@@ -128,13 +127,50 @@ pub fn discover_animal_state_and_set_action(
 
         let is_hungry = matches!(energy_data.get_hunger_level(), HungerLevel::Hungry);
 
-        'scared: {
-            // ew_handle_scared_state.send(HandleScaredStateEvent { entity });
-        }
         'horny: {
-            // if sexual_maturity.is_ready_to_reproduce() {
-            //     ew_handle_horny_state.send(HandleHornyStateEvent { entity });
-            // }
+            if !sexual_maturity.is_ready_to_reproduce() {
+                break 'horny;
+            }
+
+            let chosen_partner_entity = tile_layout
+                .get_tile_entities_in_range(
+                    animal_transform.translation.truncate(),
+                    sight_range.gene.phenotype(),
+                )
+                .iter()
+                // NOTE: we take all animals, maybe we should filter by diet (i.e. species once they are introduced)
+                .flat_map(|tile_entity| {
+                    objects_in_tile_query
+                        .get(*tile_entity)
+                        .expect("Failed to get tile")
+                        .animals
+                        .clone()
+                })
+                .filter_map(|entity| match potential_partners_query.get(entity) {
+                    Ok((transform, sexual_maturity)) => {
+                        if sexual_maturity.is_ready_to_reproduce() {
+                            let distance =
+                                animal_transform.translation.distance(transform.translation);
+
+                            Some((entity, distance))
+                        } else {
+                            None
+                        }
+                    }
+                    Err(_) => None,
+                })
+                .max_by(|(_, distance1), (_, distance2)| distance1.total_cmp(distance2))
+                .map(|(entity, _)| entity);
+
+            match chosen_partner_entity {
+                Some(partner_entity) => {
+                    *animal_action = Action::Mating {
+                        with: partner_entity,
+                    };
+                    continue 'main_loop;
+                }
+                None => break 'horny,
+            };
         }
         'hungry_non_agressive: {
             if !is_hungry {
@@ -235,12 +271,14 @@ pub fn discover_animal_state_and_set_action(
 fn handle_action(
     config: Res<SimulationConfig>,
     mut animals_query: Query<(
+        Entity,
         &mut Action,
         &mut Mobile,
         &ActionRange,
         &Transform,
         &AttackDmg,
         &mut EnergyData,
+        &mut SexualMaturity,
     )>,
     mut matter_query: Query<(&mut Carcass, &Transform)>,
     mut other_organism_query: Query<
@@ -250,9 +288,19 @@ fn handle_action(
             Or<(With<PlantMarker>, With<AnimalMarker>)>,
         ),
     >,
+    mut reproduction_ew: EventWriter<ReproduceAnimalsEvent>,
+    mut other_animal_partner_query: Query<&Transform, With<AnimalMarker>>,
 ) {
-    for (mut action, mut mobile, action_range, transform, attack, mut energy_data) in
-        animals_query.iter_mut()
+    for (
+        entity,
+        mut action,
+        mut mobile,
+        action_range,
+        transform,
+        attack,
+        mut energy_data,
+        mut sexual_maturity,
+    ) in animals_query.iter_mut()
     {
         match *action {
             Action::DoingNothing { for_hours: _ } => (),
@@ -288,12 +336,10 @@ fn handle_action(
             Action::Attacking {
                 enemy: enemy_entity,
             } => {
-                // NOTE: entity could become something else, just ignore it
+                // NOTE: entity could have already became something else like carcass, just ignore it
                 let Ok((mut health, other_transform)) = other_organism_query.get_mut(enemy_entity)
                 else {
-                    *action = Action::DoingNothing {
-                        for_hours: config.animal.do_nothing_for_hours,
-                    };
+                    *action = Action::DoingNothing { for_hours: 0 };
                     continue;
                 };
 
@@ -307,7 +353,27 @@ fn handle_action(
                     });
                 }
             }
-            Action::Mating { with } => todo!(),
+            Action::Mating { with: other_entity } => {
+                // NOTE: entity could have already became something else like carcass, just ignore it
+                let Ok(other_transform) = other_animal_partner_query.get_mut(other_entity) else {
+                    *action = Action::DoingNothing { for_hours: 0 };
+                    continue;
+                };
+
+                if other_transform.translation.distance(transform.translation)
+                    < action_range.gene.phenotype()
+                {
+                    reproduction_ew.send(ReproduceAnimalsEvent {
+                        parent1: entity,
+                        parent2: other_entity,
+                    });
+                    sexual_maturity.reset_reproduction_cooldown();
+                } else {
+                    mobile.destination = Some(Destination::Organism {
+                        entity: other_entity,
+                    });
+                }
+            }
         }
     }
 }
