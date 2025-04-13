@@ -117,7 +117,6 @@ impl TileLayout {
     }
 
     pub fn get_tile_entities_in_range(&self, position: impl Into<Vec2>, range: f32) -> Vec<Entity> {
-
         let pos: Vec2 = position.into();
         let mut tile_entities = Vec::new();
 
@@ -132,9 +131,7 @@ impl TileLayout {
         while x <= max_x {
             while y <= max_y {
                 if let Some(tile_entity) = self.try_get_tile_entity_for_position(pos) {
-                    // if tile_in_range(){
                     tile_entities.push(tile_entity);
-                    // }
                 }
 
                 y += self.tile_size;
