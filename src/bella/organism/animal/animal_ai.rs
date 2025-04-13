@@ -301,20 +301,22 @@ fn handle_action(
         transform,
         attack,
         mut energy_data,
-        mut sexual_maturity,
+        _,
     ) in animals_query.iter_mut()
     {
         match *action {
             Action::DoingNothing { for_hours: _ } => (),
             Action::GoingTo { position } => {
-                mobile.destination = Some(Destination::Place { position })
+                if position == transform.translation.truncate() {
+                    *action = Action::DoingNothing { for_hours: 0 };
+                } else {
+                    mobile.destination = Some(Destination::Place { position })
+                }
             }
             Action::Eating { food: food_entity } => {
                 // NOTE: carcass entity could have already disappeared, just ignore it
                 let Ok((mut carcass, carcass_transform)) = matter_query.get_mut(food_entity) else {
-                    *action = Action::DoingNothing {
-                        for_hours: config.animal.do_nothing_for_hours,
-                    };
+                    *action = Action::DoingNothing { for_hours: 0 };
                     continue;
                 };
 
