@@ -352,7 +352,7 @@ fn reproduce(
 
         // crossing parent organism genes
         let health = Health::new(health1.max_hp_gene.mixed_with(&health2.max_hp_gene));
-        let starting_age = config.organism.starting_age_dist.sample();
+        let starting_age = 0;
         let age = Age::new(
             starting_age,
             age1.age_penalty_gene.mixed_with(&age2.age_penalty_gene),

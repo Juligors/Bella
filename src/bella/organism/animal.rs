@@ -325,7 +325,7 @@ fn reproduce(
             continue;
         };
 
-        let starting_age = config.organism.starting_age_dist.sample();
+        let starting_age = 0;
         let diet = diet1.clone();
         let animal_energy_efficiency = AnimalEnergyEfficiency::new();
         let energy_data = EnergyData::new(
