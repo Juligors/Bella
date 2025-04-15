@@ -346,7 +346,10 @@ fn handle_action(
                     .distance(transform.translation)
                     < action_range.gene.phenotype()
                 {
-                    let mut eaten_mass = attack.gene.phenotype();
+                    if carcass.mass <= 0.0{
+                        continue;
+                    }
+                    let mut eaten_mass = attack.gene.phenotype(); // NOTE: that probably should be a different parameter?
                     if eaten_mass > carcass.mass {
                         eaten_mass = carcass.mass;
                     }
