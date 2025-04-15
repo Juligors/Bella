@@ -45,8 +45,9 @@ impl FloatGene {
     }
 
     pub fn mixed_with(&self, other: &Self) -> Self {
-        assert!(self.multiplier == other.multiplier);
-        assert!(self.offset == other.offset);
+        // TODO: what about when we mix 2 genes from different species?
+        // assert!(self.multiplier == other.multiplier);
+        // assert!(self.offset == other.offset);
 
         FloatGene::new(
             self.gene.cross_with(&other.gene),
@@ -98,8 +99,9 @@ impl IntGene {
     }
 
     pub fn mixed_with(&self, other: &Self) -> Self {
-        assert!(self.max_value == other.max_value);
-        assert!(self.min_value == other.min_value);
+        // TODO: what about when we mix 2 genes from different species?
+        // assert!(self.max_value == other.max_value);
+        // assert!(self.min_value == other.min_value);
 
         Self::new(
             self.gene.cross_with(&other.gene),

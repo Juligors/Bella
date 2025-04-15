@@ -141,10 +141,7 @@ impl EnergyData {
         }
     }
 
-    pub fn consume_from_active_energy_and_dmg_if_not_enough(
-        &mut self,
-        mut energy_to_consume: Energy,
-    ) -> Energy {
+    pub fn consume_from_active_energy(&mut self, mut energy_to_consume: Energy) -> Energy {
         if self.active_energy >= energy_to_consume {
             self.active_energy -= energy_to_consume;
 
@@ -227,7 +224,7 @@ impl Age {
     }
 
     pub fn get_age_penalty(&self) -> f32 {
-        self.age_penalty_gene.phenotype() * (self.value as f32).powf(1.0 / 4.0)
+        self.age_penalty_gene.phenotype() * ((self.value + 1) as f32).powf(1.0 / 2.0)
     }
 }
 
@@ -362,25 +359,15 @@ fn consume_energy_to_survive(
                 .phenotype()
             * age.get_age_penalty();
 
-        if energy_to_survive == 0.0 {
-            println!(
-                "consumed 0 energy!? - Age {}, mass {}, energy_efficiency: {}",
-                age.value,
-                energy_data.mass,
-                energy_efficiency
-                    .energy_consumption_to_survive_per_mass_unit_gene
-                    .phenotype()
-            );
-        }
-
-        let energy_left_to_consume =
-            energy_data.consume_from_active_energy_and_dmg_if_not_enough(energy_to_survive);
-
-        if energy_left_to_consume >= 0.0 {
-            let dmg = energy_left_to_consume / 10.0;
-            health.hp -= dmg;
+        let energy_left_to_consume = energy_data.consume_from_active_energy(energy_to_survive);
+        if energy_left_to_consume > 0.0 {
+            health.hp -= convert_energy_to_damage(energy_left_to_consume);
         }
     }
+}
+
+fn convert_energy_to_damage(energy: Energy) -> f32 {
+    energy
 }
 
 fn adjust_size(mut query: Query<(&mut Transform, &EnergyData)>) {

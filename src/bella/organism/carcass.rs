@@ -21,13 +21,13 @@ impl Plugin for CarcassPlugin {
             .add_systems(OnExit(SimulationState::Simulation), despawn_carcasses)
             .add_systems(
                 Update,
-                check_if_organisms_should_die
+                (check_if_organisms_should_die, destoy_carcasses_if_needed)
                     .run_if(in_state(PauseState::Running))
                     .run_if(in_state(SimulationState::Simulation)),
             )
             .add_systems(
                 Update,
-                (decay_and_destoy_carcasses_if_needed).run_if(on_event::<TimeUnitPassedEvent>),
+                (decay_carcasses).run_if(on_event::<TimeUnitPassedEvent>),
             )
             .add_systems(
                 PostUpdate,
@@ -123,16 +123,22 @@ fn transform_dead_organisms_into_carcasses(
     }
 }
 
-fn decay_and_destoy_carcasses_if_needed(
+fn decay_carcasses(mut carcasses: Query<&mut Carcass>, config: Res<SimulationConfig>) {
+    for mut carcass in carcasses.iter_mut() {
+        carcass.mass -= f32::max(
+            0.0,
+            carcass.starting_mass * config.organism.carcass_mass_decay_percentage,
+        );
+    }
+}
+
+fn destoy_carcasses_if_needed(
     mut commands: Commands,
-    mut carcasses: Query<(Entity, &mut Carcass, &Transform)>,
-    config: Res<SimulationConfig>,
+    carcasses: Query<(Entity, &Carcass, &Transform)>,
     tile_layout: Res<TileLayout>,
     mut objects_in_tile_query: Query<&mut ObjectsInTile>,
 ) {
-    for (carcass_entity, mut carcass, carcass_transform) in carcasses.iter_mut() {
-        carcass.mass -= carcass.starting_mass * config.organism.carcass_mass_decay_percentage;
-
+    for (carcass_entity, carcass, carcass_transform) in carcasses.iter() {
         if carcass.mass <= 0.0 {
             let tile_entity = tile_layout.get_tile_entity_for_transform(carcass_transform);
             objects_in_tile_query
