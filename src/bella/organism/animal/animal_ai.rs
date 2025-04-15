@@ -1,9 +1,14 @@
-use super::{ActionRange, AnimalMarker, AttackDmg, Diet, ReproduceAnimalsEvent, SightRange};
+use super::{
+    ActionRange, AnimalMarker, AnimalMatterMarker, AttackDmg, Diet, ReproduceAnimalsEvent,
+    SightRange,
+};
 use crate::bella::{
     config::SimulationConfig,
     organism::{
-        carcass::Carcass, gene::FloatGene, plant::PlantMarker, EnergyData, Health, HungerLevel,
-        SexualMaturity,
+        carcass::Carcass,
+        gene::FloatGene,
+        plant::{PlantMarker, PlantMatterMarker},
+        EnergyData, Health, HungerLevel, SexualMaturity,
     },
     pause::PauseState,
     restart::SimulationState,
@@ -107,6 +112,12 @@ pub fn discover_animal_state_and_set_action(
     tile_layout: Res<TileLayout>,
     objects_in_tile_query: Query<&ObjectsInTile>,
     transforms_query: Query<&Transform>,
+    transforms_for_agressive_animals_query: Query<(
+        &Transform,
+        Option<&Diet>,
+        Option<&PlantMatterMarker>,
+        Option<&AnimalMatterMarker>,
+    )>,
     potential_partners_query: Query<(&Transform, &SexualMaturity), With<AnimalMarker>>,
 ) {
     'main_loop: for (event, _) in event_reader.par_read() {
@@ -236,16 +247,26 @@ pub fn discover_animal_state_and_set_action(
                     .concat(),
                 })
                 // HACK: sometimes this entity isn't in transform query for some reason, so we just ignore it
-                .flat_map(|entity| match transforms_query.get(entity) {
-                    Ok(transform) => {
-                        let distance = animal_transform.translation.distance(transform.translation);
+                .flat_map(|entity| match transforms_for_agressive_animals_query.get(entity) {
+                    Ok((transform, diet, plant_marker, animal_marker)) => {
+                        match (animal_diet, diet, plant_marker, animal_marker){
+                            // herbivores only eat plants and dead plant matter
+                            (Diet::Herbivore, None, Some(_), None)  |
+                            // carnivores only eat harbivores and dead animal matter
+                            (Diet::Carnivore, Some(Diet::Herbivore), None, Some(_))  | (Diet::Carnivore, None, None, Some(_)) |
+                            // omnivores only eat herbivores, plants, and dead matter
+                            (Diet::Omnivore, Some(Diet::Herbivore), None, Some(_)) | (Diet::Omnivore, None, _, _) => {
+                                let distance = animal_transform.translation.distance(transform.translation);
 
-                        Some((entity, distance))
+                                Some((entity, distance))
+                            }
+                            _ => None,
+                        }
                     }
                     Err(_) => None,
                 })
-                .max_by(|(_, distance1), (_, distance2)| distance1.total_cmp(distance2))
-                .map(|(entity, _)| entity);
+            .max_by(|(_, distance1), (_, distance2)| distance1.total_cmp(distance2))
+            .map(|(entity, _)| entity);
 
             match chosen_prey_entity {
                 Some(prey_entity) => {
