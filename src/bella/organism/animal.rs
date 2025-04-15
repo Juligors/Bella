@@ -86,8 +86,8 @@ impl AnimalEnergyEfficiency {
 
 #[derive(Component, Reflect, Debug, Clone)]
 pub enum Diet {
-    Carnivore,
     Herbivore,
+    Carnivore,
     Omnivore,
 }
 
@@ -156,8 +156,16 @@ fn spawn_animals(
             let starting_age = config.organism.starting_age_dist.sample();
             let age = Age::new(starting_age, config.organism.age_penalty_gene_config.into());
             let sexual_maturity = SexualMaturity::new(
-                config.animal.maturity_age_gene_config.into(),
-                config.animal.reproduction_cooldown_gene_config.into(),
+                config
+                    .animal_species
+                    .get(&diet)
+                    .maturity_age_gene_config
+                    .into(),
+                config
+                    .animal_species
+                    .get(&diet)
+                    .reproduction_cooldown_gene_config
+                    .into(),
                 starting_age,
             );
             let energy_data = EnergyData::new(
@@ -167,7 +175,8 @@ fn spawn_animals(
             );
             let organism_energy_efficiency = OrganismEnergyEfficiency::new(
                 config
-                    .animal
+                    .animal_species
+                    .get(&diet)
                     .energy_to_survive_per_mass_unit_gene_config
                     .into(),
                 config.organism.reproduction_energy_cost_gene_config.into(),
@@ -175,18 +184,30 @@ fn spawn_animals(
 
             let animal_energy_efficiency = AnimalEnergyEfficiency::new();
             let mobile = Mobile {
-                speed: config.animal.speed_gene_config.into(),
+                speed: config.animal_species.get(&diet).speed_gene_config.into(),
                 destination: None,
                 next_step_destination: None,
             };
             let sight_range = SightRange {
-                gene: config.animal.sight_range_gene_config.into(),
+                gene: config
+                    .animal_species
+                    .get(&diet)
+                    .sight_range_gene_config
+                    .into(),
             };
             let action_range = ActionRange {
-                gene: config.animal.action_range_gene_config.into(),
+                gene: config
+                    .animal_species
+                    .get(&diet)
+                    .action_range_gene_config
+                    .into(),
             };
             let attack = AttackDmg {
-                gene: config.animal.attack_damage_gene_config.into(),
+                gene: config
+                    .animal_species
+                    .get(&diet)
+                    .attack_damage_gene_config
+                    .into(),
             };
             let action = Action::DoingNothing { for_hours: 0 };
             let size = energy_data.get_size();

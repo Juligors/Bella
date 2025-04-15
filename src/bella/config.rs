@@ -5,6 +5,8 @@ use rand_distr::{Normal, Uniform, WeightedIndex};
 use serde::Deserialize;
 use std::cell::RefCell;
 
+use super::organism::animal::Diet;
+
 pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {
@@ -22,6 +24,7 @@ fn load_config(mut cmd: Commands) {
     cmd.insert_resource(config);
 }
 
+#[cfg(not(feature = "bella_web"))]
 fn load_config_for_native() -> SimulationConfig {
     let organism_config = Config::builder()
         .add_source(config::File::with_name("config/organisms.yaml"))
@@ -36,6 +39,33 @@ fn load_config_for_native() -> SimulationConfig {
         .expect("Can't read animal configuration!")
         .try_deserialize::<AnimalConfig>()
         .expect("Can't deserialize animal config to config struct!");
+
+    let animal_species_config = AnimalSpeciesAllConfig {
+        herbivores_species_config: Config::builder()
+            .add_source(config::File::with_name(
+                "config/animal_species_herbivores.yaml",
+            ))
+            .build()
+            .expect("Can't read animal species herbivores configuration!")
+            .try_deserialize::<AnimalSpeciesConfig>()
+            .expect("Can't deserialize animal species herbivores config to config struct!"),
+        carnivores_species_config: Config::builder()
+            .add_source(config::File::with_name(
+                "config/animal_species_carnivores.yaml",
+            ))
+            .build()
+            .expect("Can't read animal species carnivores configuration!")
+            .try_deserialize::<AnimalSpeciesConfig>()
+            .expect("Can't deserialize animal species carnivores config to config struct!"),
+        omnivores_species_config: Config::builder()
+            .add_source(config::File::with_name(
+                "config/animal_species_omnivores.yaml",
+            ))
+            .build()
+            .expect("Can't read animal species omnivores configuration!")
+            .try_deserialize::<AnimalSpeciesConfig>()
+            .expect("Can't deserialize animal species omnivores config to config struct!"),
+    };
 
     let plant_config = Config::builder()
         .add_source(config::File::with_name("config/plants.yaml"))
@@ -82,6 +112,7 @@ fn load_config_for_native() -> SimulationConfig {
     SimulationConfig {
         organism: organism_config,
         animal: animal_config,
+        animal_species: animal_species_config,
         plant: plant_config,
         terrain: terrain_config,
         time: time_config,
@@ -91,6 +122,7 @@ fn load_config_for_native() -> SimulationConfig {
     }
 }
 
+#[cfg(feature = "bella_web")]
 fn load_config_for_wasm() -> SimulationConfig {
     let organism_config = OrganismConfig {
         max_health_gene_config: FloatGeneConfig::new(200.0, 0.0),
@@ -201,6 +233,7 @@ fn load_config_for_wasm() -> SimulationConfig {
 pub struct SimulationConfig {
     pub organism: OrganismConfig,
     pub animal: AnimalConfig,
+    pub animal_species: AnimalSpeciesAllConfig,
     pub plant: PlantConfig,
     pub terrain: TerrainConfig,
     pub time: TimeConfig,
@@ -230,13 +263,33 @@ pub struct AnimalConfig {
     pub group_size_dist: DiscreteDistribution,
     pub size_dist: ContinuousDistribution,
     pub diet_dist: DiscreteDistribution,
+    pub do_nothing_for_hours: u32,
+}
+
+#[derive(Debug)]
+pub struct AnimalSpeciesAllConfig {
+    herbivores_species_config: AnimalSpeciesConfig,
+    carnivores_species_config: AnimalSpeciesConfig,
+    omnivores_species_config: AnimalSpeciesConfig,
+}
+impl AnimalSpeciesAllConfig {
+    pub fn get(&self, diet: &Diet) -> &AnimalSpeciesConfig {
+        match *diet {
+            Diet::Herbivore => &self.herbivores_species_config,
+            Diet::Carnivore => &self.carnivores_species_config,
+            Diet::Omnivore => &self.omnivores_species_config,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AnimalSpeciesConfig {
     pub max_health_gene_config: FloatGeneConfig,
     pub speed_gene_config: FloatGeneConfig,
     pub sight_range_gene_config: FloatGeneConfig,
     pub action_range_gene_config: FloatGeneConfig,
     pub attack_damage_gene_config: FloatGeneConfig,
     pub energy_to_survive_per_mass_unit_gene_config: FloatGeneConfig,
-    pub do_nothing_for_hours: u32,
     pub reproduction_cooldown_gene_config: IntGeneConfig,
     pub maturity_age_gene_config: IntGeneConfig,
 }

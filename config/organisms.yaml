@@ -17,7 +17,7 @@ age_penalty_gene_config:
 
 starting_age_dist:
   type: 'range'
-  max: 24
+  max: 48
   min: 1
 
 starting_mass_dist:

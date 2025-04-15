@@ -1,0 +1,31 @@
+max_health_gene_config:
+  multiplier: 65.0
+  offset: 10.0
+
+speed_gene_config:
+  multiplier: 0.9
+  offset: 0.1
+
+sight_range_gene_config:
+  multiplier: 300.0
+  offset: 0.0
+
+action_range_gene_config:
+  multiplier: 20.0
+  offset: 0.0
+
+attack_damage_gene_config:
+  multiplier: 5.0
+  offset: 0.0
+
+energy_to_survive_per_mass_unit_gene_config:
+  multiplier: 1.0
+  offset: 0.2
+
+reproduction_cooldown_gene_config:
+  max_value: 64
+  min_value: 32
+
+maturity_age_gene_config:
+  max_value: 48
+  min_value: 24
