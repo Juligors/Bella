@@ -253,7 +253,6 @@ pub struct OrganismConfig {
     pub starting_mass_dist: ContinuousDistribution,
 
     pub offspring_spawn_range: f32,
-    pub max_energy_consumption_per_mass_unit: f32,
     pub carcass_mass_decay_percentage: f32,
 }
 
