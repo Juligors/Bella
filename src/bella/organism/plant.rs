@@ -37,11 +37,14 @@ impl Plugin for PlantPlugin {
                 (
                     produce_energy_from_solar,
                     send_reproduce_events_if_possible,
-                    reproduce,
                     // give_plant_energy_from_thermal_conductor_its_on,
                 )
                     .chain()
                     .run_if(on_event::<TimeUnitPassedEvent>),
+            )
+            .add_systems(
+                Update,
+                reproduce.run_if(in_state(SimulationState::Simulation)),
             );
     }
 }
@@ -244,9 +247,7 @@ fn send_reproduce_events_if_possible(
 ) {
     let mut plants_that_will_reproduce = Vec::new();
 
-    for (plant_entity, plant_transform, pollination_range, sexual_maturity) in
-        plants_query.iter()
-    {
+    for (plant_entity, plant_transform, pollination_range, sexual_maturity) in plants_query.iter() {
         if !sexual_maturity.is_ready_to_reproduce() {
             continue;
         }

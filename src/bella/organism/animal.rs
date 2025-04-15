@@ -41,7 +41,10 @@ impl Plugin for AnimalPlugin {
             .add_systems(OnEnter(SimulationState::LoadAssets), prepare_animal_assets)
             .add_systems(OnEnter(SimulationState::OrganismGeneration), spawn_animals)
             .add_systems(OnExit(SimulationState::Simulation), despawn_all_animals)
-            .add_systems(Update, reproduce.run_if(on_event::<TimeUnitPassedEvent>));
+            .add_systems(
+                Update,
+                reproduce.run_if(in_state(SimulationState::Simulation)),
+            );
     }
 }
 
